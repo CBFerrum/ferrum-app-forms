@@ -1,0 +1,166 @@
+- name: FormQuestion
+  label: Form Question
+  kind: child
+  fields:
+    - {name: key, type: data, required: true, max_length: 40, in_list: true,
+       description: "Identifier of the answer (a-z, 0-9 and _, starting with a letter); derived from the label when left empty. Conditions, mappings, prefill and exports use it"}
+    - {name: label, type: data, max_length: 500, in_list: true}
+    - {name: question_type, type: select, required: true, default: short_text, in_list: true,
+       options: [short_text, long_text, email, phone, number, decimal, date, time, datetime, select, multi_select, checkbox, dropdown, rating, nps, likert, matrix, ranking, file, page_break, statement]}
+    - {name: required, type: check, in_list: true}
+    - {name: help_text, type: text, max_length: 2000}
+    - {name: options, type: json,
+       description: "A list of texts: the choices (select, dropdown, multi_select, ranking), the scale labels (likert; a 5-point agreement scale when empty) or the columns (matrix)"}
+    - {name: matrix_rows, type: json, description: "A list of texts: the statements of a matrix question"}
+    - {name: allow_other, type: check, description: "select, dropdown, multi_select: also accept one free-text answer that is not an option"}
+    - {name: min_value, type: data, max_length: 40,
+       description: "number/decimal: smallest value; date: YYYY-MM-DD; time: HH:MM; datetime: date-time; multi_select: fewest selections"}
+    - {name: max_value, type: data, max_length: 40,
+       description: "number/decimal/date/time/datetime: largest value; multi_select: most selections; rating: scale 3-10 (default 5); file: most files 1-10 (default 1)"}
+    - {name: min_length, type: int, min: 0, max: 50000, description: "short_text, long_text: fewest characters"}
+    - {name: max_length, type: int, min: 1, max: 50000, description: "short_text (default 500, at most 2000), long_text (default 10000, at most 50000): most characters"}
+    - {name: pattern, type: data, max_length: 500, description: "short_text, long_text: a regular expression the whole answer must match (linear-time engine: no look-around or back-references)"}
+    - {name: pattern_message, type: data, max_length: 200, description: Shown when the pattern does not match}
+    - {name: default_value, type: json, description: Pre-selected answer shown to respondents; it must itself be a valid answer}
+    - {name: visible_if, type: code, max_length: 1000,
+       description: "CEL condition over `answers` (earlier questions by key, null when unanswered or hidden), `today` and `now`, e.g. answers.country == 'IN' && answers.age >= 18. On a page_break it shows or skips the whole page. Hidden questions are never required and their answers are dropped"}
+    - {name: allow_prefill, type: check, description: "Respondents' links may fill this answer with ?<key>=value (multi_select: comma-separated)"}
+    - {name: accept, type: data, max_length: 300,
+       description: "file: allowed extensions, e.g. pdf, png, jpg (default: pdf, images, txt, csv, Office and OpenDocument files)"}
+    - {name: max_file_mb, type: int, min: 1, max: 20, description: "file: largest file in MB (default 10)"}
+    - {name: points, type: decimal, min: "0", max: "1000", description: "Quiz: points for a correct answer (default 1 when a correct answer is set)"}
+    - {name: correct_answer, type: json,
+       description: "Quiz: the correct answer, written like a response (short_text: a text or a list of accepted texts, case-insensitive). Never sent to respondents before they submit"}
+
+- name: FormFieldMap
+  label: Form Field Mapping
+  kind: child
+  fields:
+    - {name: target_field, type: data, required: true, max_length: 63, in_list: true, description: Field of the target entity}
+    - {name: question, type: data, max_length: 40, in_list: true, description: Key of the question whose answer fills the field}
+    - {name: value, type: data, max_length: 1000, in_list: true, description: "A fixed value instead of an answer (for example a lead source, or the id of a linked record)"}
+
+- name: FormNotifyUser
+  label: Form Notification Recipient
+  kind: child
+  fields:
+    - {name: email, type: email, required: true, in_list: true, description: "Sign-in email of a workspace user who can read the form's responses"}
+
+- name: Form
+  label: Form
+  label_plural: Forms
+  kind: master
+  module: forms
+  icon: clipboard-list
+  title_field: title
+  search_fields: [slug]
+  owner_fields: [owner]
+  description: "A form, survey or quiz: its questions with validations and conditional logic, who may respond and when, what happens with each response (notifications, autoresponse, a record created from the answers) and its look. Publish it to accept responses."
+  fields:
+    - {name: title, type: data, required: true, max_length: 200, in_list: true}
+    - {name: kind, type: select, options: [Form, Survey, Quiz], default: Form, required: true, in_list: true, in_filter: true}
+    - {name: status, type: select, options: [Draft, Published, Closed], default: Draft, read_only: true, no_copy: true, in_list: true, in_filter: true,
+       description: "Changed by the Publish and Close actions; a form also closes when its close date passes or its response limit is reached"}
+    - {name: slug, type: data, unique: true, max_length: 80, no_copy: true, in_list: true,
+       description: "The form's address: /api/site/<workspace>/forms/f/<slug>. Lower-case letters, digits and hyphens; derived from the title when left empty"}
+    - {name: description, type: text, max_length: 5000}
+    - {name: owner, type: email, perm_group: ownership, default_expr: "user.email", in_filter: true,
+       description: "Email of the user who owns the form and sees its responses (with its creator and Forms Managers)"}
+    - {name: questions, type: table, of: FormQuestion}
+    - {name: access, type: select, options: [Public, Internal], default: Public, required: true, in_filter: true,
+       description: "Public: anyone with the link. Internal: signed-in workspace users only"}
+    - {name: anonymous, type: check, description: "Keep no respondent email, name, user or IP address with the responses"}
+    - {name: opens_at, type: datetime, description: Responses are accepted from this moment}
+    - {name: closes_at, type: datetime, description: Responses are refused from this moment}
+    - {name: response_limit, type: int, min: 1, max: 10000000, description: "The form closes after this many responses (spam excluded)"}
+    - {name: one_response_per, type: select, options: [Email, User],
+       description: "Email: one response per respondent email (the signed-in user's, or the answer to the email question). User: one per signed-in user (Internal forms; anonymous forms keep only who took part, apart from the answers)"}
+    - {name: email_question, type: data, max_length: 40, description: "Key of a required email question holding the respondent's address (for one response per email and the autoresponse)"}
+    - {name: min_fill_seconds, type: int, default: 3, min: 0, max: 3600, description: "Responses sent sooner after the form was opened are kept as spam (0 = off)"}
+    - {name: confirmation_message, type: text, max_length: 2000, description: Shown after a response is sent}
+    - {name: redirect_url, type: url, max_length: 2000, description: "Where respondents go after sending (http or https)"}
+    - {name: closed_message, type: text, max_length: 2000, description: Shown when the form is not accepting responses}
+    - {name: notify_on_response, type: check, default: true,
+       description: "Tell the owner and the users below about each response (in the app; by email too when the Mail app is installed)"}
+    - {name: notify_users, type: table, of: FormNotifyUser, label: Also Notify}
+    - {name: autoresponder, type: check, description: "Email the respondent (the email question's answer) after they respond; needs the Mail app. At most one per address and form a day"}
+    - {name: autoresponder_subject, type: data, max_length: 200}
+    - {name: autoresponder_message, type: text, max_length: 5000, description: Plain text}
+    - {name: accent_color, type: color}
+    - {name: logo, type: attach, max_length: 1000, description: "A public image (/files/public/<id>, uploaded with public=true) or an https URL"}
+    - {name: passing_score, type: percent, min: "0", max: "100", description: "Quiz: share of the points needed to pass"}
+    - {name: reveal_answers, type: check, description: "Quiz: show respondents the correct answers in their result"}
+    - {name: target_entity, type: data, max_length: 63,
+       description: "Create a record of this entity from each response (e.g. Lead, Ticket, Customer), filled by the field mapping"}
+    - {name: field_map, type: table, of: FormFieldMap, label: Field Mapping}
+    - {name: published_at, type: datetime, read_only: true, no_copy: true}
+  actions:
+    - {name: publish, label: Publish, permission: write, condition: "doc.status != 'Published'"}
+    - {name: close, label: Close, permission: write, condition: "doc.status == 'Published'"}
+    - {name: duplicate, label: Duplicate, permission: create}
+    - {name: record_response, label: Enter a Response, permission: write, condition: "doc.status == 'Published'"}
+  form:
+    - {label: Form, fields: [title, kind, status, slug, owner, description], tab: Form}
+    - {label: Questions, fields: [questions], tab: Questions}
+    - {label: Responses, fields: [access, anonymous, opens_at, closes_at, response_limit, one_response_per, email_question, min_fill_seconds], tab: Settings}
+    - {label: After Responding, fields: [confirmation_message, redirect_url, closed_message, notify_on_response, notify_users], tab: Settings}
+    - {label: Autoresponse, collapsible: true, fields: [autoresponder, autoresponder_subject, autoresponder_message], tab: Settings}
+    - {label: Quiz, fields: [passing_score, reveal_answers], tab: Settings, visible_if: "doc.kind == 'Quiz'"}
+    - {label: Create Records, collapsible: true, fields: [target_entity, field_map], tab: Settings}
+    - {label: Look, collapsible: true, fields: [accent_color, logo, published_at], tab: Settings}
+  list: {columns: [title, kind, status, slug], sort: title asc}
+
+- name: FormResponse
+  label: Form Response
+  label_plural: Form Responses
+  kind: master
+  module: forms
+  icon: inbox
+  title_field: form_title
+  numbering: {template: "RESP-{YYYY}-{seq:6}"}
+  search_fields: [respondent_email, respondent_name]
+  owner_fields: [form_owner]
+  description: "One response to a form, validated against the form when it was sent. Created only by respondents (the form's links), by the Enter a Response action and by nobody else; answers never change."
+  fields:
+    - {name: form, type: link, to: Form, required: true, read_only: true, in_list: true, in_filter: true}
+    - {name: form_title, type: data, read_only: true, max_length: 200}
+    - {name: form_owner, type: email, read_only: true, hidden: true}
+    - {name: status, type: select, options: [New, Reviewed, Spam], default: New, read_only: true, in_list: true, in_filter: true}
+    - {name: source, type: select, options: [Public Link, Signed In, Manual Entry], read_only: true, in_filter: true}
+    - {name: submitted_at, type: datetime, read_only: true, in_list: true}
+    - {name: respondent_email, type: email, read_only: true, in_list: true}
+    - {name: respondent_name, type: data, read_only: true, max_length: 200}
+    - {name: respondent_user, type: data, read_only: true, max_length: 36, description: Id of the signed-in user who responded}
+    - {name: answers, type: json, read_only: true, description: "Question key → answer, normalized; hidden and unanswered questions are absent"}
+    - {name: score, type: decimal, read_only: true}
+    - {name: max_score, type: decimal, read_only: true}
+    - {name: quiz_result, type: select, options: [Passed, Failed], read_only: true, in_filter: true}
+    - {name: quiz_detail, type: json, read_only: true, hidden: true, description: "Per graded question: key, points, earned, correct"}
+    - {name: completion_seconds, type: int, read_only: true, description: From opening the form to sending it}
+    - {name: ip_hash, type: data, read_only: true, hidden: true, max_length: 64, description: "Keyed hash of the sender's IP address (never the address)"}
+    - {name: spam_reason, type: data, read_only: true, max_length: 200}
+    - {name: record_entity, type: data, read_only: true, max_length: 63, label: Created Record Type}
+    - {name: record_id, type: data, read_only: true, max_length: 36, label: Created Record}
+    - {name: record_error, type: text, read_only: true, description: Why the record could not be created}
+    - {name: session, type: data, read_only: true, hidden: true, max_length: 64}
+    - {name: notified_at, type: datetime, read_only: true, hidden: true}
+  unique: [[form, session]]
+  indexes: [[form, submitted_at], [form, status]]
+  actions:
+    - {name: mark_reviewed, label: Mark Reviewed, permission: write, condition: "doc.status == 'New'"}
+    - {name: mark_spam, label: Mark as Spam, permission: write, condition: "doc.status != 'Spam'"}
+    - {name: not_spam, label: Not Spam, permission: write, condition: "doc.status == 'Spam'"}
+    - {name: create_record, label: Create Record, permission: write, condition: "doc.status != 'Spam' && doc.record_id == null"}
+  form:
+    - {label: Response, fields: [form, status, source, submitted_at, completion_seconds, respondent_email, respondent_name]}
+    - {label: Answers, fields: [answers]}
+    - {label: Quiz, fields: [score, max_score, quiz_result], visible_if: "doc.max_score > 0.0"}
+    - {label: Follow-up, collapsible: true, fields: [record_entity, record_id, record_error, spam_reason]}
+  list: {columns: [number, form, status, respondent_email, submitted_at], sort: submitted_at desc}
+
+- name: FormsSettings
+  label: Forms Settings
+  kind: settings
+  module: forms
+  fields:
+    - {name: spam_retention_days, type: int, default: 30, min: 1, max: 3650, description: Responses marked as spam are deleted after this many days}

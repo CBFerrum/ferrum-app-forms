@@ -1,0 +1,25 @@
+package: forms
+version: 0.1.0
+label: Forms and Surveys
+description: Form and survey builder with public links, conditional logic, validations, file uploads, record creation from responses, quizzes, NPS and analytics
+depends: [core]
+
+modules:
+  - name: forms
+    label: Forms
+    icon: clipboard-list
+    order: 55
+    items: [Form, FormResponse, FormsSettings, report:forms_overview, report:form_question_summary, report:form_response_trend]
+
+roles:
+  - name: Forms Manager
+    description: Every form and every response, form ownership and the Forms settings.
+    permissions:
+      - {entity: Form, read: true, write: true, create: true, delete: true, export: true, import: true, read_groups: [ownership], write_groups: [ownership]}
+      - {entity: FormResponse, read: true, write: true, delete: true, export: true}
+      - {entity: FormsSettings, read: true, write: true, create: true}
+  - name: Forms User
+    description: Builds forms, surveys and quizzes and works the responses of the forms they own (created, or named as owner).
+    permissions:
+      - {entity: Form, read: true, write: true, create: true, delete: true, export: true, if_owner: true, read_groups: [ownership]}
+      - {entity: FormResponse, read: true, write: true, delete: true, export: true, if_owner: true}
