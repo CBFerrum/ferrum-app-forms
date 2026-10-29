@@ -9,7 +9,7 @@ A native app for [Ferrum](https://github.com/CBFerrum/Ferrum), the open-source, 
 - Spam traps (honeypot, minimum fill time), idempotent submits, prefill from links, uploads checked by type and content
 - A record created from each response through a field mapping checked against the live schema (a Lead, a Ticket, a Customer, any entity)
 - Quizzes with points, all-or-nothing marking, exact passing scores and result links; correct answers never reach respondents before they submit
-- Owner notifications in the app and, with the Mail app, by email; a throttled autoresponse to the respondent
+- Owner notifications in the app and by email (through the Mail app, or the server's mailer without it); a throttled autoresponse to the respondent
 - Analytics: per-question distributions, exact NPS, Likert and matrix breakdowns, rankings, completion rate and time, daily trends in the workspace's time zone, paged text answers and CSV exports; three reports
 - `packages/forms/README.md` documents every entity, action, endpoint, setting and background job
 

@@ -5,7 +5,7 @@
 use crate::answers::{self, zone};
 use crate::mapping;
 use crate::model::{Definition, Kind, valid_key};
-use crate::{mail_installed, response};
+use crate::{can_email, response};
 use async_trait::async_trait;
 use chrono::{DateTime, SecondsFormat, Utc};
 use chrono_tz::Tz;
@@ -371,8 +371,8 @@ impl DocHook for FormHook {
                 }
             }
         }
-        if b(doc, "autoresponder") && !old.is_some_and(|o| b(o, "autoresponder")) && !mail_installed(hc.ctx) {
-            return Err(Error::field("autoresponder", "install the Mail app to email respondents"));
+        if b(doc, "autoresponder") && !old.is_some_and(|o| b(o, "autoresponder")) && !can_email(hc.kernel, hc.ctx) {
+            return Err(Error::field("autoresponder", "set up outgoing mail for this server, or install the Mail app, to email respondents"));
         }
         let Some(old) = old else { return Ok(()) };
         if old.get("owner") != doc.get("owner")
