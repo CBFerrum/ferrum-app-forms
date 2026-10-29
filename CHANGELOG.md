@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Declares where it keeps people's personal data, so Administration → Personal data exports and
+  erases it for a person (by email).
 - Owner emails and autoresponses no longer need the Mail app: without it they go through the
   server's own mailer.
 
