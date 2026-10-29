@@ -11,6 +11,10 @@ modules:
     order: 55
     items: [Form, FormResponse, FormsSettings, report:forms_overview, report:form_question_summary, report:form_response_trend]
 
+# What a personal-data request exports and erases for a respondent (their email): who answered and
+# their answers.
+personal_data:
+  - {entity: FormResponse, match: respondent_email, erase: [respondent_email, respondent_name, respondent_user, answers, quiz_detail, ip_hash]}
 roles:
   - name: Forms Manager
     description: Every form and every response, form ownership and the Forms settings.
