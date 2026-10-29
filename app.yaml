@@ -1,0 +1,14 @@
+id: forms
+name: Forms and Surveys
+version: 0.1.0
+publisher: cbferrum
+summary: "Form and survey builder with public links, conditional logic, validations, file uploads, record creation from responses, quizzes, NPS and analytics"
+description: README.md
+categories: [productivity, marketing]
+license: AGPL-3.0-only
+homepage: https://github.com/CBFerrum/ferrum-app-forms
+support: https://github.com/CBFerrum/ferrum-app-forms/issues
+runtime: native
+platform: ">=0.3, <0.4"
+packages: [forms]
+uninstall: ask
