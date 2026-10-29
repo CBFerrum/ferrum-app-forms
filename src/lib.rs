@@ -53,6 +53,11 @@ pub(crate) fn mail_installed(ctx: &Ctx) -> bool {
     ctx.schema.packages.iter().any(|p| p == "comms") && ctx.schema.entity("Communication").is_some()
 }
 
+/// Whether this workspace can send email: through the Mail app, or the server's own mailer.
+pub(crate) fn can_email(k: &ferrum_kernel::Kernel, ctx: &Ctx) -> bool {
+    mail_installed(ctx) || k.mailer.is_some()
+}
+
 include!(concat!(env!("OUT_DIR"), "/packages.rs"));
 
 /// This app's manifest (`app.yaml`).

@@ -7,7 +7,7 @@ use crate::answers::{self, Submission, Upload, display, evaluate, grade, instant
 use crate::form::{FormView, OnePer};
 use crate::mapping;
 use crate::token::{self, Key, Session};
-use crate::{engine, engine_of, mail_installed};
+use crate::{can_email, engine, engine_of, mail_installed};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use ferrum_domain::util::{elevated, id, rows, s};
@@ -534,9 +534,21 @@ fn esc(s: &str) -> String {
     s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;").replace('"', "&quot;").replace('\'', "&#39;")
 }
 
-/// Queues an email through the Mail app. A refusal is logged, not fatal: the response and its
-/// in-app notifications stand.
+/// Queues an email through the Mail app, or without it through the server's mailer (one message
+/// per address). A refusal is logged, not fatal: the response and its in-app notifications stand.
 async fn queue_mail(k: &Kernel, sys: &Ctx, tx: &mut Tx, to: &str, subject: &str, html: String, text: String, response: Uuid) -> Result<bool> {
+    if !mail_installed(sys) {
+        let subject: String = subject.replace(['\r', '\n'], " ").chars().take(300).collect();
+        let mut queued = false;
+        for address in to.split(',').map(str::trim).filter(|a| !a.is_empty()) {
+            match k.queue_mail(tx, sys.tenant, address, &subject, &html).await {
+                Ok(()) => queued = true,
+                Err(e) if e.is_retryable() => return Err(e),
+                Err(e) => tracing::warn!(%response, "forms: mail to {address} not queued: {}", describe(&e)),
+            }
+        }
+        return Ok(queued);
+    }
     let mut c = Doc::new();
     for (key, v) in [
         ("channel", json!("Email")),
@@ -619,7 +631,7 @@ async fn notify_owners(k: &Kernel, sys: &Ctx, tx: &mut Tx, form: &FormView, resp
         notify::send(tx, sys.tenant, user, &title, Some(&body), Some("FormResponse"), Some(rid)).await?;
         readers.push(email);
     }
-    if readers.is_empty() || !mail_installed(sys) {
+    if readers.is_empty() || !can_email(k, sys) {
         return Ok(());
     }
     let (table, lines) = answers_table(form, resp);
@@ -633,7 +645,7 @@ async fn notify_owners(k: &Kernel, sys: &Ctx, tx: &mut Tx, form: &FormView, resp
 /// Emails the respondent the form's fixed autoresponse — at most once a day per address and form,
 /// so a public form cannot be used to flood a mailbox.
 async fn autorespond(k: &Kernel, sys: &Ctx, tx: &mut Tx, form: &FormView, resp: &Doc) -> Result<()> {
-    if !form.flag("autoresponder") || form.anonymous || !mail_installed(sys) {
+    if !form.flag("autoresponder") || form.anonymous || !can_email(k, sys) {
         return Ok(());
     }
     let answers = resp.get("answers").and_then(Value::as_object);
