@@ -192,11 +192,10 @@ async fn store_files(k: &Kernel, sys: &Ctx, uploads: &[Upload]) -> Result<Vec<(S
     Ok(out)
 }
 
-/// Files stored for a response that was then refused: their records go (their bytes stay in
-/// storage; the kernel offers apps no way to delete them).
+/// Files stored for a response that was then refused: their records and bytes go.
 async fn discard_files(k: &Kernel, sys: &Ctx, files: &[(String, Value, Uuid)]) {
     for (_, _, fid) in files {
-        if let Err(e) = k.delete_file(sys, *fid).await {
+        if let Err(e) = k.remove_file(sys, *fid).await {
             tracing::warn!(file = %fid, "forms: could not discard an upload: {e}");
         }
     }
