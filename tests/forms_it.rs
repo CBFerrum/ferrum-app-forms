@@ -233,7 +233,9 @@ async fn setup() -> T {
             admin_email: "admin@acme.test".into(),
             admin_password: "Correct-Horse-9".into(),
             admin_name: None,
-            packages: vec!["forms".into(), "comms".into()],
+            // Selling: forms here make customers (the platform's parties) and touch their credit limit
+            // (selling's), and the owner is a Sales User.
+            packages: vec!["forms".into(), "comms".into(), "selling".into()],
             settings: Some(json!({"timezone": "America/New_York"})),
         })
         .await
