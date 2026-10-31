@@ -211,6 +211,17 @@ cargo test
 `FERRUM_FORMS_TEST_DATABASE_URL` overrides the database URL.
 
 
+Its tests also build on [ferrum-app-comms](https://github.com/CBFerrum/ferrum-app-comms) and [ferrum-app-erp](https://github.com/CBFerrum/ferrum-app-erp), which Cargo takes from GitHub.
+To work on them alongside this app, clone them into the same folder and add to the same file:
+
+```toml
+[patch."https://github.com/CBFerrum/ferrum-app-comms"]
+ferrum-app-comms = { path = "../ferrum-app-comms" }
+[patch."https://github.com/CBFerrum/ferrum-app-erp"]
+ferrum-app-erp = { path = "../ferrum-app-erp" }
+```
+
+
 ### Project layout
 
 ```text
@@ -220,9 +231,6 @@ src/          the app's logic in Rust: hooks, actions, endpoints, upkeep jobs
 tests/        integration tests against a real PostgreSQL
 CHANGELOG.md  what changed in each version
 ```
-
-
-It builds on [ferrum-app-comms](https://github.com/CBFerrum/ferrum-app-comms).
 
 ## Changelog
 
