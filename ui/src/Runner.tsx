@@ -340,13 +340,19 @@ export function Runner({ form, prefill, zone, workspace, send, keep, preview, re
 
 /** The page's sheet: the form's colour, a column that holds its width, who is asking. */
 export function Frame({ accent, footer, preview, children }: { accent?: CSSProperties; footer?: string; preview?: boolean; children: ReactNode }) {
+  const note = footer && !preview ? <p className="fr-foot faint">{footer}</p> : null;
   return (
     <div className="fr" style={accent} data-preview={preview ? "" : undefined}>
       {preview && <p className="fr-preview">Preview. Nothing you answer here is sent or kept.</p>}
-      <main className="fr-sheet" id="main">
-        {children}
-      </main>
-      {footer && !preview && <p className="fr-foot faint">{footer}</p>}
+      {/* The page's one main region; in the builder's preview it is inside the builder's. */}
+      {preview ? (
+        <div className="fr-sheet">{children}</div>
+      ) : (
+        <main className="fr-sheet" id="main">
+          {children}
+          {note}
+        </main>
+      )}
     </div>
   );
 }

@@ -19,6 +19,11 @@ import { Settings, Seg } from "./Settings";
 import { copy, linkOf, Share } from "./Share";
 
 const key = (id: string) => ["forms", "doc", id];
+/** The list of forms and its counts show what changed when the person goes back to them. */
+const staleList = (qc: ReturnType<typeof useQueryClient>) => {
+  void qc.invalidateQueries({ queryKey: ["forms", "list"] });
+  void qc.invalidateQueries({ queryKey: ["forms", "overview"] });
+};
 type TabId = "questions" | "settings" | "share";
 
 const basics = (f: Fields): Basics => ({ title: f.title, description: f.description, kind: f.kind, access: f.access, anonymous: f.anonymous, closes_at: f.closes_at, accent_color: f.accent_color, logo: f.logo, layout: f.layout });
@@ -107,8 +112,26 @@ function BuilderPage({ doc }: { doc: FormDoc }) {
       { replace: true },
     );
 
-  const setFields = (p: Partial<Fields>) => setDraft((d) => ({ ...d, fields: { ...d.fields, ...p } }));
-  const setRows = (rows: QRow[]) => setDraft((d) => ({ ...d, rows }));
+  // What the server refused stays on a setting or a card until that setting or card is changed.
+  const setFields = (p: Partial<Fields>) => {
+    setDraft((d) => ({ ...d, fields: { ...d.fields, ...p } }));
+    setNo((cur) => {
+      if (!cur || !Object.keys(p).some((k) => k in cur.fields)) return cur;
+      const fields = { ...cur.fields };
+      for (const k of Object.keys(p)) delete fields[k];
+      return { ...cur, fields };
+    });
+  };
+  const setRows = (rows: QRow[]) => {
+    setDraft((d) => ({ ...d, rows }));
+    setNo((cur) => {
+      const touched = cur ? rows.filter((r) => cur.cards[r.uid] && draft.rows.find((x) => x.uid === r.uid) !== r) : [];
+      if (!cur || !touched.length) return cur;
+      const cards = { ...cur.cards };
+      for (const r of touched) delete cards[r.uid];
+      return { ...cur, cards };
+    });
+  };
 
   /** What the server refused: onto the settings and the cards, and to the first of them. */
   const refuse = (e: ApiError) => {
@@ -136,6 +159,7 @@ function BuilderPage({ doc }: { doc: FormDoc }) {
       const next = await api.patch<FormDoc>(docPath("Form", doc.id), patch, { ifMatch: version });
       const fresh = draftOf(next, sent.rows);
       qc.setQueryData(key(doc.id), next);
+      staleList(qc);
       setSaved(fresh);
       setVersion(next.version);
       setNo(null);
@@ -172,6 +196,7 @@ function BuilderPage({ doc }: { doc: FormDoc }) {
     setBusy("publish");
     try {
       await api.post(docPath("Form", doc.id, "actions", "publish"), {});
+      staleList(qc);
       await qc.invalidateQueries({ queryKey: key(doc.id) });
       params({ tab: "share" });
       toast(status === "Closed" ? "Reopened" : "Published. The link works now.");
@@ -189,6 +214,7 @@ function BuilderPage({ doc }: { doc: FormDoc }) {
     setBusy("close");
     try {
       await api.post(docPath("Form", doc.id, "actions", "close"), {});
+      staleList(qc);
       await qc.invalidateQueries({ queryKey: key(doc.id) });
       toast("Closed");
     } catch (e) {
@@ -201,6 +227,7 @@ function BuilderPage({ doc }: { doc: FormDoc }) {
   const duplicate = async () => {
     try {
       const made = await api.post<{ id: string }>(docPath("Form", doc.id, "actions", "duplicate"), {});
+      staleList(qc);
       allowLeave();
       toast("A copy was made");
       navigate(`/b/${made.id}`);
@@ -214,6 +241,7 @@ function BuilderPage({ doc }: { doc: FormDoc }) {
     if (!ok) return;
     try {
       await api.del(docPath("Form", doc.id));
+      staleList(qc);
       allowLeave();
       toast("Deleted");
       navigate("/");
