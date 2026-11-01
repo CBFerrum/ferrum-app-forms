@@ -11,7 +11,7 @@ import { Spinner } from "@ferrum/kit";
 import { accentVars } from "./accent";
 import { Notice, Thanks } from "./Done";
 import { Field, useBase } from "./Fields";
-import { type Answers, check, clearDraft, initial, loadDraft, pagesOf, payload, type Raw, saveDraft, sentence, uploadBytes, UPLOAD_LIMIT, visibility, zonedNow, normalize } from "./flow";
+import { type Answers, check, clearDraft, initial, loadDraft, normalize, pagesOf, payload, type Raw, refusedAnswers, saveDraft, uploadBytes, UPLOAD_LIMIT, visibility, zonedNow } from "./flow";
 import { answerable, type PForm, type Receipt } from "./model";
 import { ALREADY, closedState, loginPath, Refreshed } from "./site";
 
@@ -91,6 +91,14 @@ export function Runner({ form, prefill, zone, workspace, send, keep, preview, re
     [base],
   );
 
+  // The top: the page's, or in the builder's preview the phone's own scroll.
+  const toTop = () => {
+    const behavior = reducedMotion() ? "auto" : "smooth";
+    const box = preview ? section.current?.closest<HTMLElement>("[data-scroll]") : null;
+    if (box) box.scrollTo({ top: 0, behavior });
+    else if (!preview) window.scrollTo({ top: 0, behavior });
+  };
+
   // A new page starts at its top, with focus on it for keyboards and screen readers.
   const arrived = useRef(false);
   useEffect(() => {
@@ -98,7 +106,7 @@ export function Runner({ form, prefill, zone, workspace, send, keep, preview, re
       arrived.current = true;
       return;
     }
-    if (!preview) window.scrollTo({ top: 0, behavior: reducedMotion() ? "auto" : "smooth" });
+    toTop();
     section.current?.focus({ preventScroll: true });
     if (layout === "single" && typeof matchMedia === "function" && matchMedia("(pointer: fine)").matches) {
       section.current?.querySelector<HTMLElement>("input:not([type=hidden]):not([type=radio]):not([type=checkbox]), textarea, select")?.focus({ preventScroll: true });
@@ -120,7 +128,7 @@ export function Runner({ form, prefill, zone, workspace, send, keep, preview, re
       const receipt = await send(await payload(form, shown, answers), honeypot);
       if (keep && !preview) clearDraft(keep.tenant, keep.slug);
       setPhase({ kind: "done", receipt });
-      window.scrollTo({ top: 0 });
+      if (!preview) window.scrollTo({ top: 0 });
     } catch (e) {
       setPhase({ kind: "filling" });
       fail(e);
@@ -137,22 +145,15 @@ export function Runner({ form, prefill, zone, workspace, send, keep, preview, re
       return;
     }
     if (e.status === 422) {
-      const order = new Map(form.questions.map((q, i) => [q.key, i]));
-      const mine: Record<string, string> = {};
-      const rest: string[] = [];
-      for (const f of e.fields) {
-        if (order.has(f.field)) mine[f.field] ??= sentence(f.message);
-        else rest.push(sentence(f.message));
-      }
-      const first = Object.keys(mine).sort((a, b) => (order.get(a) ?? 0) - (order.get(b) ?? 0))[0];
-      if (first) {
-        setErrors(mine);
-        const at = order.get(first) ?? 0;
-        const target = pages.find((p) => p.items.includes(at));
-        if (target) setPageId(target.id);
-        setBanner({ tone: "error", text: `${Object.keys(mine).length === 1 ? "One answer" : `${Object.keys(mine).length} answers`} could not be accepted. Please look again.` });
+      const refused = refusedAnswers(form, e.fields, pages);
+      const n = Object.keys(refused.errors).length;
+      if (refused.first) {
+        setErrors(refused.errors);
+        if (refused.pageId) setPageId(refused.pageId);
+        setBanner({ tone: "error", text: `${n === 1 ? "One answer" : `${n} answers`} could not be accepted. Please look again.` });
+        const first = refused.first;
         setTimeout(() => focusQuestion(first), 60);
-      } else setBanner({ tone: "error", text: rest[0] ?? e.message });
+      } else setBanner({ tone: "error", text: refused.rest[0] ?? e.message });
     } else if (e.status === 409) setPhase({ kind: "ended", already: e.message === ALREADY, message: e.message });
     else if (e.status === 401)
       setBanner({
@@ -342,7 +343,9 @@ export function Frame({ accent, footer, preview, children }: { accent?: CSSPrope
   return (
     <div className="fr" style={accent} data-preview={preview ? "" : undefined}>
       {preview && <p className="fr-preview">Preview. Nothing you answer here is sent or kept.</p>}
-      <div className="fr-sheet">{children}</div>
+      <main className="fr-sheet" id="main">
+        {children}
+      </main>
       {footer && !preview && <p className="fr-foot faint">{footer}</p>}
     </div>
   );

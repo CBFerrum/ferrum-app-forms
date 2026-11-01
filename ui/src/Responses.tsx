@@ -1,0 +1,348 @@
+// The responses to a form: a table to scan (a card each on a phone), and a drawer to read one
+// whole, with what can be done to it (review it, mark it as spam, make its record) and the way to
+// the next and the one before.
+
+import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ChevronLeft, ChevronRight, ExternalLink, Paperclip } from "lucide-react";
+import { type ReactNode, useEffect } from "react";
+import { api, docPath, errorMessage, formatDateTime, shell } from "@ferrum/client";
+import { Badge, Button, EmptyState, ErrorState, Spinner, statusTone, toast } from "@ferrum/kit";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@ferrum/kit/primitives";
+import { listOf } from "./rows";
+import { answerable, type Kind } from "./model";
+import { answerText, dayStart, duration, shiftDay } from "./stats";
+
+export interface Asked {
+  key: string;
+  label: string;
+  type: Kind;
+  rows: string[];
+}
+
+export interface Resp {
+  id: string;
+  number?: string | null;
+  status?: string | null;
+  source?: string | null;
+  submitted_at?: string | null;
+  respondent_email?: string | null;
+  respondent_name?: string | null;
+  answers?: Record<string, unknown> | null;
+  score?: string | null;
+  max_score?: string | null;
+  quiz_result?: string | null;
+  quiz_detail?: { key: string; points: string; earned: string; correct: boolean }[] | null;
+  completion_seconds?: number | null;
+  spam_reason?: string | null;
+  record_entity?: string | null;
+  record_id?: string | null;
+  record_error?: string | null;
+}
+
+/** The questions of a form, from its record. */
+export function askedOf(doc: Record<string, unknown> | undefined): Asked[] {
+  const rows = Array.isArray(doc?.questions) ? (doc?.questions as Record<string, unknown>[]) : [];
+  return rows
+    .filter((r) => r.question_type !== "page_break" && r.question_type !== "statement")
+    .map((r) => ({ key: String(r.key ?? ""), label: String(r.label ?? ""), type: r.question_type as Kind, rows: listOf(r.matrix_rows) }))
+    .filter((a) => answerable(a.type));
+}
+
+const FIELDS = "number,status,source,submitted_at,respondent_email,respondent_name,answers,score,max_score,quiz_result,completion_seconds";
+const who = (r: Resp) => r.respondent_name || r.respondent_email || "Anonymous";
+const when = (iso?: string | null) => (iso ? new Date(iso).toLocaleString(undefined, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }) : "");
+
+// ───────────────────────────── one answer, whole ─────────────────────────────
+
+function Answer({ a, v }: { a: Asked; v: unknown }) {
+  if (v === undefined || v === null || (Array.isArray(v) && !v.length)) return <span className="faint">No answer</span>;
+  switch (a.type) {
+    case "file":
+      return (
+        <ul className="fm-attach">
+          {(v as { file_name?: string; url?: string; size?: number }[]).map((f, i) => (
+            <li key={i}>
+              <Paperclip size={14} aria-hidden="true" />
+              {f.url ? (
+                <a href={f.url} target="_blank" rel="noopener noreferrer">
+                  {f.file_name}
+                </a>
+              ) : (
+                f.file_name
+              )}
+            </li>
+          ))}
+        </ul>
+      );
+    case "matrix":
+      return (
+        <dl className="fm-grid-answer">
+          {a.rows.map((r) => (
+            <div key={r}>
+              <dt className="faint">{r}</dt>
+              <dd>{(v as Record<string, string>)[r] ?? <span className="faint">No answer</span>}</dd>
+            </div>
+          ))}
+        </dl>
+      );
+    case "ranking":
+      return (
+        <ol className="fm-ranked">
+          {(v as string[]).map((x) => (
+            <li key={x}>{x}</li>
+          ))}
+        </ol>
+      );
+    case "multi_select":
+      return (
+        <div className="chips">
+          {(v as string[]).map((x) => (
+            <span key={x} className="chip">
+              {x}
+            </span>
+          ))}
+        </div>
+      );
+    case "long_text":
+      return <p className="fm-longtext">{String(v)}</p>;
+    default:
+      return <>{answerText(a.type, v, a.rows)}</>;
+  }
+}
+
+// ───────────────────────────── the drawer ─────────────────────────────
+
+function Detail({ id, asked, canRecord, ids, onGo, onChanged }: { id: string; asked: Asked[]; canRecord: boolean; ids: string[]; onGo: (id: string) => void; onChanged: () => void }) {
+  const qc = useQueryClient();
+  const q = useQuery({ queryKey: ["forms", "response", id], queryFn: ({ signal }) => api.get<Resp>(docPath("FormResponse", id), undefined, signal) });
+  const r = q.data;
+  const at = ids.indexOf(id);
+
+  const run = async (name: "mark_reviewed" | "mark_spam" | "not_spam" | "create_record", done: string) => {
+    try {
+      await api.post(docPath("FormResponse", id, "actions", name), {});
+      toast(done);
+      void qc.invalidateQueries({ queryKey: ["forms", "response", id] });
+      onChanged();
+    } catch (e) {
+      toast(errorMessage(e), "error");
+    }
+  };
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (e.metaKey || e.ctrlKey || e.altKey || t?.closest("input, textarea, select, [contenteditable=true]")) return;
+      if (e.key === "ArrowLeft" && at > 0) onGo(ids[at - 1]);
+      if (e.key === "ArrowRight" && at >= 0 && at < ids.length - 1) onGo(ids[at + 1]);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [at, ids, onGo]);
+
+  if (q.error) return <ErrorState error={q.error} onRetry={() => void q.refetch()} />;
+  if (!r) return <Spinner label="Loading the response" />;
+  const detail = new Map((r.quiz_detail ?? []).map((d) => [d.key, d]));
+  const spam = r.status === "Spam";
+  return (
+    <div className="fm-detail">
+      <div className="fm-detail-actions">
+        {r.status === "New" && <Button onClick={() => void run("mark_reviewed", "Marked as reviewed")}>Mark reviewed</Button>}
+        {spam ? <Button onClick={() => void run("not_spam", "Not spam")}>This is not spam</Button> : <Button onClick={() => void run("mark_spam", "Marked as spam")}>Mark as spam</Button>}
+        {canRecord && !r.record_id && !spam && (
+          <Button variant="primary" onClick={() => void run("create_record", "The record was made")}>
+            Make the record
+          </Button>
+        )}
+        {r.record_id && r.record_entity && (
+          <Button onClick={() => shell().navigate({ entity: r.record_entity as string, id: r.record_id as string })}>
+            <ExternalLink size={14} aria-hidden="true" /> Open the record
+          </Button>
+        )}
+      </div>
+      {r.record_error && <p className="field-error">The record could not be made: {r.record_error}</p>}
+      {spam && r.spam_reason && <p className="muted">Kept as spam because {r.spam_reason}.</p>}
+      <dl className="fm-meta">
+        <div>
+          <dt className="faint">From</dt>
+          <dd>{who(r)}</dd>
+        </div>
+        <div>
+          <dt className="faint">Sent</dt>
+          <dd>{r.submitted_at ? formatDateTime(r.submitted_at) : "–"}</dd>
+        </div>
+        <div>
+          <dt className="faint">Took</dt>
+          <dd>{duration(r.completion_seconds)}</dd>
+        </div>
+        <div>
+          <dt className="faint">Through</dt>
+          <dd>{r.source}</dd>
+        </div>
+      </dl>
+      {r.max_score && Number(r.max_score) > 0 && (
+        <p className="fm-score-line">
+          Score <strong>{r.score}</strong> of {r.max_score} {r.quiz_result && <Badge tone={r.quiz_result === "Passed" ? "green" : "red"}>{r.quiz_result}</Badge>}
+        </p>
+      )}
+      <ol className="fm-answers">
+        {asked.map((a) => {
+          const d = detail.get(a.key);
+          return (
+            <li key={a.key}>
+              <p className="fm-answer-q">
+                {a.label}
+                {d && <span className={d.correct ? "fm-right" : "fm-wrong"}> {d.correct ? "Right" : "Wrong"} · {d.earned}/{d.points}</span>}
+              </p>
+              <div className="fm-answer-a">
+                <Answer a={a} v={r.answers?.[a.key]} />
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+      <div className="fm-detail-nav">
+        <Button disabled={at <= 0} onClick={() => onGo(ids[at - 1])}>
+          <ChevronLeft size={16} aria-hidden="true" /> Newer
+        </Button>
+        <Button disabled={at < 0 || at >= ids.length - 1} onClick={() => onGo(ids[at + 1])}>
+          Older <ChevronRight size={16} aria-hidden="true" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ───────────────────────────── the list ─────────────────────────────
+
+const STATUS: [string, string][] = [
+  ["", "Answers"],
+  ["New", "New"],
+  ["Reviewed", "Reviewed"],
+  ["Spam", "Spam"],
+];
+
+export interface ResponsesProps {
+  formId: string;
+  asked: Asked[];
+  zone: string;
+  status: string;
+  from: string | null;
+  to: string | null;
+  open: string | null;
+  canRecord: boolean;
+  onStatus: (s: string) => void;
+  onOpen: (id: string | null) => void;
+}
+
+export function Responses({ formId, asked, zone, status, from, to, open, canRecord, onStatus, onOpen }: ResponsesProps) {
+  const qc = useQueryClient();
+  const filters: unknown[] = [["form", "=", formId], status ? ["status", "=", status] : ["status", "!=", "Spam"]];
+  if (from) filters.push(["submitted_at", ">=", dayStart(from, zone)]);
+  if (to) filters.push(["submitted_at", "<", dayStart(shiftDay(to, 1), zone)]);
+  const list = useInfiniteQuery({
+    queryKey: ["forms", "responses", formId, status, from, to],
+    initialPageParam: "",
+    queryFn: ({ pageParam, signal }) =>
+      api.get<{ rows: Resp[]; next_cursor?: string | null }>("/api/v1/FormResponse", { filters: JSON.stringify(filters), fields: FIELDS, sort: "created_at desc", limit: 50, cursor: pageParam || undefined }, signal),
+    getNextPageParam: (last) => last.next_cursor || undefined,
+  });
+  const rows = list.data?.pages.flatMap((p) => p.rows) ?? [];
+  const columns = asked.filter((a) => ["short_text", "email", "phone", "number", "decimal", "date", "select", "dropdown", "likert", "rating", "nps", "checkbox", "multi_select"].includes(a.type)).slice(0, 3);
+  const changed = () => {
+    void qc.invalidateQueries({ queryKey: ["forms", "responses", formId] });
+    void qc.invalidateQueries({ queryKey: ["forms", "summary", formId] });
+  };
+
+  let body: ReactNode;
+  if (list.error) body = <ErrorState error={list.error} onRetry={() => void list.refetch()} />;
+  else if (!list.data) {
+    body = (
+      <div className="fm-list" aria-busy="true" aria-label="Loading the responses">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="fm-form fm-skeleton">
+            <span className="skeleton" style={{ width: "30%", height: 16 }} />
+          </div>
+        ))}
+      </div>
+    );
+  } else if (!rows.length) {
+    body = (
+      <EmptyState title={status === "Spam" ? "No spam" : status ? `No ${status.toLowerCase()} responses` : from || to ? "No responses in these days" : "No responses yet"} icon="doc">
+        <p className="muted">{status || from || to ? "Try other days, or another filter." : "They appear here as soon as someone sends the form."}</p>
+      </EmptyState>
+    );
+  } else {
+    body = (
+      <>
+        <div className="fm-table-wrap">
+          <table className="fm-table">
+            <thead>
+              <tr>
+                <th scope="col">Response</th>
+                <th scope="col">From</th>
+                {columns.map((c) => (
+                  <th key={c.key} scope="col" className="fm-col-q">
+                    {c.label}
+                  </th>
+                ))}
+                <th scope="col">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.id} data-open={open === r.id ? "" : undefined}>
+                  <td>
+                    <button type="button" className="fm-row-open" onClick={() => onOpen(r.id)}>
+                      <strong>{r.number}</strong>
+                      <span className="faint">{when(r.submitted_at)}</span>
+                    </button>
+                  </td>
+                  <td>{who(r)}</td>
+                  {columns.map((c) => (
+                    <td key={c.key} className="fm-col-q">
+                      <span className="fm-clip">{answerText(c.type, r.answers?.[c.key], c.rows)}</span>
+                    </td>
+                  ))}
+                  <td>
+                    <Badge tone={statusTone(r.status === "New" ? "Open" : r.status)}>{r.status}</Badge>
+                    {r.max_score && Number(r.max_score) > 0 ? <span className="faint"> {r.score}/{r.max_score}</span> : null}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {list.hasNextPage && (
+          <div className="fm-more-row">
+            <Button loading={list.isFetchingNextPage} onClick={() => void list.fetchNextPage()}>
+              Show older responses
+            </Button>
+          </div>
+        )}
+      </>
+    );
+  }
+
+  return (
+    <div className="fm-responses">
+      <div className="chips" role="group" aria-label="Show">
+        {STATUS.map(([v, label]) => (
+          <button key={v} type="button" className="chip" aria-pressed={status === v} onClick={() => onStatus(v)}>
+            {label}
+          </button>
+        ))}
+      </div>
+      {body}
+      <Sheet open={!!open} onOpenChange={(o) => !o && onOpen(null)}>
+        <SheetContent className="fm-sheet">
+          <SheetHeader>
+            <SheetTitle>{rows.find((r) => r.id === open)?.number ?? "Response"}</SheetTitle>
+            <SheetDescription>{rows.find((r) => r.id === open) ? who(rows.find((r) => r.id === open) as Resp) : "One response, whole"}</SheetDescription>
+          </SheetHeader>
+          <div className="fm-sheet-body">{open && <Detail key={open} id={open} asked={asked} canRecord={canRecord} ids={rows.map((r) => r.id)} onGo={onOpen} onChanged={changed} />}</div>
+        </SheetContent>
+      </Sheet>
+    </div>
+  );
+}

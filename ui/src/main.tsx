@@ -51,6 +51,12 @@ const router = createBrowserRouter(
       errorElement: <RouteError />,
       hydrateFallbackElement: opening,
       children: [
+        { index: true, lazy: () => import("./Home").then((m) => ({ Component: m.Home })) },
+        { path: "e/Form", lazy: () => import("./Home").then((m) => ({ Component: m.Home })) },
+        { path: "new", lazy: () => import("./New").then((m) => ({ Component: m.New })) },
+        { path: "b/:id", lazy: () => import("./Builder").then((m) => ({ Component: m.BuilderRoute })) },
+        { path: "b/:id/results", lazy: () => import("./Results").then((m) => ({ Component: m.ResultsRoute })) },
+        { path: "response/:id", lazy: () => import("./Results").then((m) => ({ Component: m.ResponseRoute })) },
         { path: "e/:entity", lazy: page("ListView") },
         { path: "e/:entity/:id", lazy: page("FormView") },
         { path: "r/:name", lazy: page("ReportView") },

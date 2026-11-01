@@ -1,0 +1,145 @@
+// Putting the form in front of people: its link, who the link is for, when it works, and the
+// link that fills some answers in. The address of a published form is not changed without asking:
+// every link already sent would stop working.
+
+import { Copy, ExternalLink, Globe, Lock } from "lucide-react";
+import { useId, useState } from "react";
+import { bootstrap } from "@ferrum/client";
+import { confirmDialog, Field, toast } from "@ferrum/kit";
+import type { QRow } from "./rows";
+import type { Fields, Status } from "./formdoc";
+import { formPath } from "./site";
+
+/** The whole address of a form. */
+export function linkOf(slug: string): string {
+  const tenant = bootstrap()?.workspace.slug ?? "";
+  return `${window.location.origin}${formPath(tenant, slug)}`;
+}
+
+export async function copy(text: string): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(text);
+    toast("Link copied");
+  } catch {
+    toast(text, "info");
+  }
+}
+
+const moment = (iso: string | null) => (iso ? new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : null);
+
+export interface ShareProps {
+  fields: Fields;
+  set: (p: Partial<Fields>) => void;
+  rows: QRow[];
+  status: Status;
+  /** The address this form has on the server (the draft's may be changed, not yet saved). */
+  savedSlug: string;
+  errors: Record<string, string>;
+  dirty: boolean;
+  onPublish: () => void;
+  onSettings: () => void;
+  publishing: boolean;
+}
+
+export function Share({ fields: f, set, rows, status, savedSlug, errors, dirty, onPublish, onSettings, publishing }: ShareProps) {
+  const id = useId();
+  const [pick, setPick] = useState("");
+  const live = status === "Published";
+  const url = savedSlug ? linkOf(savedSlug) : "";
+  const prefills = rows.filter((r) => r.allow_prefill && r.question_type !== "page_break");
+  const chosen = prefills.find((r) => r.key === pick) ?? prefills[0];
+  const facts = [
+    f.access === "Public" ? "Anyone with the link can answer." : "Only people signed in to this workspace can answer.",
+    f.anonymous ? "Answers are anonymous." : null,
+    f.opens_at && new Date(f.opens_at) > new Date() ? `Opens ${moment(f.opens_at)}.` : null,
+    f.closes_at ? `Closes ${moment(f.closes_at)}.` : null,
+    f.response_limit ? `Closes after ${f.response_limit} responses.` : null,
+    f.one_response_per === "Email" ? "One response per email address." : f.one_response_per === "User" ? "One response per person." : null,
+  ].filter(Boolean);
+
+  const changeAddress = async (value: string) => {
+    const next = value.trim().toLowerCase();
+    if (live && savedSlug && next !== savedSlug) {
+      const ok = await confirmDialog({ title: "Change the address?", message: `Links already sent to ${savedSlug} will stop working once you save.`, confirmLabel: "Change it", danger: true });
+      if (!ok) return;
+    }
+    set({ slug: next });
+  };
+
+  return (
+    <div className="fm-share">
+      {!live && (
+        <div className="fm-callout">
+          <div>
+            <strong>{status === "Closed" ? "This form is closed." : "This form is a draft."}</strong>
+            <p className="muted">{status === "Closed" ? "Its link tells people it is closed. Reopen it to take responses again." : "Its link does not work yet. Publish it to take responses."}</p>
+          </div>
+          <button type="button" className="btn btn-primary btn-md" disabled={publishing} onClick={onPublish}>
+            {status === "Closed" ? "Reopen" : "Publish"}
+            {dirty ? " and save" : ""}
+          </button>
+        </div>
+      )}
+
+      <section className="fm-section">
+        <h2 className="fm-section-title">The link</h2>
+        {url ? (
+          <>
+            <div className="fm-link" data-live={live ? "" : undefined}>
+              <input className="input" readOnly aria-label="The link to this form" value={url} onFocus={(e) => e.currentTarget.select()} />
+              <button type="button" className="btn btn-primary btn-md" onClick={() => void copy(url)}>
+                <Copy size={16} aria-hidden="true" /> Copy
+              </button>
+              <a className="btn btn-default btn-md" href={url} target="_blank" rel="noopener noreferrer">
+                <ExternalLink size={16} aria-hidden="true" /> Open
+              </a>
+            </div>
+            {!live && <p className="field-hint">Not working yet.</p>}
+          </>
+        ) : (
+          <p className="muted">The link appears when the form is saved.</p>
+        )}
+        <ul className="fm-facts">
+          <li>
+            {f.access === "Public" ? <Globe size={15} aria-hidden="true" /> : <Lock size={15} aria-hidden="true" />}
+            {facts[0]}
+          </li>
+          {facts.slice(1).map((t) => (
+            <li key={t as string}>{t}</li>
+          ))}
+        </ul>
+        <button type="button" className="link-btn" onClick={onSettings}>
+          Change who can answer and when
+        </button>
+      </section>
+
+      <section className="fm-section">
+        <h2 className="fm-section-title">Its address</h2>
+        <Field label="The last part of the link" htmlFor={`${id}-slug`} hint="Lower-case letters, numbers and hyphens." error={errors.slug}>
+          <input id={`${id}-slug`} className="input" value={f.slug} spellCheck={false} autoCapitalize="off" onChange={(e) => set({ slug: e.target.value.toLowerCase().replace(/\s+/g, "-") })} onBlur={(e) => void changeAddress(e.target.value)} />
+        </Field>
+      </section>
+
+      {prefills.length > 0 && savedSlug && (
+        <section className="fm-section">
+          <h2 className="fm-section-title">A link that fills in an answer</h2>
+          <p className="muted">Add <code>?{chosen.key}=…</code> to the link to start with an answer filled in, for example in an email to one person.</p>
+          <div className="fm-link">
+            <select className="select" aria-label="Question to fill in" value={chosen.key} onChange={(e) => setPick(e.target.value)}>
+              {prefills.map((r) => (
+                <option key={r.uid} value={r.key}>
+                  {r.label.trim() || r.key}
+                </option>
+              ))}
+            </select>
+            <input className="input" readOnly aria-label="The link with an answer filled in" value={`${url}?${chosen.key}=`} onFocus={(e) => e.currentTarget.select()} />
+            <button type="button" className="btn btn-default btn-md" onClick={() => void copy(`${url}?${chosen.key}=`)}>
+              <Copy size={16} aria-hidden="true" /> Copy
+            </button>
+          </div>
+          <p className="field-hint">Type the answer after the equals sign. Several choices are separated by commas.</p>
+        </section>
+      )}
+    </div>
+  );
+}
