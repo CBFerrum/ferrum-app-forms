@@ -285,8 +285,16 @@ export function Runner({ form, prefill, zone, workspace, send, keep, preview, re
             </button>
           </p>
         )}
-        <section ref={section} className="fr-page" tabIndex={-1} aria-label={page.title ?? (many ? `${unit} ${index + 1}` : form.title)}>
+        <section key={page.id} ref={section} className="fr-page" tabIndex={-1} aria-label={page.title ?? (many ? `${unit} ${index + 1}` : form.title)}>
           {page.title && <h2 className="fr-page-title">{page.title}</h2>}
+          {page.items.some((i) => form.questions[i].required && form.questions[i].type !== "checkbox") && (
+            <p className="fr-legend faint">
+              <span className="req" aria-hidden="true">
+                *
+              </span>{" "}
+              needs an answer
+            </p>
+          )}
           {!page.items.length && <p className="muted">Nothing more to ask. Press Send to finish.</p>}
           <div className="fr-questions">
             {page.items.map((i) => {

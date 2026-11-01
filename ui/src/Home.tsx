@@ -6,10 +6,10 @@ import { BarChart3, Copy, Ellipsis, ExternalLink, Globe, Link2, Lock, Plus, Sear
 import { useCallback, useMemo } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { api, ApiError, docPath, errorMessage, relativeTime } from "@ferrum/client";
-import { Badge, Button, confirmDialog, EmptyState, ErrorState, statusTone, toast, useLiveEntity, useShellTitle } from "@ferrum/kit";
+import { Badge, Button, confirmDialog, EmptyState, ErrorState, toast, useLiveEntity, useShellTitle } from "@ferrum/kit";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@ferrum/kit/primitives";
 import { can, useEntityMeta } from "@ferrum/records";
-import type { Status } from "./formdoc";
+import { STATUS_LABEL, STATUS_TONE, type Status } from "./formdoc";
 import { copy, linkOf } from "./Share";
 
 interface FormRow {
@@ -192,7 +192,7 @@ export function Home() {
                         )}
                       </p>
                     </div>
-                    <Badge tone={statusTone(f.status)}>{f.status === "Published" ? "Open" : f.status}</Badge>
+                    <Badge tone={STATUS_TONE[f.status ?? "Draft"]}>{STATUS_LABEL[f.status ?? "Draft"]}</Badge>
                     <Link className="fm-stat" to={`/b/${f.id}/results`} title="See the results">
                       <strong>{o?.responses ?? "–"}</strong>
                       <span className="faint">{o?.responses === 1 ? "response" : "responses"}</span>

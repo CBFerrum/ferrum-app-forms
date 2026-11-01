@@ -57,6 +57,8 @@ const router = createBrowserRouter(
         { path: "b/:id", lazy: () => import("./Builder").then((m) => ({ Component: m.BuilderRoute })) },
         { path: "b/:id/results", lazy: () => import("./Results").then((m) => ({ Component: m.ResultsRoute })) },
         { path: "response/:id", lazy: () => import("./Results").then((m) => ({ Component: m.ResponseRoute })) },
+        // A response in the records list opens where its answers can be read.
+        { path: "e/FormResponse/:id", lazy: () => import("./Results").then((m) => ({ Component: m.ResponseRoute })) },
         { path: "e/:entity", lazy: page("ListView") },
         { path: "e/:entity/:id", lazy: page("FormView") },
         { path: "r/:name", lazy: page("ReportView") },

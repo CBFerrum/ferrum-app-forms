@@ -8,11 +8,11 @@ import { ArrowLeft, BarChart3, Copy, Ellipsis, Eye, ExternalLink, Lock, RotateCc
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { api, ApiError, bootstrap, docPath, errorMessage } from "@ferrum/client";
-import { Alert, Badge, Button, confirmDialog, ErrorState, PageLoading, statusTone, TabPanel, Tabs, toast, useDebounced, useLiveEntity, useShellTitle, useUnsavedGuard } from "@ferrum/kit";
+import { Alert, Badge, Button, confirmDialog, ErrorState, PageLoading, TabPanel, Tabs, toast, useDebounced, useLiveEntity, useShellTitle, useUnsavedGuard } from "@ferrum/kit";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@ferrum/kit/primitives";
 import { type Basics, problems, type QRow, toPublic } from "./rows";
 import { Questions } from "./Cards";
-import { type Draft, draftOf, dirty as differs, type Fields, type FormDoc, patchOf, refusal, type Refusal, refused, type Status } from "./formdoc";
+import { type Draft, draftOf, dirty as differs, type Fields, type FormDoc, patchOf, refusal, type Refusal, refused, STATUS_LABEL, STATUS_TONE, type Status } from "./formdoc";
 import type { Receipt } from "./model";
 import { Runner } from "./Runner";
 import { Settings, Seg } from "./Settings";
@@ -288,7 +288,7 @@ function BuilderPage({ doc }: { doc: FormDoc }) {
             {no?.fields.title && <p className="field-error">{no.fields.title}</p>}
           </div>
           <div className="fm-actions">
-            <Badge tone={statusTone(status)}>{status}</Badge>
+            <Badge tone={STATUS_TONE[status]}>{STATUS_LABEL[status]}</Badge>
             <Button onClick={() => params({ preview: preview ? null : "1" })} aria-pressed={preview}>
               <Eye size={16} aria-hidden="true" />
               Preview

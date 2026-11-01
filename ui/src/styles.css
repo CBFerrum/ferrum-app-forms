@@ -163,6 +163,23 @@
 
 /* ── questions ── */
 
+/* A page arrives with a short fade, unless the person asked for less motion (below). */
+.fr-page {
+  animation: fr-in 0.18s ease-out;
+}
+
+@keyframes fr-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.fr-legend {
+  margin: 0 0 16px;
+  font-size: 13px;
+}
+
 .fr-page-title {
   margin-bottom: 20px;
   font-size: 20px;
