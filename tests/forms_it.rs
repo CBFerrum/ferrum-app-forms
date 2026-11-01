@@ -868,6 +868,7 @@ async fn notifications_and_mail(t: &T) {
         record_id: Some(rid),
         payload: json!({}),
         attempts: 1,
+        ..Default::default()
     };
     for sink in t.k.hooks.event_sinks() {
         sink.on_event(&t.k, &ev).await.expect("redelivery");
