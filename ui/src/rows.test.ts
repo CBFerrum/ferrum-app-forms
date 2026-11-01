@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { blankRow, changeKind, copyRow, deriveKey, earlier, alwaysShown, lines, move, nameFromLabel, problems, readers, renameKey, rowFromDoc, rowToDoc, toPublic, type QRow } from "./rows";
 import { visibility } from "./flow";
-import { complete, fromCel, needsValue, opsFor, toCel, type Condition, type Rule } from "./rules";
+import { complete, describe as say, fromCel, needsValue, opsFor, toCel, type Condition, type Rule } from "./rules";
 import type { Kind } from "./model";
 
 const row = (key: string, kind: Kind, more: Partial<QRow> = {}): QRow => ({ ...blankRow(kind, []), key, label: key, keyAuto: false, ...more });
@@ -185,6 +185,12 @@ describe("a condition written as rules", () => {
     expect(fromCel("size(answers.colours) > 1", rows)).toBeNull();
     expect(fromCel("answers.age +", rows)).toBeNull();
     expect(fromCel("answers.age > answers.age", rows)).toBeNull();
+  });
+
+  it("says a condition in words", () => {
+    const all: Condition = { join: "all", rules: [rule("age", "gte", "18"), rule("grid", "cell", "Bad", { row: "Speed" }), rule("note", "answered")] };
+    expect(say(all, rows)).toBe("age is at least “18” and grid: “Speed” is “Bad” and note is answered");
+    expect(say({ join: "any", rules: [rule("born", "lt", "2000-01-01"), rule("agree", "checked")] }, rows)).toBe("born is before “2000-01-01” or agree is ticked");
   });
 
   it("leaves out a rule that is not finished", () => {
