@@ -5,7 +5,7 @@
   <img alt="Ferrum Forms and Surveys" src="docs/assets/banner-light.svg" width="100%">
 </picture>
 
-[![CI](https://github.com/CBFerrum/ferrum-app-forms/actions/workflows/ci.yml/badge.svg)](https://github.com/CBFerrum/ferrum-app-forms/actions/workflows/ci.yml) ![Version](https://img.shields.io/badge/version-0.1.0-30a67d?style=flat-square) ![Ferrum](https://img.shields.io/badge/Ferrum-%3E%3D0.3%2C%20%3C0.4-2f5bea?style=flat-square) ![License](https://img.shields.io/badge/license-AGPL--3.0-3b82f6?style=flat-square) ![Rust](https://img.shields.io/badge/Rust-native%20app-b7410e?style=flat-square&logo=rust&logoColor=white) ![MCP](https://img.shields.io/badge/AI%20agents-MCP-8b5cf6?style=flat-square)
+[![CI](https://github.com/CBFerrum/ferrum-app-forms/actions/workflows/ci.yml/badge.svg)](https://github.com/CBFerrum/ferrum-app-forms/actions/workflows/ci.yml) ![Version](https://img.shields.io/badge/version-0.2.0-30a67d?style=flat-square) ![Ferrum](https://img.shields.io/badge/Ferrum-%3E%3D0.3%2C%20%3C0.4-2f5bea?style=flat-square) ![License](https://img.shields.io/badge/license-AGPL--3.0-3b82f6?style=flat-square) ![Rust](https://img.shields.io/badge/Rust-native%20app-b7410e?style=flat-square&logo=rust&logoColor=white) ![Interface](https://img.shields.io/badge/interface-React%20%2B%20Vite-0ea5e9?style=flat-square&logo=react&logoColor=white) ![MCP](https://img.shields.io/badge/AI%20agents-MCP-8b5cf6?style=flat-square)
 
 **A native app for [Ferrum](https://github.com/CBFerrum/Ferrum), the open-source, AI-first business platform.**
 
@@ -20,19 +20,22 @@
 Ferrum Forms is one engine for forms, surveys and quizzes: 21 question types, conditional logic
 in CEL, answers checked on the server, public or internal access with limits that hold under
 concurrency, an anonymous mode that keeps nothing about the respondent, and a mapping that turns
-each response into a record (a lead, a ticket, a customer, any entity).
+each response into a record (a lead, a ticket, a customer, any entity). A form's link opens a
+page anyone can fill in on a phone or a computer, page by page or one question at a time;
+people who build forms get a builder with a live preview, and the results with a chart for each
+question.
 
 
 | At a glance | |
 |---|---|
-| 📦 Version | `0.1.0` |
+| 📦 Version | `0.2.0` |
 | 🧱 Platform | Ferrum `>=0.3, <0.4` |
 | 🔗 Requires | nothing else |
-| 🖥️ Interface | Ferrum's records screens (`/data/forms/`) |
+| 🖥️ Interface | its own, at `/forms/`, and the page a form's link opens |
 | 🗃️ Records | 6 entities in 1 package |
 | 👥 Roles | 2: Forms Manager, Forms User |
 | 📊 Reports | 3 |
-| 🧪 Tests | 28 Rust tests |
+| 🧪 Tests | 30 Rust tests, 8 interface test files |
 
 
 ## Highlights
@@ -115,7 +118,7 @@ flowchart LR
 ```mermaid
 flowchart LR
     subgraph Browser
-        UI["Records screens<br/><small>/data/forms/</small>"]
+        UI["Forms interface<br/><small>/forms/ · the page a link opens</small>"]
         BAR["Ferrum bar<br/><small>launcher · search · bell</small>"]
     end
     subgraph Server["Ferrum server"]
@@ -194,6 +197,7 @@ Point the platform dependencies at your checkout (this file is git-ignored):
 ```toml
 # .cargo/config.toml
 [patch."https://github.com/CBFerrum/Ferrum"]
+ferrum-apps = { path = "../ferrum/crates/apps" }
 ferrum-calc = { path = "../ferrum/crates/calc" }
 ferrum-domain = { path = "../ferrum/crates/domain" }
 ferrum-kernel = { path = "../ferrum/crates/kernel" }
@@ -222,12 +226,27 @@ ferrum-app-erp = { path = "../ferrum-app-erp" }
 ```
 
 
+The interface lives in `ui/` and builds with Ferrum-Frontend's packages (cloned into `ferrum/web`):
+
+```bash
+cd ui
+npm run build      # ui/dist, checked against the size budget
+npm test
+```
+
+The page a respondent opens is `/forms/f/{workspace}/{form}` (`shell.public` in `app.yaml`); the
+rest of the interface sits behind sign-in. With a development server started with
+`FERRUM_DEV_UI=1`, `ferrum-app dev --ui` serves the pages from Vite behind the real bar and
+session, with hot reload.
+
+
 ### Project layout
 
 ```text
 app.yaml      the manifest: id, version, requirements, what it adds to Ferrum
 packages/     metadata: entities, roles, reports, workflows, print formats
 src/          the app's logic in Rust: hooks, actions, endpoints, upkeep jobs
+ui/           its own interface (React + Vite), built into ui/dist
 tests/        integration tests against a real PostgreSQL
 CHANGELOG.md  what changed in each version
 ```
@@ -236,6 +255,7 @@ CHANGELOG.md  what changed in each version
 
 | Version | Highlights |
 |---|---|
+| **0.2.0** | The page a form's link opens, a form builder with a live preview, settings in one place, and results with a chart for each question. |
 | **0.1.0** | First release: one engine for forms, surveys and quizzes. Forms hold 21 question types with lengths, bounds, linear-time patterns, defaults and … |
 
 Every version is in [CHANGELOG.md](CHANGELOG.md).

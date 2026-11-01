@@ -446,7 +446,9 @@ function Typed({ q, id, value, error, onChange, onCommit, zone }: FieldProps) {
       </Wrap>
     );
   }
-  const spec = INPUT[q.type] ?? { type: "text" };
+  const base = INPUT[q.type] ?? { type: "text" };
+  // The numeric keypads of phones have no minus sign: a number that can be negative gets the full keyboard.
+  const spec = (q.type === "number" || q.type === "decimal") && !(q.min !== undefined && q.min !== "" && Number(q.min) >= 0) ? { ...base, inputMode: undefined } : base;
   return (
     <Wrap q={q} id={id} error={error} group={false}>
       <input

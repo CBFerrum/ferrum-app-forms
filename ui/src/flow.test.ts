@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { check, initial, normalize, pagesOf, payload, sentence, visibility, zonedNow, type Env } from "./flow";
+import { check, initial, normalize, pagesOf, payload, refusedAnswers, sentence, visibility, zonedNow, type Env } from "./flow";
 import type { PForm, PQuestion } from "./model";
 
 const env: Env = { today: "2026-10-29", now: "2026-10-29T10:00:00+05:30" };
@@ -201,5 +201,18 @@ describe("the workspace's day", () => {
     expect(zonedNow("Asia/Kolkata", at)).toEqual({ today: "2026-10-30", now: "2026-10-30T01:30:00+05:30" });
     expect(zonedNow("America/New_York", at)).toEqual({ today: "2026-10-29", now: "2026-10-29T16:00:00-04:00" });
     expect(zonedNow("Nowhere/Land", at).today, "an unknown zone reads as UTC").toBe("2026-10-29");
+  });
+});
+
+describe("what the server refused", () => {
+  it("goes back to the question it names, on its page", () => {
+    const f = form([q("a", "short_text", { max_length: 5 }), q("p", "page_break"), q("b", "number"), q("c", "email")]);
+    const pages = pagesOf(f, visibility(f, {}, env));
+    const r = refusedAnswers(f, [{ field: "c", message: "not a valid email address" }, { field: "b", message: "must be a whole number" }, { field: "token", message: "reload the form" }], pages);
+    expect(r.errors).toEqual({ c: "Enter a valid email address, like name@example.com.", b: "Enter a whole number." });
+    expect(r.first).toBe("b");
+    expect(r.pageId).toBe("p");
+    expect(r.rest).toEqual(["Reload the form."]);
+    expect(refusedAnswers(f, [{ field: "answers", message: "too many answers" }], pages)).toMatchObject({ first: null, pageId: null, rest: ["Too many answers."] });
   });
 });

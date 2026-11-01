@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { blankRow, changeKind, copyRow, deriveKey, earlier, alwaysShown, lines, move, nameFromLabel, problems, readers, renameKey, rowFromDoc, rowToDoc, toPublic, type QRow } from "./builder";
+import { blankRow, changeKind, copyRow, deriveKey, earlier, alwaysShown, lines, move, nameFromLabel, problems, readers, renameKey, rowFromDoc, rowToDoc, toPublic, type QRow } from "./rows";
 import { visibility } from "./flow";
 import { complete, fromCel, needsValue, opsFor, toCel, type Condition, type Rule } from "./rules";
 import type { Kind } from "./model";
@@ -221,5 +221,18 @@ describe("a condition written as rules", () => {
 describe("lines of text", () => {
   it("drops blanks and trims", () => {
     expect(lines(" a \r\n\n b\n")).toEqual(["a", "b"]);
+  });
+});
+
+import { TEMPLATES } from "./templates";
+
+describe("the starting points", () => {
+  it("are finished forms: nothing in them for the server to refuse", () => {
+    for (const t of TEMPLATES) {
+      const rows = t.rows();
+      expect(problems(rows).flat(), t.name).toEqual([]);
+      expect(new Set(rows.map((r) => r.key)).size, t.name).toBe(rows.length);
+    }
+    expect(TEMPLATES.find((t) => t.id === "quiz")?.rows().every((r) => r.correct_answer !== null)).toBe(true);
   });
 });

@@ -333,6 +333,29 @@ export function sentence(message: string): string {
   return /[.!?]$/.test(s) ? s : `${s}.`;
 }
 
+/** What the server refused (a 422's field errors), put where a respondent can fix it: on the
+ *  questions they name, the first of them (in the form's order) and the page it is on. */
+export interface Refused {
+  errors: Record<string, string>;
+  first: string | null;
+  pageId: string | null;
+  /** Reasons that belong to no question. */
+  rest: string[];
+}
+
+export function refusedAnswers(form: PForm, fields: { field: string; message: string }[], pages: Page[]): Refused {
+  const at = new Map(form.questions.map((q, i) => [q.key, i]));
+  const out: Refused = { errors: {}, first: null, pageId: null, rest: [] };
+  for (const f of fields) {
+    if (at.has(f.field)) out.errors[f.field] ??= sentence(f.message);
+    else out.rest.push(sentence(f.message));
+  }
+  out.first = Object.keys(out.errors).sort((a, b) => (at.get(a) ?? 0) - (at.get(b) ?? 0))[0] ?? null;
+  const index = out.first === null ? -1 : (at.get(out.first) ?? -1);
+  out.pageId = pages.find((p) => p.items.includes(index))?.id ?? null;
+  return out;
+}
+
 // ───────────────────────────── sending ─────────────────────────────
 
 /** A file as a data URL, which the server takes as `content_base64`. */

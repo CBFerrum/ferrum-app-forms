@@ -1,7 +1,7 @@
 // What a respondent sees after sending: thanks, where they go next, and for a quiz the result.
 
 import { Check, CircleX, Copy } from "lucide-react";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { toast } from "@ferrum/kit";
 import type { Kind, PForm, QuizResult, Receipt } from "./model";
 import { safeRedirect } from "./site";
@@ -68,13 +68,16 @@ export function Thanks({ receipt, form, preview, resultLink, onAgain }: { receip
     return () => clearTimeout(t);
   }, [next]);
   const types = Object.fromEntries(form.questions.map((q) => [q.key, q.type]));
+  // The thanks is announced and starts where the form was.
+  const title = useRef<HTMLHeadingElement>(null);
+  useEffect(() => title.current?.focus({ preventScroll: true }), []);
   const message = receipt.message === DEFAULT_THANKS ? "Your response was recorded." : receipt.message;
   return (
     <div className="fr-thanks" role="status">
       <span className="fr-tick-big" aria-hidden="true">
         <Check size={30} />
       </span>
-      <h2 tabIndex={-1} className="fr-thanks-title">
+      <h2 ref={title} tabIndex={-1} className="fr-thanks-title">
         Thank you
       </h2>
       <p className="fr-thanks-message">{message}</p>

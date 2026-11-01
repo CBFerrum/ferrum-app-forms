@@ -4,7 +4,7 @@
 // other condition stays CEL text, and is still run, shown and edited as it is.
 
 import { Dbl, compile, quote, type Node } from "./cel";
-import type { QRow } from "./builder";
+import type { QRow } from "./rows";
 import type { Kind } from "./model";
 
 export type Op =
@@ -249,4 +249,21 @@ export function fromCel(src: string, rows: QRow[]): Condition | null {
     rules.push(r);
   }
   return { join: top.op === "&&" ? "all" : "any", rules };
+}
+
+// ───────────────────────────── in words ─────────────────────────────
+
+/** A condition as a sentence: "Country is “IN” and Age is at least “18”". */
+export function describe(c: Condition, rows: QRow[]): string {
+  const by = new Map(rows.map((r) => [r.key, r]));
+  const parts = c.rules
+    .filter((r) => r.key)
+    .map((r) => {
+      const q = by.get(r.key);
+      const name = q?.label.trim() || r.key;
+      const op = opLabel(r.op, q?.question_type ?? "short_text");
+      if (r.op === "cell") return `${name}: “${r.row ?? ""}” ${op} “${r.value}”`;
+      return needsValue(r.op) ? `${name} ${op} “${r.value}”` : `${name} ${op}`;
+    });
+  return parts.join(c.join === "all" ? " and " : " or ");
 }

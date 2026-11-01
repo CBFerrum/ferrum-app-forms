@@ -1,7 +1,32 @@
 # Changelog
 
-## Unreleased
+## 0.2.0
 
+- **A page for the people who answer.** A form's link now opens a page anyone can fill in, with no
+  sign-in: page by page (page breaks end a page) or one question at a time, with a progress bar,
+  Back and Next, and a Send that is safe to press twice. Questions appear and go away as the
+  answers before them say; mistakes are explained under the question, in plain words; what was
+  typed is kept in the tab if the page reloads or runs out; files can be attached; quizzes show
+  their result and a link to come back to it. A closed form, a full one, one that is not open yet,
+  and a link that leads nowhere each say so. It works at 375 pixels and with a keyboard, and it
+  wears the form's colour and logo. Forms for the workspace's own people open at the same link
+  once the person has signed in.
+- **A builder instead of a grid of cells.** Add questions from a list of the 21 types, open one to
+  write it, and move it by dragging, with Alt and the arrow keys, or from its menu. Options are
+  written one per line. "Show only if…" takes rules (a question, what to compare, a value) and any
+  other condition as CEL. Each card says what is wrong with it before the server does, and what
+  the server refuses lands on the card or the setting it is about. Preview the form as a phone or a
+  computer sees it, publish, close, reopen and copy it from the same page, and start a new one from
+  a contact form, a registration, a feedback survey or a quiz.
+- **Settings, in one place.** Who can answer and how often, when it opens and closes, the
+  thank-you message and where people go next, who is told, the email to respondents, the colour
+  and logo, a quiz's pass mark, and the record each response creates.
+- **Results.** The numbers for a chosen period (responses, how many finished, how long it took),
+  a chart for each question (bars for choices, columns for ratings, a score for NPS, a table for
+  grids, the words people wrote), and every response to read, with review, spam and "make the
+  record" in a panel that moves from one response to the next. Export keeps the period and the
+  filter. Share the form from its page: the link, copy, and a link that fills in an answer.
+- A form can now go **page by page or one question at a time** (a new setting, "layout").
 - Declares where it keeps people's personal data, so Administration → Personal data exports and
   erases it for a person (by email).
 - Owner emails and autoresponses no longer need the Mail app: without it they go through the
