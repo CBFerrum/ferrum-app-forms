@@ -3,7 +3,7 @@
 
 import { useEffect } from "react";
 import { shell } from "@ferrum/client";
-import { RequireAuth, setFrameMode } from "./records";
+import { RequireAuth, setFrameMode } from "@ferrum/records/frame";
 
 /** Forms' packages: the sidebar shows their modules. */
 setFrameMode("app", ["forms"]);
