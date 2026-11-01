@@ -7,7 +7,7 @@ import { type ReactNode, useId, useState } from "react";
 import { api, errorMessage } from "@ferrum/client";
 import { Field, toast } from "@ferrum/kit";
 import { useEntityMeta, useMetaIndex } from "@ferrum/records";
-import { alwaysShown, lines, type QRow } from "./rows";
+import { alwaysShown, fits, lines, type QRow } from "./rows";
 import type { Fields, MapRow } from "./formdoc";
 import { hexOf } from "./accent";
 
@@ -101,41 +101,46 @@ function Mapping({ fields, set, rows, error }: { fields: Fields; set: (p: Partia
                   </tr>
                 </thead>
                 <tbody>
-                  {map.map((m, i) => (
-                    <tr key={i}>
-                      <td>
-                        <select className="select" aria-label="Field" value={m.target_field} onChange={(e) => setRow(i, { target_field: e.target.value })}>
-                          <option value="">Choose a field…</option>
-                          {m.target_field && !writable.some((f) => f.name === m.target_field) && <option value={m.target_field}>{m.target_field}</option>}
-                          {writable.map((f) => (
-                            <option key={f.name} value={f.name}>
-                              {f.label}
-                              {f.required ? " *" : ""}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td>
-                        <div className="fm-from">
-                          <select className="select" aria-label="Filled from" value={m.question || (m.value ? FIXED : "")} onChange={(e) => setRow(i, e.target.value === FIXED ? { question: "", value: m.value || " " } : { question: e.target.value, value: "" })}>
-                            <option value="">Choose…</option>
-                            <option value={FIXED}>A fixed value</option>
-                            {questions.map((q) => (
-                              <option key={q.uid} value={q.key}>
-                                {q.label.trim() || q.key}
+                  {map.map((m, i) => {
+                    const f = writable.find((x) => x.name === m.target_field);
+                    return (
+                      <tr key={i}>
+                        <td>
+                          <select className="select" aria-label="Field" value={m.target_field} onChange={(e) => setRow(i, { target_field: e.target.value })}>
+                            <option value="">Choose a field…</option>
+                            {m.target_field && !writable.some((f) => f.name === m.target_field) && <option value={m.target_field}>{m.target_field}</option>}
+                            {writable.map((f) => (
+                              <option key={f.name} value={f.name}>
+                                {f.label}
+                                {f.required ? " *" : ""}
                               </option>
                             ))}
                           </select>
-                          {!m.question && m.value !== "" && <input className="input" aria-label="Fixed value" value={m.value.trim() === "" ? "" : m.value} onChange={(e) => setRow(i, { value: e.target.value || " " })} placeholder="The value" />}
-                        </div>
-                      </td>
-                      <td>
-                        <button type="button" className="icon-btn" aria-label="Remove this line" onClick={() => set({ field_map: map.filter((_, j) => j !== i) })}>
-                          <Trash2 size={16} aria-hidden="true" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td>
+                          <div className="fm-from">
+                            <select className="select" aria-label="Filled from" value={m.question || (m.value ? FIXED : "")} onChange={(e) => setRow(i, e.target.value === FIXED ? { question: "", value: m.value || " " } : { question: e.target.value, value: "" })}>
+                              <option value="">Choose…</option>
+                              <option value={FIXED}>A fixed value</option>
+                              {questions
+                                .filter((q) => q.key === m.question || !f || fits(f, q))
+                                .map((q) => (
+                                  <option key={q.uid} value={q.key}>
+                                    {q.label.trim() || q.key}
+                                  </option>
+                                ))}
+                            </select>
+                            {!m.question && m.value !== "" && <input className="input" aria-label="Fixed value" value={m.value.trim() === "" ? "" : m.value} onChange={(e) => setRow(i, { value: e.target.value || " " })} placeholder="The value" />}
+                          </div>
+                        </td>
+                        <td>
+                          <button type="button" className="icon-btn" aria-label="Remove this line" onClick={() => set({ field_map: map.filter((_, j) => j !== i) })}>
+                            <Trash2 size={16} aria-hidden="true" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
               <div className="row">

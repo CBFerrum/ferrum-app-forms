@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { blankRow, changeKind, copyRow, deriveKey, earlier, alwaysShown, lines, move, nameFromLabel, problems, readers, renameKey, rowFromDoc, rowToDoc, toPublic, type QRow } from "./rows";
+import { alwaysShown, blankRow, changeKind, copyRow, deriveKey, earlier, fits, lines, move, nameFromLabel, problems, readers, renameKey, rowFromDoc, rowToDoc, toPublic, type QRow } from "./rows";
 import { visibility } from "./flow";
 import { complete, describe as say, fromCel, needsValue, opsFor, toCel, type Condition, type Rule } from "./rules";
 import type { Kind } from "./model";
@@ -240,5 +240,28 @@ describe("the starting points", () => {
       expect(new Set(rows.map((r) => r.key)).size, t.name).toBe(rows.length);
     }
     expect(TEMPLATES.find((t) => t.id === "quiz")?.rows().every((r) => r.correct_answer !== null)).toBe(true);
+  });
+});
+
+describe("which answer fills which field of a record", () => {
+  it("follows the rules of src/mapping.rs", () => {
+    const q = (kind: Kind, more: Partial<QRow> = {}) => row("q", kind, more);
+    expect(fits({ type: "email" }, q("email"))).toBe(true);
+    expect(fits({ type: "email" }, q("short_text"))).toBe(false);
+    expect(fits({ type: "data", max_length: 140 }, q("short_text", { max_length: 80 }))).toBe(true);
+    expect(fits({ type: "data", max_length: 140 }, q("short_text"))).toBe(false);
+    expect(fits({ type: "data" }, q("long_text"))).toBe(false);
+    expect(fits({ type: "text" }, q("long_text"))).toBe(true);
+    expect(fits({ type: "text" }, q("matrix"))).toBe(false);
+    expect(fits({ type: "int" }, q("rating"))).toBe(true);
+    expect(fits({ type: "int" }, q("decimal"))).toBe(false);
+    expect(fits({ type: "currency" }, q("decimal"))).toBe(true);
+    expect(fits({ type: "check" }, q("checkbox"))).toBe(true);
+    expect(fits({ type: "select", options: ["A", "B", "C"] }, q("select", { options: ["A", "B"] }))).toBe(true);
+    expect(fits({ type: "select", options: ["A"] }, q("select", { options: ["A", "B"] }))).toBe(false);
+    expect(fits({ type: "select", options: ["A", "B"] }, q("select", { options: ["A"], allow_other: true }))).toBe(false);
+    expect(fits({ type: "json" }, q("ranking"))).toBe(true);
+    expect(fits({ type: "link" }, q("short_text"))).toBe(false);
+    expect(fits({ type: "data" }, q("statement"))).toBe(false);
   });
 });
