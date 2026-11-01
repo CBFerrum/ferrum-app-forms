@@ -44,6 +44,7 @@ export function ResultsRoute() {
   const from = day(sp.get("from"));
   const to = day(sp.get("to"));
   const open = sp.get("open");
+  const cols = sp.get("cols") ? (sp.get("cols") as string).split(",").filter(Boolean) : null;
   const zone = bootstrap()?.locale.timezone ?? "UTC";
   const today = zonedNow(zone).today;
   const meta = useEntityMeta("FormResponse").data;
@@ -220,6 +221,8 @@ export function ResultsRoute() {
             to={to}
             open={open}
             canRecord={typeof form.target_entity === "string" && form.target_entity !== ""}
+            cols={cols}
+            onCols={(keys) => set({ cols: keys && keys.length ? keys.join(",") : null })}
             onStatus={(v) => set({ status: v || null })}
             onOpen={(rid) => set({ open: rid, view: "responses" })}
           />

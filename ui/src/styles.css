@@ -2221,6 +2221,11 @@ a.fm-tile:hover {
   white-space: nowrap;
 }
 
+.fm-columns-menu {
+  max-height: 20rem;
+  overflow-y: auto;
+}
+
 .fm-more-row {
   display: flex;
   justify-content: center;

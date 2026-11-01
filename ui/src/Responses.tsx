@@ -3,11 +3,11 @@
 // the next and the one before.
 
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, ExternalLink, Paperclip } from "lucide-react";
+import { ChevronLeft, ChevronRight, Columns3, ExternalLink, Paperclip } from "lucide-react";
 import { type ReactNode, useEffect } from "react";
 import { api, docPath, errorMessage, formatDateTime, shell } from "@ferrum/client";
 import { Badge, Button, EmptyState, ErrorState, Spinner, statusTone, toast } from "@ferrum/kit";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@ferrum/kit/primitives";
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger, Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@ferrum/kit/primitives";
 import { listOf } from "./rows";
 import { answerable, type Kind } from "./model";
 import { answerText, dayStart, duration, shiftDay } from "./stats";
@@ -231,11 +231,14 @@ export interface ResponsesProps {
   to: string | null;
   open: string | null;
   canRecord: boolean;
+  /** The questions shown as columns (null: the first few). */
+  cols: string[] | null;
+  onCols: (keys: string[] | null) => void;
   onStatus: (s: string) => void;
   onOpen: (id: string | null) => void;
 }
 
-export function Responses({ formId, asked, zone, status, from, to, open, canRecord, onStatus, onOpen }: ResponsesProps) {
+export function Responses({ formId, asked, zone, status, from, to, open, canRecord, cols, onCols, onStatus, onOpen }: ResponsesProps) {
   const qc = useQueryClient();
   const filters: unknown[] = [["form", "=", formId], status ? ["status", "=", status] : ["status", "!=", "Spam"]];
   if (from) filters.push(["submitted_at", ">=", dayStart(from, zone)]);
@@ -248,7 +251,9 @@ export function Responses({ formId, asked, zone, status, from, to, open, canReco
     getNextPageParam: (last) => last.next_cursor || undefined,
   });
   const rows = list.data?.pages.flatMap((p) => p.rows) ?? [];
-  const columns = asked.filter((a) => ["short_text", "email", "phone", "number", "decimal", "date", "select", "dropdown", "likert", "rating", "nps", "checkbox", "multi_select"].includes(a.type)).slice(0, 3);
+  // The questions that read well in a cell come first; a person can choose others.
+  const handy = asked.filter((a) => ["short_text", "email", "phone", "number", "decimal", "date", "select", "dropdown", "likert", "rating", "nps", "checkbox", "multi_select"].includes(a.type));
+  const columns = cols ? asked.filter((a) => cols.includes(a.key)) : handy.slice(0, 3);
   const changed = () => {
     void qc.invalidateQueries({ queryKey: ["forms", "responses", formId] });
     void qc.invalidateQueries({ queryKey: ["forms", "summary", formId] });
@@ -326,12 +331,40 @@ export function Responses({ formId, asked, zone, status, from, to, open, canReco
 
   return (
     <div className="fm-responses">
-      <div className="chips" role="group" aria-label="Show">
-        {STATUS.map(([v, label]) => (
-          <button key={v} type="button" className="chip" aria-pressed={status === v} onClick={() => onStatus(v)}>
-            {label}
-          </button>
-        ))}
+      <div className="fm-tools">
+        <div className="chips" role="group" aria-label="Show">
+          {STATUS.map(([v, label]) => (
+            <button key={v} type="button" className="chip" aria-pressed={status === v} onClick={() => onStatus(v)}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <span className="spacer" />
+        {asked.length > 0 && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button>
+                <Columns3 size={16} aria-hidden="true" />
+                Columns
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="fm-columns-menu">
+              {asked.map((a) => (
+                <DropdownMenuCheckboxItem
+                  key={a.key}
+                  checked={columns.some((c) => c.key === a.key)}
+                  onSelect={(e) => e.preventDefault()}
+                  onCheckedChange={(on) => {
+                    const keys = columns.map((c) => c.key);
+                    onCols((on ? asked.filter((x) => keys.includes(x.key) || x.key === a.key) : asked.filter((x) => keys.includes(x.key) && x.key !== a.key)).map((x) => x.key));
+                  }}
+                >
+                  {a.label || a.key}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
       {body}
       <Sheet open={!!open} onOpenChange={(o) => !o && onOpen(null)}>
