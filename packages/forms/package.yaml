@@ -27,3 +27,6 @@ roles:
     permissions:
       - {entity: Form, read: true, write: true, create: true, delete: true, export: true, if_owner: true, read_groups: [ownership]}
       - {entity: FormResponse, read: true, write: true, delete: true, export: true, if_owner: true}
+handover:
+  - {entity: Form, field: owner, where: {status: [Draft, Published]}}
+  - {entity: FormResponse, field: form_owner, where: {status: New}}
