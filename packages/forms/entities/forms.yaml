@@ -86,6 +86,8 @@
     - {name: autoresponder, type: check, description: "Email the respondent (the email question's answer) after they respond; needs the Mail app. At most one per address and form a day"}
     - {name: autoresponder_subject, type: data, max_length: 200}
     - {name: autoresponder_message, type: text, max_length: 5000, description: Plain text}
+    - {name: layout, type: select, options: [Pages, One question at a time], default: Pages,
+       description: "How respondents go through it. Pages: page breaks end a page (a form with none is a single page). One question at a time: each question fills the screen"}
     - {name: accent_color, type: color}
     - {name: logo, type: attach, max_length: 1000, description: "A public image (/files/public/<id>, uploaded with public=true) or an https URL"}
     - {name: passing_score, type: percent, min: "0", max: "100", description: "Quiz: share of the points needed to pass"}
@@ -107,7 +109,7 @@
     - {label: Autoresponse, collapsible: true, fields: [autoresponder, autoresponder_subject, autoresponder_message], tab: Settings}
     - {label: Quiz, fields: [passing_score, reveal_answers], tab: Settings, visible_if: "doc.kind == 'Quiz'"}
     - {label: Create Records, collapsible: true, fields: [target_entity, field_map], tab: Settings}
-    - {label: Look, collapsible: true, fields: [accent_color, logo, published_at], tab: Settings}
+    - {label: Look, collapsible: true, fields: [layout, accent_color, logo, published_at], tab: Settings}
   list: {columns: [title, kind, status, slug], sort: title asc}
 
 - name: FormResponse
