@@ -1,5 +1,6 @@
 // A new form: the title, and something to start from. It is made as a draft and opens in the builder.
 
+import { useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { useNavigate, Link } from "react-router";
 import { api, errorMessage } from "@ferrum/client";
@@ -12,6 +13,7 @@ import { TEMPLATES } from "./templates";
 export function New() {
   useShellTitle("New form");
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const meta = useEntityMeta("Form");
   const [picked, setPicked] = useState(TEMPLATES[0].id);
   const [title, setTitle] = useState("");
@@ -30,6 +32,7 @@ export function New() {
         questions: template.rows().map(rowToDoc),
         ...template.settings,
       });
+      void qc.invalidateQueries({ queryKey: ["forms", "list"] });
       navigate(`/b/${made.id}`, { replace: true });
     } catch (err) {
       setError(errorMessage(err));

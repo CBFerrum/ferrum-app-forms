@@ -3,7 +3,7 @@
 // every link already sent would stop working.
 
 import { Copy, ExternalLink, Globe, Lock } from "lucide-react";
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { bootstrap } from "@ferrum/client";
 import { confirmDialog, Field, toast } from "@ferrum/kit";
 import type { QRow } from "./rows";
@@ -57,11 +57,18 @@ export function Share({ fields: f, set, rows, status, savedSlug, errors, dirty, 
     f.one_response_per === "Email" ? "One response per email address." : f.one_response_per === "User" ? "One response per person." : null,
   ].filter(Boolean);
 
-  const changeAddress = async (value: string) => {
-    const next = value.trim().toLowerCase();
+  // The address is typed, and set when the field is left: a live form asks first.
+  const [typed, setTyped] = useState(f.slug);
+  useEffect(() => setTyped(f.slug), [f.slug]);
+  const leave = async () => {
+    const next = typed.trim().toLowerCase();
+    if (next === f.slug) return;
     if (live && savedSlug && next !== savedSlug) {
       const ok = await confirmDialog({ title: "Change the address?", message: `Links already sent to ${savedSlug} will stop working once you save.`, confirmLabel: "Change it", danger: true });
-      if (!ok) return;
+      if (!ok) {
+        setTyped(f.slug);
+        return;
+      }
     }
     set({ slug: next });
   };
@@ -116,7 +123,7 @@ export function Share({ fields: f, set, rows, status, savedSlug, errors, dirty, 
       <section className="fm-section">
         <h2 className="fm-section-title">Its address</h2>
         <Field label="The last part of the link" htmlFor={`${id}-slug`} hint="Lower-case letters, numbers and hyphens." error={errors.slug}>
-          <input id={`${id}-slug`} className="input" value={f.slug} spellCheck={false} autoCapitalize="off" onChange={(e) => set({ slug: e.target.value.toLowerCase().replace(/\s+/g, "-") })} onBlur={(e) => void changeAddress(e.target.value)} />
+          <input id={`${id}-slug`} className="input" value={typed} spellCheck={false} autoCapitalize="off" onChange={(e) => setTyped(e.target.value.toLowerCase().replace(/\s+/g, "-"))} onBlur={() => void leave()} />
         </Field>
       </section>
 

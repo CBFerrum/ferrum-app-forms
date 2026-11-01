@@ -3,7 +3,7 @@
 // help; the look is in styles.css. Answers are held as `Raw` (flow.ts).
 
 import { ArrowDown, ArrowUp, Paperclip, Star, X } from "lucide-react";
-import { type DragEvent, type ReactNode, useId, useState } from "react";
+import { type DragEvent, type ReactNode, useId, useRef, useState } from "react";
 import { extension, type Raw, UPLOAD_LIMIT } from "./flow";
 import type { PQuestion } from "./model";
 
@@ -86,11 +86,34 @@ function Choice({ type, name, checked, onChange, children }: { type: "radio" | "
   );
 }
 
+/** "Other": a choice that is a text of the person's own. What they type is kept apart from the
+ *  options, so typing a word that is also an option does not switch it. */
+function useOther(v: string, options: string[], onChange: (v: string) => void) {
+  const typed = v !== "" && !options.includes(v);
+  const [on, setOn] = useState(typed);
+  const [text, setText] = useState(typed ? v : "");
+  const box = useRef<HTMLInputElement>(null);
+  return {
+    on,
+    text,
+    box,
+    choose: () => {
+      setOn(true);
+      onChange(text);
+      setTimeout(() => box.current?.focus(), 0);
+    },
+    leave: () => setOn(false),
+    type: (t: string) => {
+      setText(t);
+      onChange(t);
+    },
+  };
+}
+
 function Single({ q, id, value, error, onChange, onPick }: FieldProps) {
   const options = q.options ?? [];
   const v = text(value);
-  const typed = v !== "" && !options.includes(v);
-  const [other, setOther] = useState(typed);
+  const other = useOther(v, options, onChange);
   return (
     <Wrap q={q} id={id} error={error} group>
       <div className={q.type === "likert" ? "fr-choices fr-likert" : "fr-choices"}>
@@ -99,9 +122,9 @@ function Single({ q, id, value, error, onChange, onPick }: FieldProps) {
             key={o}
             type="radio"
             name={id}
-            checked={!other && v === o}
+            checked={!other.on && v === o}
             onChange={() => {
-              setOther(false);
+              other.leave();
               onChange(o);
               onPick?.();
             }}
@@ -111,18 +134,10 @@ function Single({ q, id, value, error, onChange, onPick }: FieldProps) {
         ))}
         {q.allow_other && (
           <div className="fr-other">
-            <Choice
-              type="radio"
-              name={id}
-              checked={other}
-              onChange={() => {
-                setOther(true);
-                onChange("");
-              }}
-            >
+            <Choice type="radio" name={id} checked={other.on} onChange={other.choose}>
               Other
             </Choice>
-            {other && <input className="input" autoFocus aria-label={`${q.label}: your own answer`} maxLength={200} value={typed ? v : ""} onChange={(e) => onChange(e.target.value)} />}
+            {other.on && <input ref={other.box} className="input" aria-label={`${q.label}: your own answer`} maxLength={200} value={other.text} onChange={(e) => other.type(e.target.value)} />}
           </div>
         )}
       </div>
@@ -133,21 +148,18 @@ function Single({ q, id, value, error, onChange, onPick }: FieldProps) {
 function Dropdown({ q, id, value, error, onChange, onPick }: FieldProps) {
   const options = q.options ?? [];
   const v = text(value);
-  const typed = v !== "" && !options.includes(v);
-  const [other, setOther] = useState(typed);
+  const other = useOther(v, options, onChange);
   return (
     <Wrap q={q} id={id} error={error} group={false}>
       <select
         id={`${id}-input`}
         className="select"
         {...described(q, id, error)}
-        value={other ? "__other__" : v}
+        value={other.on ? "__other__" : v}
         onChange={(e) => {
-          if (e.target.value === "__other__") {
-            setOther(true);
-            onChange("");
-          } else {
-            setOther(false);
+          if (e.target.value === "__other__") other.choose();
+          else {
+            other.leave();
             onChange(e.target.value);
             if (e.target.value) onPick?.();
           }
@@ -159,9 +171,9 @@ function Dropdown({ q, id, value, error, onChange, onPick }: FieldProps) {
             {o}
           </option>
         ))}
-        {q.allow_other && <option value={"__other__"}>Other…</option>}
+        {q.allow_other && <option value="__other__">Other…</option>}
       </select>
-      {other && <input className="input fr-other-text" autoFocus aria-label={`${q.label}: your own answer`} maxLength={200} value={typed ? v : ""} onChange={(e) => onChange(e.target.value)} />}
+      {other.on && <input ref={other.box} className="input fr-other-text" aria-label={`${q.label}: your own answer`} maxLength={200} value={other.text} onChange={(e) => other.type(e.target.value)} />}
     </Wrap>
   );
 }
@@ -173,6 +185,7 @@ function Multi({ q, id, value, error, onChange }: FieldProps) {
   const typed = chosen.find((x) => !options.includes(x)) ?? "";
   const [other, setOther] = useState(typed !== "");
   const [otherText, setOtherText] = useState(typed);
+  const box = useRef<HTMLInputElement>(null);
   const emit = (list: string[], on: boolean, t: string) => onChange([...list, ...(on && t !== "" ? [t] : [])]);
   const lo = q.min ? Number(q.min) : 0;
   const hi = q.max ? Number(q.max) : 0;
@@ -188,13 +201,22 @@ function Multi({ q, id, value, error, onChange }: FieldProps) {
         ))}
         {q.allow_other && (
           <div className="fr-other">
-            <Choice type="checkbox" name={id} checked={other} onChange={() => (setOther(!other), emit(picked, !other, otherText))}>
+            <Choice
+              type="checkbox"
+              name={id}
+              checked={other}
+              onChange={() => {
+                setOther(!other);
+                emit(picked, !other, otherText);
+                if (!other) setTimeout(() => box.current?.focus(), 0);
+              }}
+            >
               Other
             </Choice>
             {other && (
               <input
+                ref={box}
                 className="input"
-                autoFocus
                 aria-label={`${q.label}: your own answer`}
                 maxLength={200}
                 value={otherText}
@@ -362,6 +384,7 @@ function Upload({ q, id, value, error, onChange }: FieldProps) {
   const accept = (q.accept ?? []).map((e) => `.${e}`).join(",");
   const add = (list: FileList | File[]) => {
     const fresh = [...list].filter((f) => !files.some((x) => x.name === f.name && x.size === f.size));
+    if (!fresh.length) return;
     // One file replaces the last choice; several add up to the limit (the page says if it is too many).
     onChange(max === 1 ? fresh.slice(0, 1) : [...files, ...fresh]);
   };
