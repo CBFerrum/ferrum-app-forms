@@ -446,3 +446,47 @@ export function toPublic(b: Basics, rows: QRow[]): PForm {
     questions: rows.map(toPublicQuestion),
   };
 }
+
+// ───────────────────────────── filling a record from a question ─────────────────────────────
+
+/** Whether a question's answer can fill a field of another record (src/mapping.rs `compatible`). */
+export function fits(field: { type: string; options?: string[]; max_length?: number }, q: QRow): boolean {
+  const k = q.question_type;
+  if (!answerable(k)) return false;
+  switch (field.type) {
+    case "data":
+      return k !== "matrix" && k !== "file" && k !== "long_text" && !(k === "short_text" && (q.max_length ?? 500) > (field.max_length ?? 1000));
+    case "text":
+    case "markdown":
+    case "code":
+      return k !== "matrix" && k !== "file";
+    case "email":
+      return k === "email";
+    case "phone":
+      return k === "phone";
+    case "url":
+      return k === "short_text";
+    case "int":
+      return k === "number" || k === "rating" || k === "nps";
+    case "decimal":
+    case "currency":
+    case "percent":
+      return k === "number" || k === "decimal" || k === "rating" || k === "nps";
+    case "date":
+      return k === "date";
+    case "datetime":
+      return k === "datetime";
+    case "check":
+      return k === "checkbox";
+    case "select": {
+      const labels = k === "likert" && !q.options.length ? LIKERT_DEFAULT : q.options;
+      return (k === "select" || k === "dropdown" || k === "likert") && !q.allow_other && labels.every((o) => field.options?.includes(o));
+    }
+    case "attach":
+      return k === "file";
+    case "json":
+      return true;
+    default:
+      return false;
+  }
+}
