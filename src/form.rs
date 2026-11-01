@@ -121,6 +121,7 @@ impl FormView {
             "anonymous": self.anonymous,
             "closes_at": self.closes_at.map(|t| t.to_rfc3339_opts(SecondsFormat::Millis, true)),
             "theme": {"accent_color": self.text("accent_color"), "logo": self.text("logo")},
+            "layout": if self.text("layout") == Some("One question at a time") { "single" } else { "pages" },
             "questions": self.def.questions.iter().map(|q| q.public()).collect::<Vec<_>>(),
         })
     }
@@ -548,6 +549,13 @@ mod tests {
         ]}));
         let text = v.public().to_string();
         assert!(!text.contains("correct") && !text.contains("points") && !text.contains("passing"), "{text}");
+    }
+
+    #[test]
+    fn the_public_definition_says_how_to_go_through_it() {
+        assert_eq!(view(json!({})).public()["layout"], "pages", "forms made before the setting go page by page");
+        assert_eq!(view(json!({"layout": "Pages"})).public()["layout"], "pages");
+        assert_eq!(view(json!({"layout": "One question at a time"})).public()["layout"], "single");
     }
 
     #[test]

@@ -1,6 +1,6 @@
 id: forms
 name: Forms and Surveys
-version: 0.1.0
+version: 0.2.0
 publisher: cbferrum
 summary: "Form and survey builder with public links, conditional logic, validations, file uploads, record creation from responses, quizzes, NPS and analytics"
 description: README.md
@@ -12,3 +12,28 @@ runtime: native
 platform: ">=0.3, <0.4"
 packages: [forms]
 uninstall: ask
+# Its own interface at /forms/ (Ferrum docs/plan/apps-ui.md §13): the form people fill in, the
+# builder and the results, built from ui/ into ui/dist. A form's logo may be any https image.
+ui:
+  dist: ui/dist
+  csp:
+    img: ["https:"]
+contributes:
+  shell.app:
+    - id: forms
+      route: forms
+      title: Forms
+      description: Forms, surveys and quizzes
+      icon: clipboard-list
+      color: "#30a67d"
+      roles: [Forms User, Forms Manager]
+  shell.open:
+    - {id: form, entity: Form, path: "forms/b/{id}", list: forms/, priority: 1}
+    - {id: response, entity: FormResponse, path: "forms/response/{id}", list: forms/, priority: 1}
+    - {id: forms, package: forms, path: "forms/e/{entity}/{id}", list: "forms/e/{entity}"}
+  shell.create:
+    - {id: form, label: Form, path: forms/new, entity: Form}
+  # The page a respondent opens, with no sign-in and no bar: /forms/f/{workspace}/{form}. Forms for
+  # the workspace's people answer there too, once the person has signed in.
+  shell.public:
+    - {id: fill, path: forms/f, title: Form}

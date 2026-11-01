@@ -32,6 +32,8 @@ rand = "0.9"
 base64 = "0.22"
 
 [dev-dependencies]
+# The interface is checked as a release the platform takes (ferrum_apps::ui).
+ferrum-apps = { git = "https://github.com/CBFerrum/Ferrum", branch = "main" }
 # Its tests run on ERP's records (customers, invoices, the ledger).
 ferrum-app-erp = { git = "https://github.com/CBFerrum/ferrum-app-erp", branch = "main" }
 # Owner emails and autoresponses go through the Mail app when it is installed: tested with the real app.

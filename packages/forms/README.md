@@ -44,6 +44,7 @@ checked against its form.
 | `confirmation_message`, `redirect_url` (http/https), `closed_message` | what respondents see |
 | `notify_on_response`, `notify_users` | tell the owner and the listed users (child rows `{email}`, active users) about each response: in the app, and by email when the Mail app is installed. Users who may not read the response are skipped |
 | `autoresponder`, `autoresponder_subject`, `autoresponder_message` | email the respondent (the `email_question` answer) a fixed plain-text message; needs the Mail app; at most one per address and form a day; never for spam or anonymous forms |
+| `layout` | `Pages` (default; page breaks end a page, a form with none is one page) \| `One question at a time`. Respondents get it as `layout: "pages" \| "single"` |
 | `accent_color` (hex), `logo` | look: the logo is an https URL or a public image `/files/public/<id>` (upload with `POST /api/files`, `public=true`, attached to the form) |
 | `passing_score` | quizzes: % of the points needed to pass (exact: `score × 100 ≥ passing × maximum`) |
 | `reveal_answers` | quizzes: show the correct answers in the result after submitting |
@@ -194,7 +195,7 @@ for publicly and unknown slugs all answer 404. Responses carry `Cache-Control: n
 
 Query: `?<key>=value` for questions that allow prefill. →
 `{form: {slug, title, description, kind, access, anonymous, closes_at, theme: {accent_color, logo},
-questions: [Question]}, token, prefill: {key: answer}}`. **Question**: `{key, type, label,
+layout, questions: [Question]}, token, prefill: {key: answer}}`. **Question**: `{key, type, label,
 required, help_text?, options? | columns? (matrix), rows?, allow_other?, scale? (rating, nps),
 min_length?, max_length?, pattern?, pattern_message?, min?, max?, accept?, max_file_mb?,
 max_files?, default?, visible_if?, allow_prefill?}` — never points, correct answers, the passing

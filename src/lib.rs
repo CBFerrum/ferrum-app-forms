@@ -59,6 +59,7 @@ pub(crate) fn can_email(k: &ferrum_kernel::Kernel, ctx: &Ctx) -> bool {
 }
 
 include!(concat!(env!("OUT_DIR"), "/packages.rs"));
+include!(concat!(env!("OUT_DIR"), "/ui.rs"));
 
 /// This app's manifest (`app.yaml`).
 pub const MANIFEST: &str = include_str!("../app.yaml");
@@ -101,5 +102,15 @@ mod tests {
         assert_eq!(form.def.actions.len(), 4);
         assert!(schema.entity("FormResponse").is_some_and(|e| e.def.owner_fields == ["form_owner"]));
         assert!(super::MANIFEST.contains("packages: [forms]"));
+    }
+
+    #[test]
+    fn the_interface_is_a_release_the_platform_takes() {
+        let m = ferrum_apps::AppManifest::parse(super::MANIFEST).expect("app.yaml");
+        assert_eq!(m.routes(), vec![("forms".to_string(), vec![])]);
+        assert_eq!(m.public_paths(), vec!["forms/f"], "the page a respondent opens needs no sign-in");
+        let files = super::UI.iter().map(|(p, b)| (p.to_string(), b.to_vec())).collect();
+        let ui = ferrum_apps::ui::prepare("forms", files).expect("ui/dist is an interface release");
+        assert!(super::UI.iter().any(|(p, _)| *p == "index.html") && !super::UI.iter().any(|(p, _)| p.starts_with('.')), "{}", ui.digest);
     }
 }
