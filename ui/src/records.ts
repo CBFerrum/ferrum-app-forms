@@ -1,4 +1,4 @@
-// The records frame's pages, loaded when first opened: the frame is only for people who build
-// forms, so a respondent's page never downloads it (Ferrum docs/plan/apps-ui.md §12.9).
+// The records frame's pages, loaded when first opened: lists, forms and reports of Forms' other
+// records, and other apps' screens. The frame itself (Manage.tsx) does not wait for them.
 export { FormView, ListView, ReportView } from "@ferrum/records";
-export { AppSettingsPage, RequireAuth, ScreenPage, setFrameMode } from "@ferrum/records/frame";
+export { AppSettingsPage, ScreenPage } from "@ferrum/records/frame";
