@@ -6,7 +6,7 @@ import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-quer
 import { ChevronLeft, ChevronRight, Columns3, ExternalLink, Paperclip } from "lucide-react";
 import { type ReactNode, useEffect } from "react";
 import { api, docPath, errorMessage, formatDateTime, shell } from "@ferrum/client";
-import { Badge, Button, EmptyState, ErrorState, Spinner, statusTone, toast } from "@ferrum/kit";
+import { Badge, Button, EmptyState, ErrorState, Spinner, type Tone, toast } from "@ferrum/kit";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger, Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@ferrum/kit/primitives";
 import { listOf } from "./rows";
 import { answerable, type Kind } from "./model";
@@ -49,6 +49,7 @@ export function askedOf(doc: Record<string, unknown> | undefined): Asked[] {
 }
 
 const FIELDS = "number,status,source,submitted_at,respondent_email,respondent_name,answers,score,max_score,quiz_result,completion_seconds";
+const TONE: Record<string, Tone> = { New: "blue", Reviewed: "green", Spam: "red" };
 const who = (r: Resp) => r.respondent_name || r.respondent_email || "Anonymous";
 const when = (iso?: string | null) => (iso ? new Date(iso).toLocaleString(undefined, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }) : "");
 
@@ -63,7 +64,7 @@ function Answer({ a, v }: { a: Asked; v: unknown }) {
           {(v as { file_name?: string; url?: string; size?: number }[]).map((f, i) => (
             <li key={i}>
               <Paperclip size={14} aria-hidden="true" />
-              {f.url ? (
+              {f.url && /^(\/files\/|https?:\/\/)/.test(f.url) ? (
                 <a href={f.url} target="_blank" rel="noopener noreferrer">
                   {f.file_name}
                 </a>
@@ -310,7 +311,7 @@ export function Responses({ formId, asked, zone, status, from, to, open, canReco
                     </td>
                   ))}
                   <td>
-                    <Badge tone={statusTone(r.status === "New" ? "Open" : r.status)}>{r.status}</Badge>
+                    <Badge tone={TONE[r.status ?? ""] ?? "neutral"}>{r.status}</Badge>
                     {r.max_score && Number(r.max_score) > 0 ? <span className="faint"> {r.score}/{r.max_score}</span> : null}
                   </td>
                 </tr>

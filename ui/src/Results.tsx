@@ -7,11 +7,11 @@ import { ArrowLeft, Copy, Download, Pencil } from "lucide-react";
 import { useCallback, useEffect, useRef } from "react";
 import { Link, Navigate, useParams, useSearchParams } from "react-router";
 import { api, bootstrap, docPath, download, errorMessage } from "@ferrum/client";
-import { Badge, Button, EmptyState, ErrorState, PageLoading, statusTone, TabPanel, Tabs, toast, useLiveEntity, useShellTitle } from "@ferrum/kit";
+import { Badge, Button, EmptyState, ErrorState, PageLoading, TabPanel, Tabs, toast, useLiveEntity, useShellTitle } from "@ferrum/kit";
 import { can, useEntityMeta } from "@ferrum/records";
 import { QuestionCard, Trend } from "./Charts";
 import { zonedNow } from "./flow";
-import type { FormDoc } from "./formdoc";
+import { type FormDoc, STATUS_LABEL, STATUS_TONE, type Status } from "./formdoc";
 import { type Asked, askedOf, Responses } from "./Responses";
 import { duration, percent, PRESETS, presetOf, presetRange, type Summary } from "./stats";
 import { copy, linkOf } from "./Share";
@@ -110,7 +110,7 @@ export function ResultsRoute() {
             <p className="page-sub">Results</p>
           </div>
           <div className="fm-actions">
-            <Badge tone={statusTone(form.status)}>{form.status === "Published" ? "Open" : form.status}</Badge>
+            <Badge tone={STATUS_TONE[(form.status ?? "Draft") as Status]}>{STATUS_LABEL[(form.status ?? "Draft") as Status]}</Badge>
             {slug && live && (
               <Button onClick={() => void copy(linkOf(slug))}>
                 <Copy size={16} aria-hidden="true" />

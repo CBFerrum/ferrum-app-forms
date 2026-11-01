@@ -3,6 +3,7 @@
 // mean on the screen (a field, or a card).
 
 import type { ApiError } from "@ferrum/client";
+import type { Tone } from "@ferrum/kit";
 import { type Problem, type QRow, rowFromDoc, rowToDoc } from "./rows";
 import { sentence } from "./flow";
 
@@ -49,6 +50,10 @@ export interface Draft {
 }
 
 export type Status = "Draft" | "Published" | "Closed";
+
+/** How a form's status is drawn, and what it is called (Published reads "Open"). */
+export const STATUS_TONE: Record<Status, Tone> = { Draft: "neutral", Published: "green", Closed: "amber" };
+export const STATUS_LABEL: Record<Status, string> = { Draft: "Draft", Published: "Open", Closed: "Closed" };
 
 /** A Form as the API sends it. */
 export interface FormDoc extends Record<string, unknown> {
