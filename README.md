@@ -255,6 +255,7 @@ CHANGELOG.md  what changed in each version
 
 | Version | Highlights |
 |---|---|
+| **0.2.1** | Rebuilt with Ferrum-Frontend 80ff179: labels name their fields, and linked titles show their titles. |
 | **0.2.0** | The page a form's link opens, a form builder with a live preview, settings in one place, and results with a chart for each question. |
 | **0.1.0** | First release: one engine for forms, surveys and quizzes. Forms hold 21 question types with lengths, bounds, linear-time patterns, defaults and … |
 
