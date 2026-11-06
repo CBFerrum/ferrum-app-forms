@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.6
+
+Rebuilt with Ferrum-Frontend a76295e: its pages show times on a person's own clock when they chose one on their Account page, while today and due dates stay on the workspace's day.
+
 ## 0.2.5
 
 Responses' and share links' times are on the workspace's clock; a public form keeps the respondent's own. Rebuilt with Ferrum-Frontend 24c3951, so its records' pages show times on the workspace's clock too, a draft numbered on submit is headed as a draft, and a record of an app that is not installed says so.
