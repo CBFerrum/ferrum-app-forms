@@ -5,7 +5,7 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Columns3, ExternalLink, Paperclip } from "lucide-react";
 import { type ReactNode, useEffect } from "react";
-import { api, docPath, errorMessage, formatDateTime, shell } from "@ferrum/client";
+import { api, docPath, errorMessage, formatDateTime, formatMoment, shell } from "@ferrum/client";
 import { Badge, Button, EmptyState, ErrorState, Spinner, type Tone, toast } from "@ferrum/kit";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger, Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@ferrum/kit/primitives";
 import { listOf } from "./rows";
@@ -51,7 +51,7 @@ export function askedOf(doc: Record<string, unknown> | undefined): Asked[] {
 const FIELDS = "number,status,source,submitted_at,respondent_email,respondent_name,answers,score,max_score,quiz_result,completion_seconds";
 const TONE: Record<string, Tone> = { New: "blue", Reviewed: "green", Spam: "red" };
 const who = (r: Resp) => r.respondent_name || r.respondent_email || "Anonymous";
-const when = (iso?: string | null) => (iso ? new Date(iso).toLocaleString(undefined, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }) : "");
+const when = (iso?: string | null) => formatMoment(iso, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
 
 // ───────────────────────────── one answer, whole ─────────────────────────────
 
