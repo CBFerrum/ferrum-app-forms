@@ -1,0 +1,1 @@
+import{a as r,a3 as e,j as t}from"./index-BBaz6_IP.js";import{R as a,d as s}from"./Shell-CREVRzGI.js";import"./theme-KqpCBiFr.js";import"./useQuery-DIrSH5sd.js";s("app",["forms"]);function f(){return r.useEffect(()=>e().ready(),[]),t.jsx(a,{})}export{f as Managed};
