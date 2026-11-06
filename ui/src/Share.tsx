@@ -4,7 +4,7 @@
 
 import { Copy, ExternalLink, Globe, Lock } from "lucide-react";
 import { useEffect, useId, useState } from "react";
-import { bootstrap } from "@ferrum/client";
+import { bootstrap, formatDateTime } from "@ferrum/client";
 import { confirmDialog, Field, toast } from "@ferrum/kit";
 import type { QRow } from "./rows";
 import type { Fields, Status } from "./formdoc";
@@ -25,7 +25,7 @@ export async function copy(text: string): Promise<void> {
   }
 }
 
-const moment = (iso: string | null) => (iso ? new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : null);
+const moment = (iso: string | null) => (iso ? formatDateTime(iso) : null);
 
 export interface ShareProps {
   fields: Fields;
