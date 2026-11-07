@@ -1,6 +1,6 @@
 id: forms
 name: Forms and Surveys
-version: 0.2.12
+version: 0.2.13
 publisher: cbferrum
 summary: "Form and survey builder with public links, conditional logic, validations, file uploads, record creation from responses, quizzes, NPS and analytics"
 description: README.md
@@ -37,3 +37,15 @@ contributes:
   # the workspace's people answer there too, once the person has signed in.
   shell.public:
     - {id: fill, path: forms/f, title: Form}
+  # What the assistant should know in Forms and Surveys's pages, and what it suggests asking there.
+  shell.assistant:
+    - id: forms
+      title: "Forms and Surveys"
+      instructions: >-
+        A Form (Draft, Published, Closed) takes responses only while Published. Each FormResponse (New, Reviewed,
+        Spam) holds the answers, and may create a record through the form's field map. Quizzes score their responses;
+        an NPS question gives a score from 0 to 10.
+      suggestions:
+        - "How many responses did each form get this week?"
+        - "Summarize the answers to a survey"
+        - "What is our NPS this month?"
