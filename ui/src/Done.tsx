@@ -5,6 +5,7 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import { toast } from "@ferrum/kit";
 import type { Kind, PForm, QuizResult, Receipt } from "./model";
 import { safeRedirect } from "./site";
+import { t as tr } from "@ferrum/client";
 
 /** What the server says when its owner wrote nothing. */
 const DEFAULT_THANKS = "Thank you! Your response was recorded.";
@@ -20,7 +21,7 @@ function said(v: unknown, type?: Kind): string {
 export function QuizResultView({ result, types }: { result: QuizResult; types?: Record<string, Kind> }) {
   const percent = result.percent === null ? null : Number(result.percent);
   return (
-    <section className="fr-result" aria-label="Your result">
+    <section className="fr-result" aria-label={tr("Your result")}>
       <div className="fr-score">
         <p className="fr-score-n">
           {result.score}
@@ -43,10 +44,10 @@ export function QuizResultView({ result, types }: { result: QuizResult; types?: 
       <ul className="fr-marks">
         {result.questions.map((q) => (
           <li key={q.key} data-ok={q.correct ? "" : undefined}>
-            {q.correct ? <Check size={16} aria-label="Right" /> : <CircleX size={16} aria-label="Wrong" />}
+            {q.correct ? <Check size={16} aria-label={tr("Right")} /> : <CircleX size={16} aria-label={tr("Wrong")} />}
             <span className="fr-mark-body">
               <span>{q.label ?? q.key}</span>
-              {!q.correct && q.correct_answer !== undefined && <span className="faint fr-mark-answer">Right answer: {said(q.correct_answer, types?.[q.key])}</span>}
+              {!q.correct && q.correct_answer !== undefined && <span className="faint fr-mark-answer">{tr("Right answer:")} {said(q.correct_answer, types?.[q.key])}</span>}
             </span>
             <span className="faint fr-mark-points">
               {q.earned} / {q.points}
@@ -78,13 +79,13 @@ export function Thanks({ receipt, form, preview, resultLink, onAgain }: { receip
         <Check size={30} />
       </span>
       <h2 ref={title} tabIndex={-1} className="fr-thanks-title">
-        Thank you
+        {tr("Thank you")}
       </h2>
       <p className="fr-thanks-message">{message}</p>
-      {receipt.number && <p className="faint fr-ref">Reference {receipt.number}</p>}
+      {receipt.number && <p className="faint fr-ref">{tr("Reference {number}", { number: receipt.number })}</p>}
       {next && (
         <p className="muted">
-          {leaving ? "Taking you on…" : "Taking you on in a moment."} <a href={next}>Go now</a>
+          {leaving ? "Taking you on…" : "Taking you on in a moment."} <a href={next}>{tr("Go now")}</a>
         </p>
       )}
       {receipt.result && <QuizResultView result={receipt.result} types={types} />}
@@ -95,18 +96,18 @@ export function Thanks({ receipt, form, preview, resultLink, onAgain }: { receip
           onClick={() => {
             const url = new URL(resultLink, window.location.origin).href;
             navigator.clipboard?.writeText(url).then(
-              () => toast("Link to your result copied"),
+              () => toast(tr("Link to your result copied")),
               () => toast(url, "info"),
             );
           }}
         >
           <Copy size={16} aria-hidden="true" />
-          Copy a link to this result
+          {tr("Copy a link to this result")}
         </button>
       )}
       {preview && onAgain && (
         <button type="button" className="btn btn-default btn-md" onClick={onAgain}>
-          Try the form again
+          {tr("Try the form again")}
         </button>
       )}
     </div>

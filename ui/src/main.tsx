@@ -8,7 +8,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { createBrowserRouter, Link, RouterProvider, useRouteError } from "react-router";
-import { routeBase } from "@ferrum/client";
+import { routeBase, t } from "@ferrum/client";
 import { ConfirmHost, EmptyState, ErrorState, Spinner, Toaster } from "@ferrum/kit";
 import "./styles.css";
 
@@ -26,8 +26,8 @@ function RouteError() {
 
 function NotFound() {
   return (
-    <EmptyState title="Page not found">
-      <Link to="/">Go to Forms</Link>
+    <EmptyState title={t("Page not found")}>
+      <Link to="/">{t("Go to Forms")}</Link>
     </EmptyState>
   );
 }
@@ -36,7 +36,7 @@ function NotFound() {
 const opening = (
   <div className="fr-loading" role="status">
     <Spinner />
-    <span className="muted">Opening…</span>
+    <span className="muted">{t("Opening…")}</span>
   </div>
 );
 

@@ -4,7 +4,7 @@
 
 import { Plus, Trash2, Upload, X } from "lucide-react";
 import { type ReactNode, useId, useState } from "react";
-import { api, errorMessage } from "@ferrum/client";
+import { api, errorMessage, t as tr } from "@ferrum/client";
 import { Field, toast } from "@ferrum/kit";
 import { useEntityMeta, useMetaIndex } from "@ferrum/records";
 import { alwaysShown, fits, lines, type QRow } from "./rows";
@@ -73,9 +73,9 @@ function Mapping({ fields, set, rows, error }: { fields: Fields; set: (p: Partia
   const missing = writable.filter((f) => f.required && !f.default && !f.default_expr && !map.some((m) => m.target_field === f.name));
   return (
     <div className="fm-stack">
-      <Field label="Create a record from each response" htmlFor={`${id}-entity`} hint="Each response can become, for example, a lead or a ticket." error={error}>
+      <Field label={tr("Create a record from each response")} htmlFor={`${id}-entity`} hint={tr("Each response can become, for example, a lead or a ticket.")} error={error}>
         <select id={`${id}-entity`} className="select" value={fields.target_entity} onChange={(e) => set({ target_entity: e.target.value, field_map: e.target.value === fields.target_entity ? map : [] })}>
-          <option value="">No record</option>
+          <option value="">{tr("No record")}</option>
           {fields.target_entity && !targets.some((t) => t.name === fields.target_entity) && <option value={fields.target_entity}>{fields.target_entity}</option>}
           {targets.map((t) => (
             <option key={t.name} value={t.name}>
@@ -87,16 +87,16 @@ function Mapping({ fields, set, rows, error }: { fields: Fields; set: (p: Partia
       {fields.target_entity && (
         <>
           {!entity ? (
-            <p className="muted">Loading the fields…</p>
+            <p className="muted">{tr("Loading the fields…")}</p>
           ) : (
             <>
               <table className="fm-map">
                 <thead>
                   <tr>
-                    <th scope="col">Field of the {entity.label.toLowerCase()}</th>
-                    <th scope="col">Filled from</th>
+                    <th scope="col">{tr("Field of the")} {entity.label.toLowerCase()}</th>
+                    <th scope="col">{tr("Filled from")}</th>
                     <th scope="col">
-                      <span className="sr-only">Remove</span>
+                      <span className="sr-only">{tr("Remove")}</span>
                     </th>
                   </tr>
                 </thead>
@@ -106,8 +106,8 @@ function Mapping({ fields, set, rows, error }: { fields: Fields; set: (p: Partia
                     return (
                       <tr key={i}>
                         <td>
-                          <select className="select" aria-label="Field" value={m.target_field} onChange={(e) => setRow(i, { target_field: e.target.value })}>
-                            <option value="">Choose a field…</option>
+                          <select className="select" aria-label={tr("Field")} value={m.target_field} onChange={(e) => setRow(i, { target_field: e.target.value })}>
+                            <option value="">{tr("Choose a field…")}</option>
                             {m.target_field && !writable.some((f) => f.name === m.target_field) && <option value={m.target_field}>{m.target_field}</option>}
                             {writable.map((f) => (
                               <option key={f.name} value={f.name}>
@@ -119,9 +119,9 @@ function Mapping({ fields, set, rows, error }: { fields: Fields; set: (p: Partia
                         </td>
                         <td>
                           <div className="fm-from">
-                            <select className="select" aria-label="Filled from" value={m.question || (m.value ? FIXED : "")} onChange={(e) => setRow(i, e.target.value === FIXED ? { question: "", value: m.value || " " } : { question: e.target.value, value: "" })}>
-                              <option value="">Choose…</option>
-                              <option value={FIXED}>A fixed value</option>
+                            <select className="select" aria-label={tr("Filled from")} value={m.question || (m.value ? FIXED : "")} onChange={(e) => setRow(i, e.target.value === FIXED ? { question: "", value: m.value || " " } : { question: e.target.value, value: "" })}>
+                              <option value="">{tr("Choose…")}</option>
+                              <option value={FIXED}>{tr("A fixed value")}</option>
                               {questions
                                 .filter((q) => q.key === m.question || !f || fits(f, q))
                                 .map((q) => (
@@ -130,11 +130,11 @@ function Mapping({ fields, set, rows, error }: { fields: Fields; set: (p: Partia
                                   </option>
                                 ))}
                             </select>
-                            {!m.question && m.value !== "" && <input className="input" aria-label="Fixed value" value={m.value.trim() === "" ? "" : m.value} onChange={(e) => setRow(i, { value: e.target.value || " " })} placeholder="The value" />}
+                            {!m.question && m.value !== "" && <input className="input" aria-label={tr("Fixed value")} value={m.value.trim() === "" ? "" : m.value} onChange={(e) => setRow(i, { value: e.target.value || " " })} placeholder={tr("The value")} />}
                           </div>
                         </td>
                         <td>
-                          <button type="button" className="icon-btn" aria-label="Remove this line" onClick={() => set({ field_map: map.filter((_, j) => j !== i) })}>
+                          <button type="button" className="icon-btn" aria-label={tr("Remove this line")} onClick={() => set({ field_map: map.filter((_, j) => j !== i) })}>
                             <Trash2 size={16} aria-hidden="true" />
                           </button>
                         </td>
@@ -145,10 +145,10 @@ function Mapping({ fields, set, rows, error }: { fields: Fields; set: (p: Partia
               </table>
               <div className="row">
                 <button type="button" className="btn btn-default btn-sm" onClick={() => set({ field_map: [...map, { target_field: "", question: "", value: "" }] })}>
-                  <Plus size={14} aria-hidden="true" /> Fill another field
+                  <Plus size={14} aria-hidden="true" /> {tr("Fill another field")}
                 </button>
               </div>
-              {missing.length > 0 && <p className="field-hint">Still needed by the {entity.label.toLowerCase()}: {missing.map((f) => f.label).join(", ")}.</p>}
+              {missing.length > 0 && <p className="field-hint">{tr("Still needed by the")} {entity.label.toLowerCase()}: {missing.map((f) => f.label).join(", ")}.</p>}
             </>
           )}
         </>
@@ -175,7 +175,7 @@ export function Settings({ fields: f, set, rows, formId, errors }: SettingsProps
   const upload = async (file: File | undefined) => {
     if (!file) return;
     if (!file.type.startsWith("image/")) {
-      toast("Choose a picture: PNG, JPG, GIF or WebP.", "error");
+      toast(tr("Choose a picture: PNG, JPG, GIF or WebP."), "error");
       return;
     }
     setBusy(true);
@@ -196,40 +196,40 @@ export function Settings({ fields: f, set, rows, formId, errors }: SettingsProps
 
   return (
     <div className="fm-settings">
-      <Section title="About this form">
-        <Field label="Description" htmlFor={`${id}-description`} hint="Shown under the title, before the first question." error={errors.description}>
+      <Section title={tr("About this form")}>
+        <Field label={tr("Description")} htmlFor={`${id}-description`} hint={tr("Shown under the title, before the first question.")} error={errors.description}>
           <textarea id={`${id}-description`} className="textarea" rows={3} maxLength={5000} value={f.description} onChange={(e) => set({ description: e.target.value })} />
         </Field>
         <div className="fm-grid">
-          <Field label="It is a" error={errors.kind}>
-            <Seg label="Kind" value={f.kind} options={[["Form", "Form"], ["Survey", "Survey"], ["Quiz", "Quiz"]]} onChange={(kind) => set({ kind })} />
+          <Field label={tr("It is a")} error={errors.kind}>
+            <Seg label={tr("Kind")} value={f.kind} options={[["Form", "Form"], ["Survey", "Survey"], ["Quiz", "Quiz"]]} onChange={(kind) => set({ kind })} />
           </Field>
-          <Field label="People go through it" error={errors.layout}>
-            <Seg label="Layout" value={f.layout} options={[["Pages", "Page by page"], ["One question at a time", "One question at a time"]]} onChange={(layout) => set({ layout })} />
+          <Field label={tr("People go through it")} error={errors.layout}>
+            <Seg label={tr("Layout")} value={f.layout} options={[["Pages", "Page by page"], ["One question at a time", "One question at a time"]]} onChange={(layout) => set({ layout })} />
           </Field>
         </div>
-        <p className="field-hint">Page by page: page breaks end a page, and a form without any is one page.</p>
+        <p className="field-hint">{tr("Page by page: page breaks end a page, and a form without any is one page.")}</p>
       </Section>
 
-      <Section title="Who can answer">
-        <Field label="Access" error={errors.access}>
-          <Seg label="Access" value={f.access} options={[["Public", "Anyone with the link"], ["Internal", "People signed in to this workspace"]]} onChange={(access) => set({ access, one_response_per: access === "Public" && f.one_response_per === "User" ? "" : f.one_response_per })} />
+      <Section title={tr("Who can answer")}>
+        <Field label={tr("Access")} error={errors.access}>
+          <Seg label={tr("Access")} value={f.access} options={[["Public", "Anyone with the link"], ["Internal", "People signed in to this workspace"]]} onChange={(access) => set({ access, one_response_per: access === "Public" && f.one_response_per === "User" ? "" : f.one_response_per })} />
         </Field>
         <label className="check-field">
           <input type="checkbox" checked={f.anonymous} onChange={(e) => set({ anonymous: e.target.checked, ...(e.target.checked && f.one_response_per === "Email" ? { one_response_per: "" as const } : {}) })} />
-          <span>Anonymous: keep no email, name or address with the answers</span>
+          <span>{tr("Anonymous: keep no email, name or address with the answers")}</span>
         </label>
         {errors.anonymous && <p className="field-error">{errors.anonymous}</p>}
-        <Field label="Limit each person to one response" htmlFor={`${id}-one`} error={errors.one_response_per}>
+        <Field label={tr("Limit each person to one response")} htmlFor={`${id}-one`} error={errors.one_response_per}>
           <select id={`${id}-one`} className="select" value={f.one_response_per} onChange={(e) => set({ one_response_per: e.target.value as Fields["one_response_per"] })}>
-            <option value="">No limit</option>
-            {!f.anonymous && <option value="Email">One per email address</option>}
-            {f.access === "Internal" && <option value="User">One per signed-in person</option>}
+            <option value="">{tr("No limit")}</option>
+            {!f.anonymous && <option value="Email">{tr("One per email address")}</option>}
+            {f.access === "Internal" && <option value="User">{tr("One per signed-in person")}</option>}
           </select>
         </Field>
         {(f.one_response_per === "Email" || f.autoresponder) && !f.anonymous && (
           <Field
-            label="Which question holds their email"
+            label={tr("Which question holds their email")}
             htmlFor={`${id}-email`}
             hint={emails.length ? "It has to be required and shown to everyone." : "Add an Email question first."}
             error={errors.email_question}
@@ -247,76 +247,76 @@ export function Settings({ fields: f, set, rows, formId, errors }: SettingsProps
         )}
       </Section>
 
-      <Section title="When" hint={`Times are in your time zone (${zone.replace(/_/g, " ")}).`}>
+      <Section title={tr("When")} hint={`Times are in your time zone (${zone.replace(/_/g, " ")}).`}>
         <div className="fm-grid">
-          <Field label="Opens" htmlFor={`${id}-opens`} hint="Blank: as soon as it is published." error={errors.opens_at}>
+          <Field label={tr("Opens")} htmlFor={`${id}-opens`} hint={tr("Blank: as soon as it is published.")} error={errors.opens_at}>
             <input id={`${id}-opens`} className="input" type="datetime-local" value={toInput(f.opens_at)} onChange={(e) => set({ opens_at: fromInput(e.target.value) })} />
           </Field>
-          <Field label="Closes" htmlFor={`${id}-closes`} hint="Blank: it stays open." error={errors.closes_at}>
+          <Field label={tr("Closes")} htmlFor={`${id}-closes`} hint={tr("Blank: it stays open.")} error={errors.closes_at}>
             <input id={`${id}-closes`} className="input" type="datetime-local" value={toInput(f.closes_at)} onChange={(e) => set({ closes_at: fromInput(e.target.value) })} />
           </Field>
-          <Field label="Closes after" htmlFor={`${id}-limit`} hint="Responses. Blank: no limit." error={errors.response_limit}>
+          <Field label={tr("Closes after")} htmlFor={`${id}-limit`} hint={tr("Responses. Blank: no limit.")} error={errors.response_limit}>
             <input id={`${id}-limit`} className="input num" type="number" min={1} inputMode="numeric" value={f.response_limit ?? ""} onChange={(e) => set({ response_limit: e.target.value === "" ? null : Number(e.target.value) })} />
           </Field>
         </div>
         <details className="fm-more">
-          <summary>Spam protection</summary>
-          <Field label="Seconds a person needs to fill it in" htmlFor={`${id}-fill`} hint="Responses sent sooner are kept apart as spam. 0 turns it off." error={errors.min_fill_seconds}>
+          <summary>{tr("Spam protection")}</summary>
+          <Field label={tr("Seconds a person needs to fill it in")} htmlFor={`${id}-fill`} hint={tr("Responses sent sooner are kept apart as spam. 0 turns it off.")} error={errors.min_fill_seconds}>
             <input id={`${id}-fill`} className="input num" type="number" min={0} max={3600} inputMode="numeric" value={f.min_fill_seconds ?? ""} onChange={(e) => set({ min_fill_seconds: e.target.value === "" ? null : Number(e.target.value) })} />
           </Field>
         </details>
       </Section>
 
-      <Section title="After someone answers">
-        <Field label="Thank-you message" htmlFor={`${id}-thanks`} hint="Blank: “Thank you! Your response was recorded.”" error={errors.confirmation_message}>
+      <Section title={tr("After someone answers")}>
+        <Field label={tr("Thank-you message")} htmlFor={`${id}-thanks`} hint={tr("Blank: “Thank you! Your response was recorded.”")} error={errors.confirmation_message}>
           <textarea id={`${id}-thanks`} className="textarea" rows={3} maxLength={2000} value={f.confirmation_message} onChange={(e) => set({ confirmation_message: e.target.value })} />
         </Field>
-        <Field label="Then send them to" htmlFor={`${id}-redirect`} hint="A web address, such as your website. Blank: they stay on the thank-you." error={errors.redirect_url}>
+        <Field label={tr("Then send them to")} htmlFor={`${id}-redirect`} hint={tr("A web address, such as your website. Blank: they stay on the thank-you.")} error={errors.redirect_url}>
           <input id={`${id}-redirect`} className="input" type="url" inputMode="url" placeholder="https://" value={f.redirect_url} onChange={(e) => set({ redirect_url: e.target.value })} />
         </Field>
-        <Field label="When it is closed, say" htmlFor={`${id}-closed`} hint="Shown to anyone who opens the link after it has closed or filled up." error={errors.closed_message}>
+        <Field label={tr("When it is closed, say")} htmlFor={`${id}-closed`} hint={tr("Shown to anyone who opens the link after it has closed or filled up.")} error={errors.closed_message}>
           <textarea id={`${id}-closed`} className="textarea" rows={2} maxLength={2000} value={f.closed_message} onChange={(e) => set({ closed_message: e.target.value })} />
         </Field>
       </Section>
 
-      <Section title="Who is told">
+      <Section title={tr("Who is told")}>
         <label className="check-field">
           <input type="checkbox" checked={f.notify_on_response} onChange={(e) => set({ notify_on_response: e.target.checked })} />
-          <span>Tell the owner of the form about each response</span>
+          <span>{tr("Tell the owner of the form about each response")}</span>
         </label>
-        <Field label="Also tell" htmlFor={`${id}-notify`} hint="Email addresses of people in this workspace, one per line. They need to be able to read the responses." error={errors.notify_users}>
+        <Field label={tr("Also tell")} htmlFor={`${id}-notify`} hint={tr("Email addresses of people in this workspace, one per line. They need to be able to read the responses.")} error={errors.notify_users}>
           <textarea id={`${id}-notify`} className="textarea" rows={2} defaultValue={f.notify_users.join("\n")} onChange={(e) => set({ notify_users: lines(e.target.value) })} />
         </Field>
         <label className="check-field">
           <input type="checkbox" checked={f.autoresponder} onChange={(e) => set({ autoresponder: e.target.checked })} />
-          <span>Send each person an email thanking them</span>
+          <span>{tr("Send each person an email thanking them")}</span>
         </label>
         {errors.autoresponder && <p className="field-error">{errors.autoresponder}</p>}
         {f.autoresponder && (
           <>
-            <Field label="Subject" htmlFor={`${id}-subject`} error={errors.autoresponder_subject}>
+            <Field label={tr("Subject")} htmlFor={`${id}-subject`} error={errors.autoresponder_subject}>
               <input id={`${id}-subject`} className="input" maxLength={200} value={f.autoresponder_subject} onChange={(e) => set({ autoresponder_subject: e.target.value })} />
             </Field>
-            <Field label="Message" htmlFor={`${id}-message`} hint="Plain text. It goes to the address in their email answer, at most once a day." error={errors.autoresponder_message}>
+            <Field label={tr("Message")} htmlFor={`${id}-message`} hint={tr("Plain text. It goes to the address in their email answer, at most once a day.")} error={errors.autoresponder_message}>
               <textarea id={`${id}-message`} className="textarea" rows={4} maxLength={5000} value={f.autoresponder_message} onChange={(e) => set({ autoresponder_message: e.target.value })} />
             </Field>
           </>
         )}
       </Section>
 
-      <Section title="Look">
+      <Section title={tr("Look")}>
         <div className="fm-grid">
-          <Field label="Colour" htmlFor={`${id}-colour`} hint="For buttons and progress. Any colour stays readable." error={errors.accent_color}>
+          <Field label={tr("Colour")} htmlFor={`${id}-colour`} hint={tr("For buttons and progress. Any colour stays readable.")} error={errors.accent_color}>
             <div className="row">
-              <input id={`${id}-colour`} type="color" value={hexOf(f.accent_color) ?? "#2f5bea"} onChange={(e) => set({ accent_color: e.target.value })} aria-label="Colour" />
+              <input id={`${id}-colour`} type="color" value={hexOf(f.accent_color) ?? "#2f5bea"} onChange={(e) => set({ accent_color: e.target.value })} aria-label={tr("Colour")} />
               {f.accent_color && (
                 <button type="button" className="btn btn-ghost btn-sm" onClick={() => set({ accent_color: null })}>
-                  Use the default
+                  {tr("Use the default")}
                 </button>
               )}
             </div>
           </Field>
-          <Field label="Logo" htmlFor={`${id}-logo`} hint="A picture shown above the title." error={errors.logo}>
+          <Field label={tr("Logo")} htmlFor={`${id}-logo`} hint={tr("A picture shown above the title.")} error={errors.logo}>
             <div className="fm-logo">
               {f.logo && <img src={f.logo} alt="" />}
               <label className="btn btn-default btn-sm">
@@ -326,7 +326,7 @@ export function Settings({ fields: f, set, rows, formId, errors }: SettingsProps
               </label>
               {f.logo && (
                 <button type="button" className="btn btn-ghost btn-sm" onClick={() => set({ logo: null })}>
-                  <X size={14} aria-hidden="true" /> Remove
+                  <X size={14} aria-hidden="true" /> {tr("Remove")}
                 </button>
               )}
             </div>
@@ -335,18 +335,18 @@ export function Settings({ fields: f, set, rows, formId, errors }: SettingsProps
       </Section>
 
       {f.kind === "Quiz" && (
-        <Section title="Marking" hint="Mark the right answer on each question, then set what counts as a pass.">
-          <Field label="Pass mark (%)" htmlFor={`${id}-pass`} hint="Blank: no pass or fail, just the score." error={errors.passing_score}>
+        <Section title={tr("Marking")} hint={tr("Mark the right answer on each question, then set what counts as a pass.")}>
+          <Field label={tr("Pass mark (%)")} htmlFor={`${id}-pass`} hint={tr("Blank: no pass or fail, just the score.")} error={errors.passing_score}>
             <input id={`${id}-pass`} className="input num" type="number" min={0} max={100} inputMode="decimal" value={f.passing_score} onChange={(e) => set({ passing_score: e.target.value })} />
           </Field>
           <label className="check-field">
             <input type="checkbox" checked={f.reveal_answers} onChange={(e) => set({ reveal_answers: e.target.checked })} />
-            <span>Show people the right answers with their result</span>
+            <span>{tr("Show people the right answers with their result")}</span>
           </label>
         </Section>
       )}
 
-      <Section title="Records" hint="Turn each response into a record somewhere else in Ferrum.">
+      <Section title={tr("Records")} hint={tr("Turn each response into a record somewhere else in Ferrum.")}>
         <Mapping fields={f} set={set} rows={rows} error={errors.target_entity ?? errors.field_map ?? errors.target_field} />
       </Section>
     </div>

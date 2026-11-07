@@ -5,7 +5,7 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Columns3, ExternalLink, Paperclip } from "lucide-react";
 import { type ReactNode, useEffect } from "react";
-import { api, docPath, errorMessage, formatDateTime, formatMoment, shell } from "@ferrum/client";
+import { api, docPath, errorMessage, formatDateTime, formatMoment, shell, t as tr } from "@ferrum/client";
 import { Badge, Button, EmptyState, ErrorState, Spinner, type Tone, toast } from "@ferrum/kit";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger, Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@ferrum/kit/primitives";
 import { listOf } from "./rows";
@@ -56,7 +56,7 @@ const when = (iso?: string | null) => formatMoment(iso, { day: "numeric", month:
 // ───────────────────────────── one answer, whole ─────────────────────────────
 
 function Answer({ a, v }: { a: Asked; v: unknown }) {
-  if (v === undefined || v === null || (Array.isArray(v) && !v.length)) return <span className="faint">No answer</span>;
+  if (v === undefined || v === null || (Array.isArray(v) && !v.length)) return <span className="faint">{tr("No answer")}</span>;
   switch (a.type) {
     case "file":
       return (
@@ -81,7 +81,7 @@ function Answer({ a, v }: { a: Asked; v: unknown }) {
           {a.rows.map((r) => (
             <div key={r}>
               <dt className="faint">{r}</dt>
-              <dd>{(v as Record<string, string>)[r] ?? <span className="faint">No answer</span>}</dd>
+              <dd>{(v as Record<string, string>)[r] ?? <span className="faint">{tr("No answer")}</span>}</dd>
             </div>
           ))}
         </dl>
@@ -142,48 +142,48 @@ function Detail({ id, asked, canRecord, ids, onGo, onChanged }: { id: string; as
   }, [at, ids, onGo]);
 
   if (q.error) return <ErrorState error={q.error} onRetry={() => void q.refetch()} />;
-  if (!r) return <Spinner label="Loading the response" />;
+  if (!r) return <Spinner label={tr("Loading the response")} />;
   const detail = new Map((r.quiz_detail ?? []).map((d) => [d.key, d]));
   const spam = r.status === "Spam";
   return (
     <div className="fm-detail">
       <div className="fm-detail-actions">
-        {r.status === "New" && <Button onClick={() => void run("mark_reviewed", "Marked as reviewed")}>Mark reviewed</Button>}
-        {spam ? <Button onClick={() => void run("not_spam", "Not spam")}>This is not spam</Button> : <Button onClick={() => void run("mark_spam", "Marked as spam")}>Mark as spam</Button>}
+        {r.status === "New" && <Button onClick={() => void run("mark_reviewed", "Marked as reviewed")}>{tr("Mark reviewed")}</Button>}
+        {spam ? <Button onClick={() => void run("not_spam", "Not spam")}>{tr("This is not spam")}</Button> : <Button onClick={() => void run("mark_spam", "Marked as spam")}>{tr("Mark as spam")}</Button>}
         {canRecord && !r.record_id && !spam && (
           <Button variant="primary" onClick={() => void run("create_record", "The record was made")}>
-            Make the record
+            {tr("Make the record")}
           </Button>
         )}
         {r.record_id && r.record_entity && (
           <Button onClick={() => shell().navigate({ entity: r.record_entity as string, id: r.record_id as string })}>
-            <ExternalLink size={14} aria-hidden="true" /> Open the record
+            <ExternalLink size={14} aria-hidden="true" /> {tr("Open the record")}
           </Button>
         )}
       </div>
-      {r.record_error && <p className="field-error">The record could not be made: {r.record_error}</p>}
-      {spam && r.spam_reason && <p className="muted">Kept as spam because {r.spam_reason}.</p>}
+      {r.record_error && <p className="field-error">{tr("The record could not be made: {record_error}", { record_error: r.record_error })}</p>}
+      {spam && r.spam_reason && <p className="muted">{tr("Kept as spam because {spam_reason}.", { spam_reason: r.spam_reason })}</p>}
       <dl className="fm-meta">
         <div>
-          <dt className="faint">From</dt>
+          <dt className="faint">{tr("From")}</dt>
           <dd>{who(r)}</dd>
         </div>
         <div>
-          <dt className="faint">Sent</dt>
+          <dt className="faint">{tr("Sent")}</dt>
           <dd>{r.submitted_at ? formatDateTime(r.submitted_at) : "–"}</dd>
         </div>
         <div>
-          <dt className="faint">Took</dt>
+          <dt className="faint">{tr("Took")}</dt>
           <dd>{duration(r.completion_seconds)}</dd>
         </div>
         <div>
-          <dt className="faint">Through</dt>
+          <dt className="faint">{tr("Through")}</dt>
           <dd>{r.source}</dd>
         </div>
       </dl>
       {r.max_score && Number(r.max_score) > 0 && (
         <p className="fm-score-line">
-          Score <strong>{r.score}</strong> of {r.max_score} {r.quiz_result && <Badge tone={r.quiz_result === "Passed" ? "green" : "red"}>{r.quiz_result}</Badge>}
+          {tr("Score")} <strong>{r.score}</strong> of {r.max_score} {r.quiz_result && <Badge tone={r.quiz_result === "Passed" ? "green" : "red"}>{r.quiz_result}</Badge>}
         </p>
       )}
       <ol className="fm-answers">
@@ -204,10 +204,10 @@ function Detail({ id, asked, canRecord, ids, onGo, onChanged }: { id: string; as
       </ol>
       <div className="fm-detail-nav">
         <Button disabled={at <= 0} onClick={() => onGo(ids[at - 1])}>
-          <ChevronLeft size={16} aria-hidden="true" /> Newer
+          <ChevronLeft size={16} aria-hidden="true" /> {tr("Newer")}
         </Button>
         <Button disabled={at < 0 || at >= ids.length - 1} onClick={() => onGo(ids[at + 1])}>
-          Older <ChevronRight size={16} aria-hidden="true" />
+          {tr("Older")} <ChevronRight size={16} aria-hidden="true" />
         </Button>
       </div>
     </div>
@@ -264,7 +264,7 @@ export function Responses({ formId, asked, zone, status, from, to, open, canReco
   if (list.error) body = <ErrorState error={list.error} onRetry={() => void list.refetch()} />;
   else if (!list.data) {
     body = (
-      <div className="fm-list" aria-busy="true" aria-label="Loading the responses">
+      <div className="fm-list" aria-busy="true" aria-label={tr("Loading the responses")}>
         {[0, 1, 2, 3].map((i) => (
           <div key={i} className="fm-form fm-skeleton">
             <span className="skeleton" style={{ width: "30%", height: 16 }} />
@@ -285,14 +285,14 @@ export function Responses({ formId, asked, zone, status, from, to, open, canReco
           <table className="fm-table">
             <thead>
               <tr>
-                <th scope="col">Response</th>
-                <th scope="col">From</th>
+                <th scope="col">{tr("Response")}</th>
+                <th scope="col">{tr("From")}</th>
                 {columns.map((c) => (
                   <th key={c.key} scope="col" className="fm-col-q">
                     {c.label}
                   </th>
                 ))}
-                <th scope="col">Status</th>
+                <th scope="col">{tr("Status")}</th>
               </tr>
             </thead>
             <tbody>
@@ -322,7 +322,7 @@ export function Responses({ formId, asked, zone, status, from, to, open, canReco
         {list.hasNextPage && (
           <div className="fm-more-row">
             <Button loading={list.isFetchingNextPage} onClick={() => void list.fetchNextPage()}>
-              Show older responses
+              {tr("Show older responses")}
             </Button>
           </div>
         )}
@@ -333,7 +333,7 @@ export function Responses({ formId, asked, zone, status, from, to, open, canReco
   return (
     <div className="fm-responses">
       <div className="fm-tools">
-        <div className="chips" role="group" aria-label="Show">
+        <div className="chips" role="group" aria-label={tr("Show")}>
           {STATUS.map(([v, label]) => (
             <button key={v} type="button" className="chip" aria-pressed={status === v} onClick={() => onStatus(v)}>
               {label}
@@ -346,7 +346,7 @@ export function Responses({ formId, asked, zone, status, from, to, open, canReco
             <DropdownMenuTrigger asChild>
               <Button>
                 <Columns3 size={16} aria-hidden="true" />
-                Columns
+                {tr("Columns")}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="fm-columns-menu">

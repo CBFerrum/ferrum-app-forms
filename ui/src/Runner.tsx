@@ -6,7 +6,7 @@
 
 import { ArrowLeft, ArrowRight, Lock, Send } from "lucide-react";
 import { type CSSProperties, type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ApiError, errorMessage } from "@ferrum/client";
+import { ApiError, errorMessage, t as tr } from "@ferrum/client";
 import { Spinner } from "@ferrum/kit";
 import { accentVars } from "./accent";
 import { Notice, Thanks } from "./Done";
@@ -160,7 +160,7 @@ export function Runner({ form, prefill, zone, workspace, send, keep, preview, re
         tone: "error",
         text: (
           <>
-            You need to sign in to answer this form. <a href={loginPath(window.location.pathname + window.location.search)}>Sign in</a>
+            {tr("You need to sign in to answer this form.")} <a href={loginPath(window.location.pathname + window.location.search)}>{tr("Sign in")}</a>
           </>
         ),
       });
@@ -237,7 +237,7 @@ export function Runner({ form, prefill, zone, workspace, send, keep, preview, re
       <form className="fr-form" onSubmit={onSubmit} noValidate>
         {many && (
           <div className="fr-top">
-            <div className="fr-progress" role="progressbar" aria-label="Progress" aria-valuemin={1} aria-valuemax={pages.length} aria-valuenow={index + 1} aria-valuetext={`${unit} ${index + 1} of ${pages.length}`}>
+            <div className="fr-progress" role="progressbar" aria-label={tr("Progress")} aria-valuemin={1} aria-valuemax={pages.length} aria-valuenow={index + 1} aria-valuetext={`${unit} ${index + 1} of ${pages.length}`}>
               <span style={{ width: `${((index + 1) / pages.length) * 100}%` }} />
             </div>
             <p className="fr-step faint">
@@ -257,10 +257,10 @@ export function Runner({ form, prefill, zone, workspace, send, keep, preview, re
               <p className="fr-facts faint">
                 {form.anonymous && (
                   <span>
-                    <Lock size={13} aria-hidden="true" /> Your response is anonymous.
+                    <Lock size={13} aria-hidden="true" /> {tr("Your response is anonymous.")}
                   </span>
                 )}
-                {form.closes_at && <span>Open until {new Date(form.closes_at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}.</span>}
+                {form.closes_at && <span>{tr("Open until")} {new Date(form.closes_at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}.</span>}
               </p>
             )}
           </header>
@@ -269,7 +269,7 @@ export function Runner({ form, prefill, zone, workspace, send, keep, preview, re
         )}
         {restored && (
           <p className="fr-restored">
-            We kept the answers you had typed.{" "}
+            {tr("We kept the answers you had typed.")}{" "}
             <button
               type="button"
               className="link-btn"
@@ -281,7 +281,7 @@ export function Runner({ form, prefill, zone, workspace, send, keep, preview, re
                 if (keep) clearDraft(keep.tenant, keep.slug);
               }}
             >
-              Start again
+              {tr("Start again")}
             </button>
           </p>
         )}
@@ -292,10 +292,10 @@ export function Runner({ form, prefill, zone, workspace, send, keep, preview, re
               <span className="req" aria-hidden="true">
                 *
               </span>{" "}
-              needs an answer
+              {tr("needs an answer")}
             </p>
           )}
-          {!page.items.length && <p className="muted">Nothing more to ask. Press Send to finish.</p>}
+          {!page.items.length && <p className="muted">{tr("Nothing more to ask. Press Send to finish.")}</p>}
           <div className="fr-questions">
             {page.items.map((i) => {
               const q = form.questions[i];
@@ -318,7 +318,7 @@ export function Runner({ form, prefill, zone, workspace, send, keep, preview, re
         {/* A field only bots fill in: people never see it, and the server keeps what it catches apart. */}
         <div className="fr-hp" aria-hidden="true">
           <label>
-            Leave this field empty
+            {tr("Leave this field empty")}
             <input type="text" name="hp_site" tabIndex={-1} autoComplete="off" value={honeypot} onChange={(e) => setHoneypot(e.target.value)} />
           </label>
         </div>
@@ -331,7 +331,7 @@ export function Runner({ form, prefill, zone, workspace, send, keep, preview, re
           {index > 0 && (
             <button type="button" className="btn btn-default btn-md" disabled={sending} onClick={() => go(index - 1)}>
               <ArrowLeft size={16} aria-hidden="true" />
-              Back
+              {tr("Back")}
             </button>
           )}
           <span className="spacer" />
@@ -351,7 +351,7 @@ export function Frame({ accent, footer, preview, children }: { accent?: CSSPrope
   const note = footer && !preview ? <p className="fr-foot faint">{footer}</p> : null;
   return (
     <div className="fr" style={accent} data-preview={preview ? "" : undefined}>
-      {preview && <p className="fr-preview">Preview. Nothing you answer here is sent or kept.</p>}
+      {preview && <p className="fr-preview">{tr("Preview. Nothing you answer here is sent or kept.")}</p>}
       {/* The page's one main region; in the builder's preview it is inside the builder's. */}
       {preview ? (
         <div className="fr-sheet">{children}</div>

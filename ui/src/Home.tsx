@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { BarChart3, Copy, Ellipsis, ExternalLink, Globe, Link2, Lock, Plus, Search, Trash2 } from "lucide-react";
 import { useCallback, useMemo } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
-import { api, ApiError, docPath, errorMessage, relativeTime } from "@ferrum/client";
+import { api, ApiError, docPath, errorMessage, relativeTime, t } from "@ferrum/client";
 import { Badge, Button, confirmDialog, EmptyState, ErrorState, toast, useLiveEntity, useShellTitle } from "@ferrum/kit";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@ferrum/kit/primitives";
 import { can, useEntityMeta } from "@ferrum/records";
@@ -93,7 +93,7 @@ export function Home() {
     try {
       await api.del(docPath("Form", f.id));
       refresh();
-      toast("Deleted");
+      toast(t("Deleted"));
     } catch (e) {
       toast(errorMessage(e), "error");
     }
@@ -106,7 +106,7 @@ export function Home() {
     <div className="fm-page">
       <header className="page-head">
         <div>
-          <h1 className="page-title">Forms</h1>
+          <h1 className="page-title">{t("Forms")}</h1>
           <p className="page-sub" aria-live="polite">
             {forms.data ? `${forms.data.length} ${forms.data.length === 1 ? "form" : "forms"}` : " "}
           </p>
@@ -115,20 +115,20 @@ export function Home() {
           {canCreate && (
             <Link className="btn btn-primary btn-md" to="/new">
               <Plus size={16} aria-hidden="true" />
-              New form
+              {t("New form")}
             </Link>
           )}
         </div>
       </header>
 
       {denied ? (
-        <EmptyState title="Forms are built by people with the Forms User role" icon="doc">
-          <p className="muted">If someone sent you a link to a form, open that link to answer it. To build forms, ask an administrator of this workspace for the role.</p>
+        <EmptyState title={t("Forms are built by people with the Forms User role")} icon="doc">
+          <p className="muted">{t("If someone sent you a link to a form, open that link to answer it. To build forms, ask an administrator of this workspace for the role.")}</p>
         </EmptyState>
       ) : forms.error ? (
         <ErrorState error={forms.error} onRetry={() => void forms.refetch()} />
       ) : !forms.data ? (
-        <div className="fm-list" aria-busy="true" aria-label="Loading the forms">
+        <div className="fm-list" aria-busy="true" aria-label={t("Loading the forms")}>
           {[0, 1, 2].map((i) => (
             <div key={i} className="fm-form fm-skeleton">
               <span className="skeleton" style={{ width: "40%", height: 16 }} />
@@ -142,9 +142,9 @@ export function Home() {
             <div className="fm-tools">
               <div className="fm-search">
                 <Search size={15} aria-hidden="true" />
-                <input type="search" aria-label="Find a form" placeholder="Find a form…" value={q} onChange={(e) => set({ q: e.target.value })} />
+                <input type="search" aria-label={t("Find a form")} placeholder={t("Find a form…")} value={q} onChange={(e) => set({ q: e.target.value })} />
               </div>
-              <div className="chips" role="group" aria-label="Show">
+              <div className="chips" role="group" aria-label={t("Show")}>
                 {FILTERS.map(([v, label]) => (
                   <button key={v} type="button" className="chip" aria-pressed={status === v} onClick={() => set({ status: v })}>
                     {label}
@@ -154,18 +154,18 @@ export function Home() {
             </div>
           )}
           {!forms.data.length ? (
-            <EmptyState title="No forms yet" icon="doc">
-              <p className="muted">Build a form, a survey or a quiz, publish it, and share its link.</p>
+            <EmptyState title={t("No forms yet")} icon="doc">
+              <p className="muted">{t("Build a form, a survey or a quiz, publish it, and share its link.")}</p>
               {canCreate && (
                 <Link className="btn btn-primary btn-md" to="/new">
                   <Plus size={16} aria-hidden="true" />
-                  Make your first form
+                  {t("Make your first form")}
                 </Link>
               )}
             </EmptyState>
           ) : !shown.length ? (
-            <EmptyState title="No form matches" icon="search">
-              <Button onClick={() => set({ q: "", status: "" })}>Show every form</Button>
+            <EmptyState title={t("No form matches")} icon="search">
+              <Button onClick={() => set({ q: "", status: "" })}>{t("Show every form")}</Button>
             </EmptyState>
           ) : (
             <ul className="fm-list">
@@ -187,13 +187,13 @@ export function Home() {
                         {f.updated_at && (
                           <>
                             <span className="fm-dot" aria-hidden="true" />
-                            <span>Edited {relativeTime(f.updated_at)}</span>
+                            <span>{t("Edited")} {relativeTime(f.updated_at)}</span>
                           </>
                         )}
                       </p>
                     </div>
                     <Badge tone={STATUS_TONE[f.status ?? "Draft"]}>{STATUS_LABEL[f.status ?? "Draft"]}</Badge>
-                    <Link className="fm-stat" to={`/b/${f.id}/results`} title="See the results">
+                    <Link className="fm-stat" to={`/b/${f.id}/results`} title={t("See the results")}>
                       <strong>{o?.responses ?? "–"}</strong>
                       <span className="faint">{o?.responses === 1 ? "response" : "responses"}</span>
                     </Link>
@@ -209,38 +209,38 @@ export function Home() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem asChild>
-                          <Link to={`/b/${f.id}`}>Edit</Link>
+                          <Link to={`/b/${f.id}`}>{t("Edit")}</Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
                           <Link to={`/b/${f.id}/results`}>
-                            <BarChart3 size={14} aria-hidden="true" /> Results
+                            <BarChart3 size={14} aria-hidden="true" /> {t("Results")}
                           </Link>
                         </DropdownMenuItem>
                         {f.slug && (
                           <DropdownMenuItem onSelect={() => void copy(linkOf(f.slug as string))}>
-                            <Link2 size={14} aria-hidden="true" /> Copy the link
+                            <Link2 size={14} aria-hidden="true" /> {t("Copy the link")}
                           </DropdownMenuItem>
                         )}
                         {f.slug && live && (
                           <DropdownMenuItem asChild>
                             <a href={linkOf(f.slug)} target="_blank" rel="noopener noreferrer">
-                              <ExternalLink size={14} aria-hidden="true" /> Open it
+                              <ExternalLink size={14} aria-hidden="true" /> {t("Open it")}
                             </a>
                           </DropdownMenuItem>
                         )}
                         <DropdownMenuItem onSelect={() => void act(f, "duplicate")}>
-                          <Copy size={14} aria-hidden="true" /> Make a copy
+                          <Copy size={14} aria-hidden="true" /> {t("Make a copy")}
                         </DropdownMenuItem>
                         {live ? (
                           <DropdownMenuItem onSelect={() => void act(f, "close")}>
-                            <Lock size={14} aria-hidden="true" /> Close it
+                            <Lock size={14} aria-hidden="true" /> {t("Close it")}
                           </DropdownMenuItem>
                         ) : (
                           <DropdownMenuItem onSelect={() => void act(f, "publish")}>{f.status === "Closed" ? "Reopen it" : "Publish it"}</DropdownMenuItem>
                         )}
                         <DropdownMenuSeparator />
                         <DropdownMenuItem variant="destructive" onSelect={() => void remove(f)}>
-                          <Trash2 size={14} aria-hidden="true" /> Delete
+                          <Trash2 size={14} aria-hidden="true" /> {t("Delete")}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>

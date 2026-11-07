@@ -6,7 +6,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Copy, Download, Pencil } from "lucide-react";
 import { useCallback, useEffect, useRef } from "react";
 import { Link, Navigate, useParams, useSearchParams } from "react-router";
-import { api, bootstrap, docPath, download, errorMessage } from "@ferrum/client";
+import { api, bootstrap, docPath, download, errorMessage, t } from "@ferrum/client";
 import { Badge, Button, EmptyState, ErrorState, PageLoading, TabPanel, Tabs, toast, useLiveEntity, useShellTitle } from "@ferrum/kit";
 import { can, useEntityMeta } from "@ferrum/records";
 import { QuestionCard, Trend } from "./Charts";
@@ -80,8 +80,8 @@ export function ResultsRoute() {
       { replace: true },
     );
 
-  if (doc.error) return <ErrorState error={doc.error} onRetry={() => void doc.refetch()} title="Could not open this form" />;
-  if (!doc.data) return <PageLoading label="Opening the results…" />;
+  if (doc.error) return <ErrorState error={doc.error} onRetry={() => void doc.refetch()} title={t("Could not open this form")} />;
+  if (!doc.data) return <PageLoading label={t("Opening the results…")} />;
   const form = doc.data;
   const asked: Asked[] = askedOf(form);
   const live = form.status === "Published";
@@ -100,32 +100,32 @@ export function ResultsRoute() {
     <div className="fm-page fm-results">
       <header className="fm-head">
         <div className="fm-head-top">
-          <Link className="fm-back" to="/" aria-label="All forms">
-            <ArrowLeft size={16} aria-hidden="true" /> Forms
+          <Link className="fm-back" to="/" aria-label={t("All forms")}>
+            <ArrowLeft size={16} aria-hidden="true" /> {t("Forms")}
           </Link>
         </div>
         <div className="fm-head-main">
           <div className="fm-title-wrap">
             <h1 className="page-title">{String(form.title ?? "Untitled form")}</h1>
-            <p className="page-sub">Results</p>
+            <p className="page-sub">{t("Results")}</p>
           </div>
           <div className="fm-actions">
             <Badge tone={STATUS_TONE[(form.status ?? "Draft") as Status]}>{STATUS_LABEL[(form.status ?? "Draft") as Status]}</Badge>
             {slug && live && (
               <Button onClick={() => void copy(linkOf(slug))}>
                 <Copy size={16} aria-hidden="true" />
-                Copy the link
+                {t("Copy the link")}
               </Button>
             )}
             {can(meta?.permissions, "export") && (
               <Button onClick={() => void exportCsv()}>
                 <Download size={16} aria-hidden="true" />
-                Export
+                {t("Export")}
               </Button>
             )}
             <Link className="btn btn-default btn-md" to={`/b/${id}`}>
               <Pencil size={16} aria-hidden="true" />
-              Edit
+              {t("Edit")}
             </Link>
           </div>
         </div>
@@ -136,13 +136,13 @@ export function ResultsRoute() {
             onChange={(v) => set({ view: v === "responses" ? "responses" : null, open: null })}
             tabs={[
               { id: "summary", label: "Summary" },
-              { id: "responses", label: <>Responses{s ? <span className="fm-count">{s.responses}</span> : null}</> },
+              { id: "responses", label: <>{t("Responses")}{s ? <span className="fm-count">{s.responses}</span> : null}</> },
             ]}
           />
         </div>
       </header>
 
-      <div className="fm-filters" role="group" aria-label="Days to look at">
+      <div className="fm-filters" role="group" aria-label={t("Days to look at")}>
         <div className="chips">
           {PRESETS.map(([p, label]) => (
             <button key={p} type="button" className="chip" aria-pressed={preset === p} onClick={() => { const [a, b] = presetRange(p, today); set({ from: a, to: b }); }}>
@@ -151,11 +151,11 @@ export function ResultsRoute() {
           ))}
         </div>
         <label className="fm-date">
-          <span className="faint">From</span>
+          <span className="faint">{t("From")}</span>
           <input className="input" type="date" max={to ?? undefined} value={from ?? ""} onChange={(e) => set({ from: e.target.value || null })} />
         </label>
         <label className="fm-date">
-          <span className="faint">To</span>
+          <span className="faint">{t("To")}</span>
           <input className="input" type="date" min={from ?? undefined} value={to ?? ""} onChange={(e) => set({ to: e.target.value || null })} />
         </label>
       </div>
@@ -165,7 +165,7 @@ export function ResultsRoute() {
           summary.error ? (
             <ErrorState error={summary.error} onRetry={() => void summary.refetch()} />
           ) : !s ? (
-            <div className="fm-tiles" aria-busy="true" aria-label="Loading the numbers">
+            <div className="fm-tiles" aria-busy="true" aria-label={t("Loading the numbers")}>
               {[0, 1, 2, 3].map((i) => (
                 <div key={i} className="fm-tile">
                   <span className="skeleton" style={{ width: "50%", height: 24 }} />
@@ -175,12 +175,12 @@ export function ResultsRoute() {
           ) : s.responses === 0 && !s.spam ? (
             <EmptyState title={from || to ? "No responses in these days" : "No responses yet"} icon="doc">
               {from || to ? (
-                <Button onClick={() => set({ from: null, to: null })}>Look at all time</Button>
+                <Button onClick={() => set({ from: null, to: null })}>{t("Look at all time")}</Button>
               ) : live && slug ? (
                 <>
-                  <p className="muted">Share the link and the answers collect here.</p>
+                  <p className="muted">{t("Share the link and the answers collect here.")}</p>
                   <Button variant="primary" onClick={() => void copy(linkOf(slug))}>
-                    <Copy size={16} aria-hidden="true" /> Copy the link
+                    <Copy size={16} aria-hidden="true" /> {t("Copy the link")}
                   </Button>
                 </>
               ) : (
@@ -196,12 +196,12 @@ export function ResultsRoute() {
             <>
               <div className="fm-tiles">
                 <Tile label={s.responses === 1 ? "response" : "responses"} value={s.responses} />
-                <Tile label="opened it" value={s.views} hint="people who opened the link" />
-                <Tile label="finished" value={percent(s.completion_rate)} hint="of those who opened it" />
-                <Tile label="typical time" value={duration(s.completion_time.median_seconds)} />
-                {s.quiz && <Tile label="average score" value={percent(s.quiz.average_percent)} hint={`${s.quiz.graded} marked`} />}
+                <Tile label={t("opened it")} value={s.views} hint={t("people who opened the link")} />
+                <Tile label="finished" value={percent(s.completion_rate)} hint={t("of those who opened it")} />
+                <Tile label={t("typical time")} value={duration(s.completion_time.median_seconds)} />
+                {s.quiz && <Tile label={t("average score")} value={percent(s.quiz.average_percent)} hint={`${s.quiz.graded} marked`} />}
                 {s.quiz && s.quiz.passed + s.quiz.failed > 0 && <Tile label="passed" value={percent(s.quiz.pass_rate)} hint={`${s.quiz.passed} of ${s.quiz.passed + s.quiz.failed}`} />}
-                {s.spam > 0 && <Tile label="kept as spam" value={s.spam} to={`?view=responses&status=Spam`} />}
+                {s.spam > 0 && <Tile label={t("kept as spam")} value={s.spam} to={`?view=responses&status=Spam`} />}
               </div>
               <Trend trend={s.trend} />
               <div className="fm-qcards">
@@ -236,7 +236,7 @@ export function ResultsRoute() {
 export function ResponseRoute() {
   const { id = "" } = useParams();
   const q = useQuery({ queryKey: ["forms", "response-form", id], queryFn: ({ signal }) => api.get<{ form?: string }>(docPath("FormResponse", id), { fields: "form" }, signal) });
-  if (q.error) return <ErrorState error={q.error} onRetry={() => void q.refetch()} title="Could not open this response" />;
+  if (q.error) return <ErrorState error={q.error} onRetry={() => void q.refetch()} title={t("Could not open this response")} />;
   if (!q.data) return <PageLoading />;
   return <Navigate to={q.data.form ? `/b/${q.data.form}/results?view=responses&open=${id}` : "/"} replace />;
 }
