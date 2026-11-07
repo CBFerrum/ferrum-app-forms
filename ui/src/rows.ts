@@ -5,6 +5,7 @@
 
 import { answerKeys, compile } from "./cel";
 import { answerable, gradable, hasOptions, type Kind, KINDS, LIKERT_DEFAULT, type Layout, type PForm, type PQuestion } from "./model";
+import { t } from "@ferrum/client";
 
 /** A question row of the Form (`FormQuestion`), as the builder holds it. */
 export interface QRow {
@@ -435,7 +436,7 @@ export function toPublic(b: Basics, rows: QRow[]): PForm {
   const layout: Layout = b.layout === "One question at a time" ? "single" : "pages";
   return {
     slug: "preview",
-    title: b.title || "Untitled form",
+    title: b.title || t("Untitled form"),
     description: b.description.trim() || null,
     kind: b.kind,
     access: b.access,

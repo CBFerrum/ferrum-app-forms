@@ -6,7 +6,7 @@
 
 import { ArrowLeft, ArrowRight, Lock, Send } from "lucide-react";
 import { type CSSProperties, type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ApiError, errorMessage, t as tr } from "@ferrum/client";
+import { ApiError, errorMessage, t as tr, isolate } from "@ferrum/client";
 import { Spinner } from "@ferrum/kit";
 import { accentVars } from "./accent";
 import { Notice, Thanks } from "./Done";
@@ -223,8 +223,8 @@ export function Runner({ form, prefill, zone, workspace, send, keep, preview, re
     const closed = closedState(phase.message);
     return (
       <Frame accent={accent} footer={footer} preview={preview}>
-        <Notice icon={<Lock size={26} />} title={phase.already ? "You have already responded" : closed.title}>
-          <p>{phase.already ? "This form takes one response from each person, and yours was received. Thank you." : closed.body}</p>
+        <Notice icon={<Lock size={26} />} title={phase.already ? tr("You have already responded") : closed.title}>
+          <p>{phase.already ? tr("This form takes one response from each person, and yours was received. Thank you.") : closed.body}</p>
         </Notice>
       </Frame>
     );
@@ -241,18 +241,18 @@ export function Runner({ form, prefill, zone, workspace, send, keep, preview, re
               <span style={{ width: `${((index + 1) / pages.length) * 100}%` }} />
             </div>
             <p className="fr-step faint">
-              {unit} {index + 1} of {pages.length}
+              {isolate(unit)} {index + 1} {tr("of {length}", { length: pages.length })}
             </p>
           </div>
         )}
         <p className="sr-only" aria-live="polite">
-          {many ? `${unit} ${index + 1} of ${pages.length}${page.title ? `: ${page.title}` : ""}` : ""}
+          {many ? tr("{unit} {value} of {length}{value2}", { unit, value: index + 1, length: pages.length, value2: page.title ? `: ${page.title}` : "" }) : ""}
         </p>
         {firstPage ? (
           <header className="fr-head">
             {form.theme.logo && <img className="fr-logo" src={form.theme.logo} alt={workspace ?? ""} onError={hide} />}
-            <h1 className="fr-title">{form.title}</h1>
-            {form.description && <p className="fr-desc">{form.description}</p>}
+            <h1 className="fr-title">{isolate(form.title)}</h1>
+            {form.description && <p className="fr-desc">{isolate(form.description)}</p>}
             {(form.anonymous || form.closes_at) && (
               <p className="fr-facts faint">
                 {form.anonymous && (
@@ -260,16 +260,16 @@ export function Runner({ form, prefill, zone, workspace, send, keep, preview, re
                     <Lock size={13} aria-hidden="true" /> {tr("Your response is anonymous.")}
                   </span>
                 )}
-                {form.closes_at && <span>{tr("Open until")} {new Date(form.closes_at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}.</span>}
+                {form.closes_at && <span>{tr("Open until")} {isolate(new Date(form.closes_at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }))}.</span>}
               </p>
             )}
           </header>
         ) : (
-          <p className="fr-running faint">{form.title}</p>
+          <p className="fr-running faint">{isolate(form.title)}</p>
         )}
         {restored && (
           <p className="fr-restored">
-            {tr("We kept the answers you had typed.")}{" "}
+            {tr("We kept the answers you had typed.")}{isolate(" ")}
             <button
               type="button"
               className="link-btn"
@@ -286,12 +286,12 @@ export function Runner({ form, prefill, zone, workspace, send, keep, preview, re
           </p>
         )}
         <section key={page.id} ref={section} className="fr-page" tabIndex={-1} aria-label={page.title ?? (many ? `${unit} ${index + 1}` : form.title)}>
-          {page.title && <h2 className="fr-page-title">{page.title}</h2>}
+          {page.title && <h2 className="fr-page-title">{isolate(page.title)}</h2>}
           {page.items.some((i) => form.questions[i].required && form.questions[i].type !== "checkbox") && (
             <p className="fr-legend faint">
               <span className="req" aria-hidden="true">
                 *
-              </span>{" "}
+              </span>{isolate(" ")}
               {tr("needs an answer")}
             </p>
           )}
@@ -337,7 +337,7 @@ export function Runner({ form, prefill, zone, workspace, send, keep, preview, re
           <span className="spacer" />
           <button type="submit" className="btn btn-primary btn-md" disabled={sending} aria-busy={sending || undefined}>
             {sending ? <Spinner small /> : last ? <Send size={16} aria-hidden="true" /> : null}
-            {sending ? "Sending…" : last ? "Send" : "Next"}
+            {sending ? tr("Sending…") : last ? tr("Send") : tr("Next")}
             {!sending && !last && <ArrowRight size={16} aria-hidden="true" />}
           </button>
         </div>
@@ -348,7 +348,7 @@ export function Runner({ form, prefill, zone, workspace, send, keep, preview, re
 
 /** The page's sheet: the form's colour, a column that holds its width, who is asking. */
 export function Frame({ accent, footer, preview, children }: { accent?: CSSProperties; footer?: string; preview?: boolean; children: ReactNode }) {
-  const note = footer && !preview ? <p className="fr-foot faint">{footer}</p> : null;
+  const note = footer && !preview ? <p className="fr-foot faint">{isolate(footer)}</p> : null;
   return (
     <div className="fr" style={accent} data-preview={preview ? "" : undefined}>
       {preview && <p className="fr-preview">{tr("Preview. Nothing you answer here is sent or kept.")}</p>}

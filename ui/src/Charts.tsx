@@ -6,7 +6,7 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { ChevronDown } from "lucide-react";
 import { type ReactNode, useId, useState } from "react";
-import { api, formatDateTime, t as tr } from "@ferrum/client";
+import { api, formatDateTime, t as tr, isolate } from "@ferrum/client";
 import { Button, ErrorState, Spinner } from "@ferrum/kit";
 import { kindLabel } from "./model";
 import { type AnswersPage, npsGroup, num, percent, type QSummary, type Summary, trendLine } from "./stats";
@@ -29,20 +29,20 @@ export function Trend({ trend }: { trend: Summary["trend"] }) {
       <figcaption className="fm-trend-head">
         <strong>{tr("Responses a day")}</strong>
         <span className="faint">
-          {total} in {trend.length} days{best.responses > 0 ? `, most on ${day(best.date)} (${best.responses})` : ""}
+          {tr("{total} in {length} days", { total, length: trend.length })}{best.responses > 0 ? tr(", most on {value} ({responses})", { value: day(best.date), responses: best.responses }) : ""}
         </span>
       </figcaption>
       <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-labelledby={id} className="fm-trend-svg">
-        <title id={id}>{`${total} responses in ${trend.length} days, from ${day(trend[0].date)} to ${day(trend[trend.length - 1].date)}`}</title>
+        <title id={id}>{tr("{total} responses in {length} days, from {value} to {value2}", { total, length: trend.length, value: day(trend[0].date), value2: day(trend[trend.length - 1].date) })}</title>
         <line x1="10" x2={W - 10} y1={H - 10} y2={H - 10} className="fm-axis" />
         <path d={t.area} className="fm-area" />
         <path d={t.line} className="fm-line" vectorEffect="non-scaling-stroke" />
         {trend.length <= 31 && t.dots.filter((d) => d.responses > 0).map((d) => <circle key={d.date} cx={d.x} cy={d.y} r="3" className="fm-dot-mark" vectorEffect="non-scaling-stroke" />)}
       </svg>
       <div className="fm-trend-axis faint" aria-hidden="true">
-        <span>{day(trend[0].date)}</span>
+        <span>{isolate(day(trend[0].date))}</span>
         <span>{tr("{max} a day at most", { max: t.max })}</span>
-        <span>{day(trend[trend.length - 1].date)}</span>
+        <span>{isolate(day(trend[trend.length - 1].date))}</span>
       </div>
     </figure>
   );
@@ -55,12 +55,12 @@ function Bars({ rows }: { rows: { label: string; count: number; percent: string 
     <ul className="fm-bars">
       {rows.map((r) => (
         <li key={r.label}>
-          <span className="fm-bar-label">{r.label}</span>
+          <span className="fm-bar-label">{isolate(r.label)}</span>
           <span className="fm-bar-track" aria-hidden="true">
             <span style={{ width: `${Math.min(100, num(r.percent))}%` }} />
           </span>
           <span className="fm-bar-value">
-            {r.count} <span className="faint">({percent(r.percent)})</span>
+            {r.count} <span className="faint">({isolate(percent(r.percent))})</span>
           </span>
         </li>
       ))}
@@ -95,7 +95,7 @@ function Columns({ dist, nps }: { dist: NonNullable<QSummary["distribution"]>; n
             <tr key={d.value}>
               <td>{d.value}</td>
               <td>{d.count}</td>
-              <td>{percent(d.percent)}</td>
+              <td>{isolate(percent(d.percent))}</td>
             </tr>
           ))}
         </tbody>
@@ -109,7 +109,7 @@ function Facts({ items }: { items: [string, ReactNode][] }) {
     <dl className="fm-facts-grid">
       {items.map(([k, v]) => (
         <div key={k}>
-          <dt className="faint">{k}</dt>
+          <dt className="faint">{isolate(k)}</dt>
           <dd>{v}</dd>
         </div>
       ))}
@@ -144,9 +144,9 @@ function Words({ formId, q }: { formId: string; q: QSummary }) {
           <ul className="fm-quotes">
             {answers.map((a) => (
               <li key={a.response}>
-                <p>{a.text}</p>
+                <p>{isolate(a.text)}</p>
                 <p className="faint">
-                  {a.number} · {formatDateTime(a.submitted_at)}
+                  {isolate(a.number ?? "")} · {isolate(formatDateTime(a.submitted_at))}
                 </p>
               </li>
             ))}
@@ -174,7 +174,7 @@ function Body({ q, formId }: { q: QSummary; formId: string }) {
     case "multi_select":
     case "likert": {
       const rows = (q.options ?? []).map((o) => ({ label: o.option, count: o.count, percent: o.percent }));
-      if (q.other) rows.push({ label: "Other", count: q.other.count, percent: q.other.percent });
+      if (q.other) rows.push({ label: tr("Other"), count: q.other.count, percent: q.other.percent });
       return (
         <>
           <Bars rows={rows} />
@@ -184,7 +184,7 @@ function Body({ q, formId }: { q: QSummary; formId: string }) {
       );
     }
     case "checkbox":
-      return <Bars rows={[{ label: "Ticked", count: q.yes?.count ?? 0, percent: q.yes?.percent ?? null }, { label: "Not ticked", count: q.no?.count ?? 0, percent: q.no?.percent ?? null }]} />;
+      return <Bars rows={[{ label: tr("Ticked"), count: q.yes?.count ?? 0, percent: q.yes?.percent ?? null }, { label: tr("Not ticked"), count: q.no?.count ?? 0, percent: q.no?.percent ?? null }]} />;
     case "rating":
       return (
         <>
@@ -197,7 +197,7 @@ function Body({ q, formId }: { q: QSummary; formId: string }) {
       return (
         <>
           <div className="fm-nps-score">
-            <p className="fm-nps-n">{signed(q.nps)}</p>
+            <p className="fm-nps-n">{isolate(signed(q.nps))}</p>
             <p className="faint">{tr("Net promoter score, from −100 to +100")}</p>
           </div>
           <div className="fm-stack-bar" aria-hidden="true">
@@ -209,7 +209,7 @@ function Body({ q, formId }: { q: QSummary; formId: string }) {
             {parts.map(([name, g, s]) => (
               <li key={g} data-group={g}>
                 <span className="fm-swatch" aria-hidden="true" />
-                {name} <strong>{s?.count ?? 0}</strong> <span className="faint">({percent(s?.percent)})</span>
+                {isolate(name)} <strong>{s?.count ?? 0}</strong> <span className="faint">({isolate(percent(s?.percent))})</span>
               </li>
             ))}
           </ul>
@@ -233,7 +233,7 @@ function Body({ q, formId }: { q: QSummary; formId: string }) {
                 </th>
                 {columns.map((c) => (
                   <th key={c} scope="col">
-                    {c}
+                    {isolate(c)}
                   </th>
                 ))}
               </tr>
@@ -242,12 +242,12 @@ function Body({ q, formId }: { q: QSummary; formId: string }) {
               {q.rows?.map((r) => (
                 <tr key={r.row}>
                   <th scope="row">
-                    {r.row}
+                    {isolate(r.row)}
                     <span className="faint"> {r.answered}</span>
                   </th>
                   {r.columns.map((c) => (
-                    <td key={c.column} style={{ ["--p" as string]: `${Math.round(num(c.percent) * 0.7)}%` }} title={`${c.count} of ${r.answered}`}>
-                      {percent(c.percent)}
+                    <td key={c.column} style={{ ["--p" as string]: `${Math.round(num(c.percent) * 0.7)}%` }} title={tr("{count} of {answered}", { count: c.count, answered: r.answered })}>
+                      {isolate(percent(c.percent))}
                     </td>
                   ))}
                 </tr>
@@ -262,7 +262,7 @@ function Body({ q, formId }: { q: QSummary; formId: string }) {
         <ol className="fm-ranking">
           {q.items?.map((it) => (
             <li key={it.item}>
-              <span className="fm-rank-item">{it.item}</span>
+              <span className="fm-rank-item">{isolate(it.item)}</span>
               <span className="faint">
                 {tr("average place")} {it.average_rank ? num(it.average_rank) : "–"} {tr("· first for {first_place}", { first_place: it.first_place })}
               </span>
@@ -271,7 +271,7 @@ function Body({ q, formId }: { q: QSummary; formId: string }) {
         </ol>
       );
     case "file":
-      return <p>{q.files ?? 0} {q.files === 1 ? "file" : "files"} {tr("uploaded. Open a response to see them.")}</p>;
+      return <p>{q.files ?? 0} {q.files === 1 ? tr("file") : tr("files")} {tr("uploaded. Open a response to see them.")}</p>;
     default:
       return <Words formId={formId} q={q} />;
   }
@@ -282,11 +282,11 @@ export function QuestionCard({ q, formId, n }: { q: QSummary; formId: string; n:
     <article className="fm-qcard">
       <header className="fm-qcard-head">
         <h3>
-          <span className="fm-num">{n}.</span> {q.label}
+          <span className="fm-num">{n}.</span> {isolate(q.label)}
         </h3>
         <p className="faint">
-          {kindLabel(q.type)} · {q.answered} answered
-          {q.skipped > 0 ? `, ${q.skipped} skipped` : ""}
+          {tr("{value} · {answered} answered", { value: kindLabel(q.type), answered: q.answered })}
+          {q.skipped > 0 ? tr(", {skipped} skipped", { skipped: q.skipped }) : ""}
         </p>
       </header>
       <Body q={q} formId={formId} />

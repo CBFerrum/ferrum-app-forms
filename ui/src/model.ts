@@ -1,3 +1,4 @@
+import { t } from "@ferrum/client";
 // What the interface knows of a form: the question types, the definition a respondent gets
 // (`GET /f/{slug}`, src/model.rs `Question::public`) and what comes back after sending.
 
@@ -35,27 +36,27 @@ export interface KindInfo {
 
 /** The 21 types, in the order the list of types shows them. */
 export const KINDS: KindInfo[] = [
-  { kind: "short_text", label: "Short answer", hint: "A name, a title, a few words", group: "Text" },
-  { kind: "long_text", label: "Long answer", hint: "A paragraph of their own words", group: "Text" },
-  { kind: "email", label: "Email", hint: "An address, checked as they type", group: "Text" },
-  { kind: "phone", label: "Phone number", hint: "Digits, spaces and a leading +", group: "Text" },
-  { kind: "number", label: "Whole number", hint: "An age, a quantity", group: "Text" },
-  { kind: "decimal", label: "Number with decimals", hint: "An amount, a measurement", group: "Text" },
-  { kind: "select", label: "Single choice", hint: "Pick one of a few", group: "Choice" },
-  { kind: "multi_select", label: "Multiple choice", hint: "Pick any that apply", group: "Choice" },
-  { kind: "dropdown", label: "Dropdown", hint: "Pick one from a long list", group: "Choice" },
-  { kind: "checkbox", label: "Checkbox", hint: "Yes or no, or “I agree”", group: "Choice" },
-  { kind: "ranking", label: "Ranking", hint: "Put the options in order", group: "Choice" },
-  { kind: "rating", label: "Rating", hint: "Stars, from 3 to 10", group: "Scale" },
-  { kind: "nps", label: "Net promoter score", hint: "0 to 10, how likely to recommend", group: "Scale" },
-  { kind: "likert", label: "Agreement scale", hint: "Strongly disagree to strongly agree", group: "Scale" },
-  { kind: "matrix", label: "Grid", hint: "Several statements, one scale", group: "Scale" },
-  { kind: "date", label: "Date", hint: "A day from a calendar", group: "Date" },
-  { kind: "time", label: "Time", hint: "A time of day", group: "Date" },
-  { kind: "datetime", label: "Date and time", hint: "A day and a time", group: "Date" },
-  { kind: "file", label: "File upload", hint: "A document or a picture", group: "More" },
-  { kind: "statement", label: "Text block", hint: "Words to read, no answer", group: "More" },
-  { kind: "page_break", label: "Page break", hint: "Start a new page", group: "More" },
+  { kind: "short_text", get label() { return t("Short answer"); }, get hint() { return t("A name, a title, a few words"); }, group: "Text" },
+  { kind: "long_text", get label() { return t("Long answer"); }, get hint() { return t("A paragraph of their own words"); }, group: "Text" },
+  { kind: "email", get label() { return t("Email"); }, get hint() { return t("An address, checked as they type"); }, group: "Text" },
+  { kind: "phone", get label() { return t("Phone number"); }, get hint() { return t("Digits, spaces and a leading +"); }, group: "Text" },
+  { kind: "number", get label() { return t("Whole number"); }, get hint() { return t("An age, a quantity"); }, group: "Text" },
+  { kind: "decimal", get label() { return t("Number with decimals"); }, get hint() { return t("An amount, a measurement"); }, group: "Text" },
+  { kind: "select", get label() { return t("Single choice"); }, get hint() { return t("Pick one of a few"); }, group: "Choice" },
+  { kind: "multi_select", get label() { return t("Multiple choice"); }, get hint() { return t("Pick any that apply"); }, group: "Choice" },
+  { kind: "dropdown", get label() { return t("Dropdown"); }, get hint() { return t("Pick one from a long list"); }, group: "Choice" },
+  { kind: "checkbox", get label() { return t("Checkbox"); }, get hint() { return t("Yes or no, or “I agree”"); }, group: "Choice" },
+  { kind: "ranking", get label() { return t("Ranking"); }, get hint() { return t("Put the options in order"); }, group: "Choice" },
+  { kind: "rating", get label() { return t("Rating"); }, get hint() { return t("Stars, from 3 to 10"); }, group: "Scale" },
+  { kind: "nps", get label() { return t("Net promoter score"); }, get hint() { return t("0 to 10, how likely to recommend"); }, group: "Scale" },
+  { kind: "likert", get label() { return t("Agreement scale"); }, get hint() { return t("Strongly disagree to strongly agree"); }, group: "Scale" },
+  { kind: "matrix", get label() { return t("Grid"); }, get hint() { return t("Several statements, one scale"); }, group: "Scale" },
+  { kind: "date", get label() { return t("Date"); }, get hint() { return t("A day from a calendar"); }, group: "Date" },
+  { kind: "time", get label() { return t("Time"); }, get hint() { return t("A time of day"); }, group: "Date" },
+  { kind: "datetime", get label() { return t("Date and time"); }, get hint() { return t("A day and a time"); }, group: "Date" },
+  { kind: "file", get label() { return t("File upload"); }, get hint() { return t("A document or a picture"); }, group: "More" },
+  { kind: "statement", get label() { return t("Text block"); }, get hint() { return t("Words to read, no answer"); }, group: "More" },
+  { kind: "page_break", get label() { return t("Page break"); }, get hint() { return t("Start a new page"); }, group: "More" },
 ];
 
 export const GROUPS: KindInfo["group"][] = ["Text", "Choice", "Scale", "Date", "More"];

@@ -4,7 +4,7 @@
 
 import { Plus, Trash2, Upload, X } from "lucide-react";
 import { type ReactNode, useId, useState } from "react";
-import { api, errorMessage, t as tr } from "@ferrum/client";
+import { api, errorMessage, t as tr, isolate } from "@ferrum/client";
 import { Field, toast } from "@ferrum/kit";
 import { useEntityMeta, useMetaIndex } from "@ferrum/records";
 import { alwaysShown, fits, lines, type QRow } from "./rows";
@@ -35,7 +35,7 @@ const fromInput = (v: string): string | null => {
 function Section({ title, hint, children }: { title: string; hint?: ReactNode; children: ReactNode }) {
   return (
     <section className="fm-section">
-      <h2 className="fm-section-title">{title}</h2>
+      <h2 className="fm-section-title">{isolate(title)}</h2>
       {hint && <p className="muted fm-section-hint">{hint}</p>}
       <div className="fm-section-body">{children}</div>
     </section>
@@ -47,7 +47,7 @@ export function Seg<T extends string>({ value, options, onChange, label }: { val
     <div className="segmented" role="group" aria-label={label}>
       {options.map(([v, text]) => (
         <button key={v} type="button" aria-pressed={value === v} onClick={() => onChange(v)}>
-          {text}
+          {isolate(text)}
         </button>
       ))}
     </div>
@@ -76,10 +76,10 @@ function Mapping({ fields, set, rows, error }: { fields: Fields; set: (p: Partia
       <Field label={tr("Create a record from each response")} htmlFor={`${id}-entity`} hint={tr("Each response can become, for example, a lead or a ticket.")} error={error}>
         <select id={`${id}-entity`} className="select" value={fields.target_entity} onChange={(e) => set({ target_entity: e.target.value, field_map: e.target.value === fields.target_entity ? map : [] })}>
           <option value="">{tr("No record")}</option>
-          {fields.target_entity && !targets.some((t) => t.name === fields.target_entity) && <option value={fields.target_entity}>{fields.target_entity}</option>}
+          {fields.target_entity && !targets.some((t) => t.name === fields.target_entity) && <option value={fields.target_entity}>{isolate(fields.target_entity)}</option>}
           {targets.map((t) => (
             <option key={t.name} value={t.name}>
-              {t.label}
+              {isolate(t.label)}
             </option>
           ))}
         </select>
@@ -93,7 +93,7 @@ function Mapping({ fields, set, rows, error }: { fields: Fields; set: (p: Partia
               <table className="fm-map">
                 <thead>
                   <tr>
-                    <th scope="col">{tr("Field of the")} {entity.label.toLowerCase()}</th>
+                    <th scope="col">{tr("Field of the")} {isolate(entity.label.toLowerCase())}</th>
                     <th scope="col">{tr("Filled from")}</th>
                     <th scope="col">
                       <span className="sr-only">{tr("Remove")}</span>
@@ -108,10 +108,10 @@ function Mapping({ fields, set, rows, error }: { fields: Fields; set: (p: Partia
                         <td>
                           <select className="select" aria-label={tr("Field")} value={m.target_field} onChange={(e) => setRow(i, { target_field: e.target.value })}>
                             <option value="">{tr("Choose a field…")}</option>
-                            {m.target_field && !writable.some((f) => f.name === m.target_field) && <option value={m.target_field}>{m.target_field}</option>}
+                            {m.target_field && !writable.some((f) => f.name === m.target_field) && <option value={m.target_field}>{isolate(m.target_field)}</option>}
                             {writable.map((f) => (
                               <option key={f.name} value={f.name}>
-                                {f.label}
+                                {isolate(f.label)}
                                 {f.required ? " *" : ""}
                               </option>
                             ))}
@@ -148,7 +148,7 @@ function Mapping({ fields, set, rows, error }: { fields: Fields; set: (p: Partia
                   <Plus size={14} aria-hidden="true" /> {tr("Fill another field")}
                 </button>
               </div>
-              {missing.length > 0 && <p className="field-hint">{tr("Still needed by the")} {entity.label.toLowerCase()}: {missing.map((f) => f.label).join(", ")}.</p>}
+              {missing.length > 0 && <p className="field-hint">{tr("Still needed by the")} {isolate(entity.label.toLowerCase())}: {isolate(missing.map((f) => f.label).join(", "))}.</p>}
             </>
           )}
         </>
@@ -219,7 +219,7 @@ export function Settings({ fields: f, set, rows, formId, errors }: SettingsProps
           <input type="checkbox" checked={f.anonymous} onChange={(e) => set({ anonymous: e.target.checked, ...(e.target.checked && f.one_response_per === "Email" ? { one_response_per: "" as const } : {}) })} />
           <span>{tr("Anonymous: keep no email, name or address with the answers")}</span>
         </label>
-        {errors.anonymous && <p className="field-error">{errors.anonymous}</p>}
+        {errors.anonymous && <p className="field-error">{isolate(errors.anonymous)}</p>}
         <Field label={tr("Limit each person to one response")} htmlFor={`${id}-one`} error={errors.one_response_per}>
           <select id={`${id}-one`} className="select" value={f.one_response_per} onChange={(e) => set({ one_response_per: e.target.value as Fields["one_response_per"] })}>
             <option value="">{tr("No limit")}</option>
@@ -231,15 +231,15 @@ export function Settings({ fields: f, set, rows, formId, errors }: SettingsProps
           <Field
             label={tr("Which question holds their email")}
             htmlFor={`${id}-email`}
-            hint={emails.length ? "It has to be required and shown to everyone." : "Add an Email question first."}
+            hint={emails.length ? tr("It has to be required and shown to everyone.") : tr("Add an Email question first.")}
             error={errors.email_question}
           >
             <select id={`${id}-email`} className="select" value={f.email_question} onChange={(e) => set({ email_question: e.target.value })}>
-              <option value="">{f.access === "Internal" && f.one_response_per === "Email" ? "The signed-in person's email" : "Choose a question…"}</option>
+              <option value="">{f.access === "Internal" && f.one_response_per === "Email" ? tr("The signed-in person's email") : tr("Choose a question…")}</option>
               {emails.map((q) => (
                 <option key={q.uid} value={q.key} disabled={!q.required || !alwaysShown(rows, q.key)}>
                   {q.label.trim() || q.key}
-                  {!q.required ? " (not required)" : !alwaysShown(rows, q.key) ? " (not always shown)" : ""}
+                  {!q.required ? tr(" (not required)") : !alwaysShown(rows, q.key) ? tr(" (not always shown)") : ""}
                 </option>
               ))}
             </select>
@@ -247,7 +247,7 @@ export function Settings({ fields: f, set, rows, formId, errors }: SettingsProps
         )}
       </Section>
 
-      <Section title={tr("When")} hint={`Times are in your time zone (${zone.replace(/_/g, " ")}).`}>
+      <Section title={tr("When")} hint={tr("Times are in your time zone ({zone}).", { zone: zone.replace(/_/g, " ") })}>
         <div className="fm-grid">
           <Field label={tr("Opens")} htmlFor={`${id}-opens`} hint={tr("Blank: as soon as it is published.")} error={errors.opens_at}>
             <input id={`${id}-opens`} className="input" type="datetime-local" value={toInput(f.opens_at)} onChange={(e) => set({ opens_at: fromInput(e.target.value) })} />
@@ -291,7 +291,7 @@ export function Settings({ fields: f, set, rows, formId, errors }: SettingsProps
           <input type="checkbox" checked={f.autoresponder} onChange={(e) => set({ autoresponder: e.target.checked })} />
           <span>{tr("Send each person an email thanking them")}</span>
         </label>
-        {errors.autoresponder && <p className="field-error">{errors.autoresponder}</p>}
+        {errors.autoresponder && <p className="field-error">{isolate(errors.autoresponder)}</p>}
         {f.autoresponder && (
           <>
             <Field label={tr("Subject")} htmlFor={`${id}-subject`} error={errors.autoresponder_subject}>
@@ -321,7 +321,7 @@ export function Settings({ fields: f, set, rows, formId, errors }: SettingsProps
               {f.logo && <img src={f.logo} alt="" />}
               <label className="btn btn-default btn-sm">
                 <Upload size={14} aria-hidden="true" />
-                {busy ? "Uploading…" : f.logo ? "Change" : "Upload"}
+                {busy ? tr("Uploading…") : f.logo ? tr("Change") : tr("Upload")}
                 <input id={`${id}-logo`} type="file" accept="image/*" className="sr-only" disabled={busy} onChange={(e) => (void upload(e.target.files?.[0]), (e.target.value = ""))} />
               </label>
               {f.logo && (

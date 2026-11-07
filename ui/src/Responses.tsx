@@ -5,7 +5,7 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Columns3, ExternalLink, Paperclip } from "lucide-react";
 import { type ReactNode, useEffect } from "react";
-import { api, docPath, errorMessage, formatDateTime, formatMoment, shell, t as tr } from "@ferrum/client";
+import { api, docPath, errorMessage, formatDateTime, formatMoment, shell, t as tr, isolate } from "@ferrum/client";
 import { Badge, Button, EmptyState, ErrorState, Spinner, type Tone, toast } from "@ferrum/kit";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger, Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@ferrum/kit/primitives";
 import { listOf } from "./rows";
@@ -50,7 +50,7 @@ export function askedOf(doc: Record<string, unknown> | undefined): Asked[] {
 
 const FIELDS = "number,status,source,submitted_at,respondent_email,respondent_name,answers,score,max_score,quiz_result,completion_seconds";
 const TONE: Record<string, Tone> = { New: "blue", Reviewed: "green", Spam: "red" };
-const who = (r: Resp) => r.respondent_name || r.respondent_email || "Anonymous";
+const who = (r: Resp) => r.respondent_name || r.respondent_email || tr("Anonymous");
 const when = (iso?: string | null) => formatMoment(iso, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
 
 // ───────────────────────────── one answer, whole ─────────────────────────────
@@ -66,7 +66,7 @@ function Answer({ a, v }: { a: Asked; v: unknown }) {
               <Paperclip size={14} aria-hidden="true" />
               {f.url && /^(\/files\/|https?:\/\/)/.test(f.url) ? (
                 <a href={f.url} target="_blank" rel="noopener noreferrer">
-                  {f.file_name}
+                  {isolate(f.file_name ?? "")}
                 </a>
               ) : (
                 f.file_name
@@ -80,7 +80,7 @@ function Answer({ a, v }: { a: Asked; v: unknown }) {
         <dl className="fm-grid-answer">
           {a.rows.map((r) => (
             <div key={r}>
-              <dt className="faint">{r}</dt>
+              <dt className="faint">{isolate(r)}</dt>
               <dd>{(v as Record<string, string>)[r] ?? <span className="faint">{tr("No answer")}</span>}</dd>
             </div>
           ))}
@@ -90,7 +90,7 @@ function Answer({ a, v }: { a: Asked; v: unknown }) {
       return (
         <ol className="fm-ranked">
           {(v as string[]).map((x) => (
-            <li key={x}>{x}</li>
+            <li key={x}>{isolate(x)}</li>
           ))}
         </ol>
       );
@@ -99,15 +99,15 @@ function Answer({ a, v }: { a: Asked; v: unknown }) {
         <div className="chips">
           {(v as string[]).map((x) => (
             <span key={x} className="chip">
-              {x}
+              {isolate(x)}
             </span>
           ))}
         </div>
       );
     case "long_text":
-      return <p className="fm-longtext">{String(v)}</p>;
+      return <p className="fm-longtext">{isolate(String(v))}</p>;
     default:
-      return <>{answerText(a.type, v, a.rows)}</>;
+      return <>{isolate(answerText(a.type, v, a.rows))}</>;
   }
 }
 
@@ -148,10 +148,10 @@ function Detail({ id, asked, canRecord, ids, onGo, onChanged }: { id: string; as
   return (
     <div className="fm-detail">
       <div className="fm-detail-actions">
-        {r.status === "New" && <Button onClick={() => void run("mark_reviewed", "Marked as reviewed")}>{tr("Mark reviewed")}</Button>}
-        {spam ? <Button onClick={() => void run("not_spam", "Not spam")}>{tr("This is not spam")}</Button> : <Button onClick={() => void run("mark_spam", "Marked as spam")}>{tr("Mark as spam")}</Button>}
+        {r.status === "New" && <Button onClick={() => void run("mark_reviewed", tr("Marked as reviewed"))}>{tr("Mark reviewed")}</Button>}
+        {spam ? <Button onClick={() => void run("not_spam", tr("Not spam"))}>{tr("This is not spam")}</Button> : <Button onClick={() => void run("mark_spam", tr("Marked as spam"))}>{tr("Mark as spam")}</Button>}
         {canRecord && !r.record_id && !spam && (
-          <Button variant="primary" onClick={() => void run("create_record", "The record was made")}>
+          <Button variant="primary" onClick={() => void run("create_record", tr("The record was made"))}>
             {tr("Make the record")}
           </Button>
         )}
@@ -166,7 +166,7 @@ function Detail({ id, asked, canRecord, ids, onGo, onChanged }: { id: string; as
       <dl className="fm-meta">
         <div>
           <dt className="faint">{tr("From")}</dt>
-          <dd>{who(r)}</dd>
+          <dd>{isolate(who(r))}</dd>
         </div>
         <div>
           <dt className="faint">{tr("Sent")}</dt>
@@ -174,16 +174,16 @@ function Detail({ id, asked, canRecord, ids, onGo, onChanged }: { id: string; as
         </div>
         <div>
           <dt className="faint">{tr("Took")}</dt>
-          <dd>{duration(r.completion_seconds)}</dd>
+          <dd>{isolate(duration(r.completion_seconds))}</dd>
         </div>
         <div>
           <dt className="faint">{tr("Through")}</dt>
-          <dd>{r.source}</dd>
+          <dd>{isolate(r.source ?? "")}</dd>
         </div>
       </dl>
       {r.max_score && Number(r.max_score) > 0 && (
         <p className="fm-score-line">
-          {tr("Score")} <strong>{r.score}</strong> of {r.max_score} {r.quiz_result && <Badge tone={r.quiz_result === "Passed" ? "green" : "red"}>{r.quiz_result}</Badge>}
+          {tr("Score")} <strong>{isolate(r.score ?? "")}</strong> {tr("of {max_score}", { max_score: r.max_score })} {r.quiz_result && <Badge tone={r.quiz_result === "Passed" ? "green" : "red"}>{isolate(r.quiz_result)}</Badge>}
         </p>
       )}
       <ol className="fm-answers">
@@ -192,8 +192,8 @@ function Detail({ id, asked, canRecord, ids, onGo, onChanged }: { id: string; as
           return (
             <li key={a.key}>
               <p className="fm-answer-q">
-                {a.label}
-                {d && <span className={d.correct ? "fm-right" : "fm-wrong"}> {d.correct ? "Right" : "Wrong"} · {d.earned}/{d.points}</span>}
+                {isolate(a.label)}
+                {d && <span className={d.correct ? "fm-right" : "fm-wrong"}> {d.correct ? tr("Right") : tr("Wrong")} · {isolate(d.earned)}/{isolate(d.points)}</span>}
               </p>
               <div className="fm-answer-a">
                 <Answer a={a} v={r.answers?.[a.key]} />
@@ -274,8 +274,8 @@ export function Responses({ formId, asked, zone, status, from, to, open, canReco
     );
   } else if (!rows.length) {
     body = (
-      <EmptyState title={status === "Spam" ? "No spam" : status ? `No ${status.toLowerCase()} responses` : from || to ? "No responses in these days" : "No responses yet"} icon="doc">
-        <p className="muted">{status || from || to ? "Try other days, or another filter." : "They appear here as soon as someone sends the form."}</p>
+      <EmptyState title={status === "Spam" ? tr("No spam") : status ? tr("No {status} responses", { status: status.toLowerCase() }) : from || to ? tr("No responses in these days") : tr("No responses yet")} icon="doc">
+        <p className="muted">{status || from || to ? tr("Try other days, or another filter.") : tr("They appear here as soon as someone sends the form.")}</p>
       </EmptyState>
     );
   } else {
@@ -289,7 +289,7 @@ export function Responses({ formId, asked, zone, status, from, to, open, canReco
                 <th scope="col">{tr("From")}</th>
                 {columns.map((c) => (
                   <th key={c.key} scope="col" className="fm-col-q">
-                    {c.label}
+                    {isolate(c.label)}
                   </th>
                 ))}
                 <th scope="col">{tr("Status")}</th>
@@ -300,19 +300,19 @@ export function Responses({ formId, asked, zone, status, from, to, open, canReco
                 <tr key={r.id} data-open={open === r.id ? "" : undefined}>
                   <td>
                     <button type="button" className="fm-row-open" onClick={() => onOpen(r.id)}>
-                      <strong>{r.number}</strong>
-                      <span className="faint">{when(r.submitted_at)}</span>
+                      <strong>{isolate(r.number ?? "")}</strong>
+                      <span className="faint">{isolate(when(r.submitted_at))}</span>
                     </button>
                   </td>
-                  <td>{who(r)}</td>
+                  <td>{isolate(who(r))}</td>
                   {columns.map((c) => (
                     <td key={c.key} className="fm-col-q">
-                      <span className="fm-clip">{answerText(c.type, r.answers?.[c.key], c.rows)}</span>
+                      <span className="fm-clip">{isolate(answerText(c.type, r.answers?.[c.key], c.rows))}</span>
                     </td>
                   ))}
                   <td>
-                    <Badge tone={TONE[r.status ?? ""] ?? "neutral"}>{r.status}</Badge>
-                    {r.max_score && Number(r.max_score) > 0 ? <span className="faint"> {r.score}/{r.max_score}</span> : null}
+                    <Badge tone={TONE[r.status ?? ""] ?? "neutral"}>{isolate(r.status ?? "")}</Badge>
+                    {r.max_score && Number(r.max_score) > 0 ? <span className="faint"> {isolate(r.score ?? "")}/{isolate(r.max_score)}</span> : null}
                   </td>
                 </tr>
               ))}
@@ -336,7 +336,7 @@ export function Responses({ formId, asked, zone, status, from, to, open, canReco
         <div className="chips" role="group" aria-label={tr("Show")}>
           {STATUS.map(([v, label]) => (
             <button key={v} type="button" className="chip" aria-pressed={status === v} onClick={() => onStatus(v)}>
-              {label}
+              {isolate(label)}
             </button>
           ))}
         </div>
@@ -371,8 +371,8 @@ export function Responses({ formId, asked, zone, status, from, to, open, canReco
       <Sheet open={!!open} onOpenChange={(o) => !o && onOpen(null)}>
         <SheetContent className="fm-sheet">
           <SheetHeader>
-            <SheetTitle>{rows.find((r) => r.id === open)?.number ?? "Response"}</SheetTitle>
-            <SheetDescription>{rows.find((r) => r.id === open) ? who(rows.find((r) => r.id === open) as Resp) : "One response, whole"}</SheetDescription>
+            <SheetTitle>{rows.find((r) => r.id === open)?.number ?? tr("Response")}</SheetTitle>
+            <SheetDescription>{rows.find((r) => r.id === open) ? who(rows.find((r) => r.id === open) as Resp) : tr("One response, whole")}</SheetDescription>
           </SheetHeader>
           <div className="fm-sheet-body">{open && <Detail key={open} id={open} asked={asked} canRecord={canRecord} ids={rows.map((r) => r.id)} onGo={onOpen} onChanged={changed} />}</div>
         </SheetContent>

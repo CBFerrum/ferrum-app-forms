@@ -8,7 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import { CalendarClock, Lock, SearchX } from "lucide-react";
 import { type CSSProperties, type ReactNode, useEffect, useMemo, useRef } from "react";
 import { useParams, useSearchParams } from "react-router";
-import { api, ApiError, bootstrap, shell, t as tr } from "@ferrum/client";
+import { api, ApiError, bootstrap, shell, t as tr, isolate } from "@ferrum/client";
 import { Button, Spinner } from "@ferrum/kit";
 import { accentVars } from "./accent";
 import { Notice, QuizResultView } from "./Done";
@@ -72,7 +72,7 @@ function Missing({ workspace }: { workspace?: string }) {
   return (
     <Plain>
       <Notice icon={<SearchX size={26} />} title={tr("This form is not available")}>
-        <p>{tr("The link may be wrong, or the form is not published. Ask the person who sent it to you")}{workspace ? ` at ${workspace}` : ""} {tr("for a new link.")}</p>
+        <p>{tr("The link may be wrong, or the form is not published. Ask the person who sent it to you")}{workspace ? tr(" at {workspace}", { workspace }) : ""} {tr("for a new link.")}</p>
       </Notice>
     </Plain>
   );
@@ -114,7 +114,7 @@ export function RespondPage() {
     return (
       <Plain>
         <Notice icon={<SearchX size={26} />} title={tr("We could not open this form")} actions={<Button onClick={() => void q.refetch()}>{tr("Try again")}</Button>}>
-          <p>{q.error instanceof ApiError && q.error.status !== 0 ? q.error.message : "Check your connection and try again."}</p>
+          <p>{q.error instanceof ApiError && q.error.status !== 0 ? q.error.message : tr("Check your connection and try again.")}</p>
         </Notice>
       </Plain>
     );
@@ -133,7 +133,7 @@ export function RespondPage() {
             </a>
           }
         >
-          <p>{tr("This form is not public. If it is for people in")} {workspace ?? "this workspace"}{tr(", sign in to answer it.")}</p>
+          <p>{tr("This form is not public. If it is for people in")} {workspace ?? tr("this workspace")}{tr(", sign in to answer it.")}</p>
         </Notice>
       </Plain>
     );
@@ -142,7 +142,7 @@ export function RespondPage() {
     return (
       <Plain>
         <Notice icon={<Lock size={26} />} title={tr("This form is not for you")}>
-          <p>{tr("It is for people who work in")} {workspace ?? "this workspace"}{tr(". Your account is not one of them.")}</p>
+          <p>{tr("It is for people who work in")} {workspace ?? tr("this workspace")}{tr(". Your account is not one of them.")}</p>
         </Notice>
       </Plain>
     );
@@ -152,7 +152,7 @@ export function RespondPage() {
     return (
       <Plain>
         <Notice icon={c.opensAt ? <CalendarClock size={26} /> : <Lock size={26} />} title={c.title}>
-          {c.body && <p>{c.body}</p>}
+          {c.body && <p>{isolate(c.body)}</p>}
         </Notice>
       </Plain>
     );
@@ -233,7 +233,7 @@ export function ResultPage() {
     <Plain>
       <div className="fr-form">
         <header className="fr-head">
-          <h1 className="fr-title">{q.data.form.title}</h1>
+          <h1 className="fr-title">{isolate(q.data.form.title)}</h1>
           <p className="fr-desc">{tr("Your result")}{q.data.number ? `, ${q.data.number}` : ""}</p>
         </header>
         <QuizResultView result={q.data.result} />

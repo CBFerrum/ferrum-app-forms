@@ -6,7 +6,7 @@ import { ArrowDown, ArrowUp, Paperclip, Star, X } from "lucide-react";
 import { type DragEvent, type ReactNode, useId, useRef, useState } from "react";
 import { extension, type Raw, UPLOAD_LIMIT } from "./flow";
 import type { PQuestion } from "./model";
-import { t as tr } from "@ferrum/client";
+import { t as tr, isolate } from "@ferrum/client";
 
 export interface FieldProps {
   q: PQuestion;
@@ -31,10 +31,10 @@ export const size = (bytes: number): string =>
 function Wrap({ q, id, error, group, children }: { q: PQuestion; id: string; error?: string; group: boolean; children: ReactNode }) {
   const label = (
     <>
-      {q.label}
+      {isolate(q.label)}
       {q.required && (
         <span className="req" aria-hidden="true">
-          {" "}
+          {isolate(" ")}
           *
         </span>
       )}
@@ -42,12 +42,12 @@ function Wrap({ q, id, error, group, children }: { q: PQuestion; id: string; err
   );
   const help = q.help_text ? (
     <p className="fr-help" id={`${id}-help`}>
-      {q.help_text}
+      {isolate(q.help_text)}
     </p>
   ) : null;
   const err = error ? (
     <p className="fr-error" id={`${id}-error`}>
-      {error}
+      {isolate(error)}
     </p>
   ) : null;
   return group ? (
@@ -130,7 +130,7 @@ function Single({ q, id, value, error, onChange, onPick }: FieldProps) {
               onPick?.();
             }}
           >
-            {o}
+            {isolate(o)}
           </Choice>
         ))}
         {q.allow_other && (
@@ -138,7 +138,7 @@ function Single({ q, id, value, error, onChange, onPick }: FieldProps) {
             <Choice type="radio" name={id} checked={other.on} onChange={other.choose}>
               {tr("Other")}
             </Choice>
-            {other.on && <input ref={other.box} className="input" aria-label={`${q.label}: your own answer`} maxLength={200} value={other.text} onChange={(e) => other.type(e.target.value)} />}
+            {other.on && <input ref={other.box} className="input" aria-label={tr("{label}: your own answer", { label: q.label })} maxLength={200} value={other.text} onChange={(e) => other.type(e.target.value)} />}
           </div>
         )}
       </div>
@@ -169,12 +169,12 @@ function Dropdown({ q, id, value, error, onChange, onPick }: FieldProps) {
         <option value="">{tr("Choose…")}</option>
         {options.map((o) => (
           <option key={o} value={o}>
-            {o}
+            {isolate(o)}
           </option>
         ))}
         {q.allow_other && <option value="__other__">{tr("Other…")}</option>}
       </select>
-      {other.on && <input ref={other.box} className="input fr-other-text" aria-label={`${q.label}: your own answer`} maxLength={200} value={other.text} onChange={(e) => other.type(e.target.value)} />}
+      {other.on && <input ref={other.box} className="input fr-other-text" aria-label={tr("{label}: your own answer", { label: q.label })} maxLength={200} value={other.text} onChange={(e) => other.type(e.target.value)} />}
     </Wrap>
   );
 }
@@ -190,14 +190,14 @@ function Multi({ q, id, value, error, onChange }: FieldProps) {
   const emit = (list: string[], on: boolean, t: string) => onChange([...list, ...(on && t !== "" ? [t] : [])]);
   const lo = q.min ? Number(q.min) : 0;
   const hi = q.max ? Number(q.max) : 0;
-  const hint = lo && hi ? (lo === hi ? `Choose ${lo}.` : `Choose ${lo} to ${hi}.`) : lo ? `Choose at least ${lo}.` : hi ? `Choose up to ${hi}.` : "Choose any that apply.";
+  const hint = lo && hi ? (lo === hi ? tr("Choose {lo}.", { lo }) : tr("Choose {lo} to {hi}.", { lo, hi })) : lo ? tr("Choose at least {lo}.", { lo }) : hi ? tr("Choose up to {hi}.", { hi }) : tr("Choose any that apply.");
   return (
     <Wrap q={q} id={id} error={error} group>
-      <p className="fr-hint">{hint}</p>
+      <p className="fr-hint">{isolate(hint)}</p>
       <div className="fr-choices">
         {options.map((o) => (
           <Choice key={o} type="checkbox" name={id} checked={picked.includes(o)} onChange={() => emit(picked.includes(o) ? picked.filter((x) => x !== o) : [...picked, o], other, otherText)}>
-            {o}
+            {isolate(o)}
           </Choice>
         ))}
         {q.allow_other && (
@@ -218,7 +218,7 @@ function Multi({ q, id, value, error, onChange }: FieldProps) {
               <input
                 ref={box}
                 className="input"
-                aria-label={`${q.label}: your own answer`}
+                aria-label={tr("{label}: your own answer", { label: q.label })}
                 maxLength={200}
                 value={otherText}
                 onChange={(e) => (setOtherText(e.target.value), emit(picked, true, e.target.value))}
@@ -237,10 +237,10 @@ function Tick({ q, id, value, error, onChange }: FieldProps) {
       <label className="fr-choice fr-tick">
         <input type="checkbox" checked={value === true} onChange={(e) => onChange(e.target.checked)} {...described(q, id, error)} />
         <span>
-          {q.label}
+          {isolate(q.label)}
           {q.required && (
             <span className="req" aria-hidden="true">
-              {" "}
+              {isolate(" ")}
               *
             </span>
           )}
@@ -248,12 +248,12 @@ function Tick({ q, id, value, error, onChange }: FieldProps) {
       </label>
       {q.help_text && (
         <p className="fr-help" id={`${id}-help`}>
-          {q.help_text}
+          {isolate(q.help_text)}
         </p>
       )}
       {error && (
         <p className="fr-error" id={`${id}-error`}>
-          {error}
+          {isolate(error)}
         </p>
       )}
     </div>
@@ -269,7 +269,7 @@ function Stars({ q, id, value, error, onChange, onPick }: FieldProps) {
     <Wrap q={q} id={id} error={error} group>
       <div className="fr-stars">
         {Array.from({ length: scale }, (_, i) => i + 1).map((n) => (
-          <label key={n} className="fr-star" data-on={n <= v ? "" : undefined} title={`${n} of ${scale}`}>
+          <label key={n} className="fr-star" data-on={n <= v ? "" : undefined} title={tr("{n} of {scale}", { n, scale })}>
             <input
               type="radio"
               name={id}
@@ -282,7 +282,7 @@ function Stars({ q, id, value, error, onChange, onPick }: FieldProps) {
             />
             <Star size={30} aria-hidden="true" />
             <span className="sr-only">
-              {n} of {scale}
+              {tr("{n} of {scale}", { n, scale })}
             </span>
           </label>
         ))}
@@ -323,12 +323,12 @@ function Grid({ q, id, value, error, onChange }: FieldProps) {
       <div className="fr-grid">
         {(q.rows ?? []).map((row, r) => (
           <fieldset key={row} className="fr-row">
-            <legend>{row}</legend>
+            <legend>{isolate(row)}</legend>
             <div className="fr-cols">
               {(q.columns ?? []).map((col) => (
                 <label key={col} className="fr-col">
                   <input type="radio" name={`${id}-${r}`} checked={answers[row] === col} onChange={() => onChange({ ...answers, [row]: col })} />
-                  <span>{col}</span>
+                  <span>{isolate(col)}</span>
                 </label>
               ))}
             </div>
@@ -350,18 +350,18 @@ function Ranking({ q, id, value, error, onChange }: FieldProps) {
   };
   return (
     <Wrap q={q} id={id} error={error} group>
-      <p className="fr-hint">{ranked ? "Your first choice is at the top." : "Use the arrows to put these in your order, first choice at the top."}</p>
+      <p className="fr-hint">{ranked ? tr("Your first choice is at the top.") : tr("Use the arrows to put these in your order, first choice at the top.")}</p>
       <ol className="fr-rank" data-ranked={ranked ? "" : undefined}>
         {order.map((o, i) => (
           <li key={o}>
             <span className="fr-rank-n" aria-hidden="true">
               {i + 1}
             </span>
-            <span className="fr-rank-label">{o}</span>
-            <button type="button" className="icon-btn" aria-label={`Move ${o} up`} disabled={i === 0} onClick={() => move(i, -1)}>
+            <span className="fr-rank-label">{isolate(o)}</span>
+            <button type="button" className="icon-btn" aria-label={tr("Move {o} up", { o })} disabled={i === 0} onClick={() => move(i, -1)}>
               <ArrowUp size={16} aria-hidden="true" />
             </button>
-            <button type="button" className="icon-btn" aria-label={`Move ${o} down`} disabled={i === order.length - 1} onClick={() => move(i, 1)}>
+            <button type="button" className="icon-btn" aria-label={tr("Move {o} down", { o })} disabled={i === order.length - 1} onClick={() => move(i, 1)}>
               <ArrowDown size={16} aria-hidden="true" />
             </button>
           </li>
@@ -405,7 +405,7 @@ function Upload({ q, id, value, error, onChange }: FieldProps) {
       <div className="fr-drop" data-over={over ? "" : undefined} onDragOver={(e) => (e.preventDefault(), setOver(true))} onDragLeave={() => setOver(false)} onDrop={drop}>
         <label className="btn btn-default btn-md">
           <Paperclip size={16} aria-hidden="true" />
-          {max > 1 ? "Choose files" : files.length ? "Choose another file" : "Choose a file"}
+          {max > 1 ? tr("Choose files") : files.length ? tr("Choose another file") : tr("Choose a file")}
           <input
             id={`${id}-input`}
             type="file"
@@ -418,24 +418,24 @@ function Upload({ q, id, value, error, onChange }: FieldProps) {
             }}
           />
         </label>
-        <span className="fr-hint">{tr("or drop")} {max > 1 ? "them" : "it"} here</span>
+        <span className="fr-hint">{tr("or drop")} {max > 1 ? tr("them") : tr("it")} {tr("here")}</span>
       </div>
-      <p className="fr-hint">{rules.join(" · ")}</p>
+      <p className="fr-hint">{isolate(rules.join(" · "))}</p>
       {files.length > 0 && (
         <ul className="fr-files">
           {files.map((f) => (
             <li key={`${f.name}-${f.size}`} data-bad={q.accept?.length && !q.accept.includes(extension(f.name)) ? "" : undefined}>
               <Paperclip size={14} aria-hidden="true" />
-              <span className="fr-file-name">{f.name}</span>
-              <span className="faint">{size(f.size)}</span>
-              <button type="button" className="icon-btn icon-btn-sm" aria-label={`Remove ${f.name}`} onClick={() => onChange(files.filter((x) => x !== f))}>
+              <span className="fr-file-name">{isolate(f.name)}</span>
+              <span className="faint">{isolate(size(f.size))}</span>
+              <button type="button" className="icon-btn icon-btn-sm" aria-label={tr("Remove {name}", { name: f.name })} onClick={() => onChange(files.filter((x) => x !== f))}>
                 <X size={14} aria-hidden="true" />
               </button>
             </li>
           ))}
         </ul>
       )}
-      {total > UPLOAD_LIMIT && <p className="fr-error">{tr("These files are too large to send together. The limit is")} {size(UPLOAD_LIMIT)} {tr("for the whole form.")}</p>}
+      {total > UPLOAD_LIMIT && <p className="fr-error">{tr("These files are too large to send together. The limit is")} {isolate(size(UPLOAD_LIMIT))} {tr("for the whole form.")}</p>}
     </Wrap>
   );
 }
@@ -464,7 +464,7 @@ function Typed({ q, id, value, error, onChange, onCommit, zone }: FieldProps) {
         <textarea {...common} className="textarea" rows={4} onChange={(e) => onChange(e.target.value)} />
         {n > max * 0.8 && (
           <p className="fr-hint fr-count" data-over={n > max ? "" : undefined}>
-            {n} of {max} characters
+            {tr("{n} of {max} characters", { n, max })}
           </p>
         )}
       </Wrap>
@@ -485,7 +485,7 @@ function Typed({ q, id, value, error, onChange, onCommit, zone }: FieldProps) {
         max={q.type === "date" || q.type === "time" ? q.max : undefined}
         onChange={(e) => onChange(e.target.value)}
       />
-      {q.type === "datetime" && <p className="fr-hint">{tr("Times are in")} {zone.replace(/_/g, " ")}.</p>}
+      {q.type === "datetime" && <p className="fr-hint">{tr("Times are in")} {isolate(zone.replace(/_/g, " "))}.</p>}
     </Wrap>
   );
 }
@@ -496,8 +496,8 @@ function Typed({ q, id, value, error, onChange, onCommit, zone }: FieldProps) {
 function Statement({ q }: { q: PQuestion }) {
   return (
     <div className="fr-statement">
-      {q.label && <h3>{q.label}</h3>}
-      {q.help_text && <p>{q.help_text}</p>}
+      {q.label && <h3>{isolate(q.label)}</h3>}
+      {q.help_text && <p>{isolate(q.help_text)}</p>}
     </div>
   );
 }
