@@ -1,3 +1,4 @@
+import { t as tr } from "@ferrum/client";
 // The conditions of a form (`visible_if`) are CEL, the language of every Ferrum rule. Respondents'
 // browsers run them as people answer, so questions and pages appear and go away at once; the
 // server runs the same conditions again when a response arrives and is the judge (src/logic.rs).
@@ -332,14 +333,14 @@ function run(n: Node, vars: Vars, scope: Scope): R {
       if (n.name === "answers") return vars.answers;
       if (n.name === "today") return vars.today;
       if (n.name === "now") return vars.now;
-      return fail(`undeclared reference to '${n.name}'`);
+      return fail(tr("undeclared reference to '{name}'", { name: n.name }));
     }
     case "sel": {
       const o = run(n.obj, vars, scope);
       if (o instanceof CelError) return o;
       if (n.test) return o instanceof Map ? o.has(n.field) : fail("has() needs a map");
-      if (!(o instanceof Map)) return fail(`cannot read '${n.field}' of this value`);
-      return o.has(n.field) ? (o.get(n.field) as Val) : fail(`no such key '${n.field}'`);
+      if (!(o instanceof Map)) return fail(tr("cannot read '{field}' of this value", { field: n.field }));
+      return o.has(n.field) ? (o.get(n.field) as Val) : fail(tr("no such key '{field}'", { field: n.field }));
     }
     case "idx": {
       const o = run(n.obj, vars, scope);
@@ -451,7 +452,7 @@ function binary(n: Extract<Node, { t: "bin" }>, vars: Vars, scope: Scope): R {
         return dbl ? fail("% needs whole numbers") : y === 0 ? fail("modulus by zero") : x % y;
     }
   }
-  return fail(`${n.op} does not work on these values`);
+  return fail(tr("{op} does not work on these values", { op: n.op }));
 }
 
 const MACROS = new Set(["exists", "all", "exists_one", "existsOne", "map", "filter"]);
@@ -482,7 +483,7 @@ function call(n: Extract<Node, { t: "call" }>, vars: Vars, scope: Scope): R {
     case "startsWith":
     case "endsWith":
       if (all.length !== 2 || !n.target) break;
-      if (typeof s !== "string" || typeof a1 !== "string") return fail(`${fn}() needs text`);
+      if (typeof s !== "string" || typeof a1 !== "string") return fail(tr("{fn}() needs text", { fn }));
       return fn === "contains" ? s.includes(a1) : fn === "startsWith" ? s.startsWith(a1) : s.endsWith(a1);
     case "matches":
       if (all.length !== 2) break;
@@ -516,7 +517,7 @@ function macro(n: Extract<Node, { t: "call" }>, vars: Vars, scope: Scope): R {
   const [v, ...rest] = n.args;
   if (!v || v.t !== "id" || rest.length === 0 || rest.length > 2) throw new Unsupported(n.fn);
   const items = Array.isArray(range) ? range : range instanceof Map ? [...range.keys()] : null;
-  if (!items) return fail(`${n.fn}() needs a list or a map`);
+  if (!items) return fail(tr("{fn}() needs a list or a map", { fn: n.fn }));
   const inner = (item: Val) => new Map(scope).set(v.name, item);
   const test = (item: Val) => truthy(run(rest[rest.length - 1], vars, inner(item)));
   switch (n.fn) {

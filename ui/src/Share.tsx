@@ -51,9 +51,9 @@ export function Share({ fields: f, set, rows, status, savedSlug, errors, dirty, 
   const facts = [
     f.access === "Public" ? "Anyone with the link can answer." : "Only people signed in to this workspace can answer.",
     f.anonymous ? "Answers are anonymous." : null,
-    f.opens_at && new Date(f.opens_at) > new Date() ? `Opens ${moment(f.opens_at)}.` : null,
-    f.closes_at ? `Closes ${moment(f.closes_at)}.` : null,
-    f.response_limit ? `Closes after ${f.response_limit} responses.` : null,
+    f.opens_at && new Date(f.opens_at) > new Date() ? tr("Opens {value}.", { value: String(moment(f.opens_at)) }) : null,
+    f.closes_at ? tr("Closes {value}.", { value: String(moment(f.closes_at)) }) : null,
+    f.response_limit ? tr("Closes after {response_limit} responses.", { response_limit: f.response_limit }) : null,
     f.one_response_per === "Email" ? "One response per email address." : f.one_response_per === "User" ? "One response per person." : null,
   ].filter(Boolean);
 

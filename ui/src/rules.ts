@@ -124,7 +124,7 @@ function expression(r: Rule, kind: Kind | undefined): string {
     case "contains":
       return `${a}.contains(${quote(r.value)})`;
     case "includes":
-      return `${quote(r.value)} in ${a}`;
+      return t("{value} in {a}", { value: quote(r.value), a });
     case "excludes":
       return `(${a} == null || !(${quote(r.value)} in ${a}))`;
     case "first":

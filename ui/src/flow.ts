@@ -5,6 +5,7 @@
 
 import { answerKeys, compile, Dbl, holds, toVal, type Val } from "./cel";
 import { answerable, type Layout, type PForm, type PQuestion } from "./model";
+import { t as tr } from "@ferrum/client";
 
 /** What the screen holds for a question: text for typed answers, a list for several choices and
  *  rankings, true or false for a checkbox, a number for ratings, a row → column map for a grid,
@@ -93,9 +94,9 @@ export function showDay(iso: string): string {
   return realDate(iso) ? new Date(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10)).toLocaleDateString(undefined, { dateStyle: "medium" }) : iso;
 }
 
-function bounded(n: number, lo: number | null, hi: number | null, noun: string): Norm | null {
-  if (lo !== null && n < lo) return bad(`Enter ${noun} of at least ${lo}.`);
-  if (hi !== null && n > hi) return bad(`Enter ${noun} of at most ${hi}.`);
+function bounded(n: number, lo: number | null, hi: number | null): Norm | null {
+  if (lo !== null && n < lo) return bad(tr("Enter a number of at least {lo}.", { lo }));
+  if (hi !== null && n > hi) return bad(tr("Enter a number of at most {hi}.", { hi }));
   return null;
 }
 
@@ -117,9 +118,9 @@ export function normalize(q: PQuestion, raw: Raw): Norm {
       const s = type === "short_text" ? text().trim() : text().replace(/\r\n?/g, "\n").trim();
       if (type === "short_text" && /[\u0000-\u001f\u007f]/.test(s)) return bad("Keep this to a single line.");
       const n = [...s].length;
-      if (q.min_length && n < q.min_length) return bad(`Use at least ${q.min_length} characters.`);
+      if (q.min_length && n < q.min_length) return bad(tr("Use at least {min_length} characters.", { min_length: q.min_length }));
       const max = q.max_length ?? (type === "short_text" ? SHORT_DEFAULT : LONG_DEFAULT);
-      if (n > max) return bad(`Use at most ${max} characters. This is ${n}.`);
+      if (n > max) return bad(tr("Use at most {max} characters. This is {n}.", { max, n }));
       const re = q.pattern ? wholePattern(q.pattern) : null;
       if (re && !re.test(s)) return bad(q.pattern_message || "That does not look right.");
       return ok(s);
@@ -135,28 +136,28 @@ export function normalize(q: PQuestion, raw: Raw): Norm {
     case "number": {
       const n = wholeNumber(text());
       if (n === null || !Number.isSafeInteger(n)) return bad("Enter a whole number.");
-      return bounded(n, wholeNumber(q.min), wholeNumber(q.max), "a number") ?? ok(n);
+      return bounded(n, wholeNumber(q.min), wholeNumber(q.max)) ?? ok(n);
     }
     case "decimal": {
       const s = text().replace(/,/g, "").trim();
       if (!/^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/.test(s) || !Number.isFinite(Number(s))) return bad("Enter a number, like 12.50.");
       const lo = q.min !== undefined && q.min !== "" && Number.isFinite(Number(q.min)) ? Number(q.min) : null;
       const hi = q.max !== undefined && q.max !== "" && Number.isFinite(Number(q.max)) ? Number(q.max) : null;
-      return bounded(Number(s), lo, hi, "a number") ?? ok(Number(s));
+      return bounded(Number(s), lo, hi) ?? ok(Number(s));
     }
     case "date": {
       const s = text().trim();
       if (!realDate(s)) return bad("Pick a date.");
-      if (q.min && s < q.min) return bad(`Pick a date on or after ${showDay(q.min)}.`);
-      if (q.max && s > q.max) return bad(`Pick a date on or before ${showDay(q.max)}.`);
+      if (q.min && s < q.min) return bad(tr("Pick a date on or after {value}.", { value: showDay(q.min) }));
+      if (q.max && s > q.max) return bad(tr("Pick a date on or before {value}.", { value: showDay(q.max) }));
       return ok(s);
     }
     case "time": {
       const m = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(text().trim());
       if (!m || +m[1] > 23 || +m[2] > 59 || (m[3] !== undefined && +m[3] > 59)) return bad("Enter a time, like 14:30.");
       const s = `${pad(+m[1])}:${m[2]}${m[3] && m[3] !== "00" ? `:${m[3]}` : ""}`;
-      if (q.min && s < q.min.padStart(5, "0")) return bad(`Pick a time at or after ${q.min}.`);
-      if (q.max && s > q.max.padStart(5, "0")) return bad(`Pick a time at or before ${q.max}.`);
+      if (q.min && s < q.min.padStart(5, "0")) return bad(tr("Pick a time at or after {min}.", { min: q.min }));
+      if (q.max && s > q.max.padStart(5, "0")) return bad(tr("Pick a time at or before {max}.", { max: q.max }));
       return ok(s);
     }
     case "datetime": {
@@ -180,15 +181,15 @@ export function normalize(q: PQuestion, raw: Raw): Norm {
       if (new Set(chosen).size !== chosen.length) return bad("Each option can be chosen once.");
       const lo = wholeNumber(q.min);
       const hi = wholeNumber(q.max);
-      if (lo !== null && chosen.length < lo) return bad(`Choose at least ${lo}.`);
-      if (hi !== null && chosen.length > hi) return bad(`Choose at most ${hi}.`);
+      if (lo !== null && chosen.length < lo) return bad(tr("Choose at least {lo}.", { lo }));
+      if (hi !== null && chosen.length > hi) return bad(tr("Choose at most {hi}.", { hi }));
       return ok([...(q.options ?? []).filter((o) => chosen.includes(o)), ...others]);
     }
     case "rating":
     case "nps": {
       const n = Number(raw);
       const [lo, hi] = type === "nps" ? [0, 10] : [1, q.scale ?? 5];
-      return Number.isInteger(n) && n >= lo && n <= hi ? ok(n) : bad(`Choose a number from ${lo} to ${hi}.`);
+      return Number.isInteger(n) && n >= lo && n <= hi ? ok(n) : bad(tr("Choose a number from {lo} to {hi}.", { lo, hi }));
     }
     case "matrix": {
       if (typeof raw !== "object" || Array.isArray(raw)) return bad("Answer each row.");
@@ -207,12 +208,12 @@ export function normalize(q: PQuestion, raw: Raw): Norm {
     case "file": {
       const files = Array.isArray(raw) ? (raw as File[]) : [];
       const max = q.max_files ?? 1;
-      if (files.length > max) return bad(max === 1 ? "Attach one file." : `Attach at most ${max} files.`);
+      if (files.length > max) return bad(max === 1 ? "Attach one file." : tr("Attach at most {max} files.", { max }));
       const limit = (q.max_file_mb ?? 10) * 1024 * 1024;
       for (const f of files) {
-        if (q.accept?.length && !q.accept.includes(extension(f.name))) return bad(`${f.name}: files of this kind are not accepted. Use ${q.accept.join(", ")}.`);
-        if (f.size === 0) return bad(`${f.name} is empty.`);
-        if (f.size > limit) return bad(`${f.name} is larger than ${q.max_file_mb ?? 10} MB.`);
+        if (q.accept?.length && !q.accept.includes(extension(f.name))) return bad(tr("{name}: files of this kind are not accepted. Use {value}.", { name: f.name, value: q.accept.join(", ") }));
+        if (f.size === 0) return bad(tr("{name} is empty.", { name: f.name }));
+        if (f.size > limit) return bad(tr("{name} is larger than {value} MB.", { name: f.name, value: q.max_file_mb ?? 10 }));
       }
       return ok(files.map((f) => ({ file_name: f.name, size: f.size })));
     }

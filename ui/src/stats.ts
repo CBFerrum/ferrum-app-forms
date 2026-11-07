@@ -3,6 +3,7 @@
 // Pure, so it is tested without a browser.
 
 import type { Kind } from "./model";
+import { t as tr } from "@ferrum/client";
 
 export interface Share {
   count: number;
@@ -64,9 +65,9 @@ export function duration(seconds: string | number | null | undefined): string {
   if (seconds === null || seconds === undefined || seconds === "") return "–";
   const s = Math.round(num(seconds));
   if (s < 60) return `${s} s`;
-  if (s < 3600) return s % 60 ? `${Math.floor(s / 60)} min ${s % 60} s` : `${Math.floor(s / 60)} min`;
+  if (s < 3600) return s % 60 ? tr("{n} min {value} s", { n: Math.floor(s / 60), value: s % 60 }) : tr("{n} min", { n: Math.floor(s / 60) });
   const m = Math.round((s % 3600) / 60);
-  return m ? `${Math.floor(s / 3600)} h ${m} min` : `${Math.floor(s / 3600)} h`;
+  return m ? tr("{n} h {m} min", { n: Math.floor(s / 3600), m }) : `${Math.floor(s / 3600)} h`;
 }
 
 /** A percentage the server rounded, without a trailing ".00" ("33.33" stays, "50" stays). */

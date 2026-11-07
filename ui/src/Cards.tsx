@@ -385,7 +385,7 @@ function Card({ row, index, rows, quiz, open, fresh, usedElsewhere, showProblems
     onOpen(c.uid);
   };
   const remove = async () => {
-    const uses = [...readers(rows, row.key).map((i) => `shown only if this is answered: “${rows[i].label.trim() || rows[i].key}”`), ...usedElsewhere(row.key)];
+    const uses = [...readers(rows, row.key).map((i) => tr("shown only if this is answered: “{value}”", { value: rows[i].label.trim() || rows[i].key })), ...usedElsewhere(row.key)];
     if (uses.length || row.id) {
       const ok = await confirmDialog({
         title: tr("Delete “{value}”?", { value: title || "this question" }),
@@ -394,7 +394,7 @@ function Card({ row, index, rows, quiz, open, fresh, usedElsewhere, showProblems
             <p>{tr("Other things depend on it:")}</p>
             <ul>
               {uses.map((u) => (
-                <li key={u}>{u}</li>
+                <li key={u}>{isolate(u)}</li>
               ))}
             </ul>
             <p>{tr("They will need attention before the form can be saved.")}</p>
@@ -615,12 +615,12 @@ export function Questions({ rows, onChange, quiz, open, onOpen, server, showProb
     const r = rows.find((x) => x.uid === id);
     return r ? `“${r.label.trim() || kindLabel(r.question_type)}”` : "the question";
   };
-  const place = (id: UniqueIdentifier | undefined) => `position ${rows.findIndex((r) => r.uid === id) + 1} of ${rows.length}`;
+  const place = (id: UniqueIdentifier | undefined) => tr("position {value} of {length}", { value: rows.findIndex((r) => r.uid === id) + 1, length: rows.length });
   const announcements: Announcements = {
-    onDragStart: ({ active }) => `Picked up ${name(active.id)}. Use the arrow keys to move it, space to drop it, escape to cancel.`,
-    onDragOver: ({ active, over }) => (over ? `${name(active.id)} is over ${place(over.id)}.` : undefined),
-    onDragEnd: ({ active, over }) => (over ? `Dropped ${name(active.id)} at ${place(over.id)}.` : `${name(active.id)} was put back.`),
-    onDragCancel: ({ active }) => `Moving ${name(active.id)} was cancelled.`,
+    onDragStart: ({ active }) => tr("Picked up {value}. Use the arrow keys to move it, space to drop it, escape to cancel.", { value: name(active.id) }),
+    onDragOver: ({ active, over }) => (over ? tr("{value} is over {value2}.", { value: name(active.id), value2: place(over.id) }) : undefined),
+    onDragEnd: ({ active, over }) => (over ? tr("Dropped {value} at {value2}.", { value: name(active.id), value2: place(over.id) }) : tr("{value} was put back.", { value: name(active.id) })),
+    onDragCancel: ({ active }) => tr("Moving {value} was cancelled.", { value: name(active.id) }),
   };
   const end = (e: DragEndEvent) => {
     const from = rows.findIndex((r) => r.uid === e.active.id);

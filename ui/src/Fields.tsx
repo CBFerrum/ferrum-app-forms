@@ -25,7 +25,7 @@ export interface FieldProps {
 const text = (v: Raw): string => (typeof v === "string" ? v : typeof v === "number" ? String(v) : "");
 
 export const size = (bytes: number): string =>
-  bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1).replace(/\.0$/, "")} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  bytes >= 1024 * 1024 ? tr("{value} MB", { value: (bytes / 1024 / 1024).toFixed(1).replace(/\.0$/, "") }) : tr("{n} KB", { n: Math.max(1, Math.round(bytes / 1024)) });
 
 /** What the question's label and help look like, around whatever it asks. */
 function Wrap({ q, id, error, group, children }: { q: PQuestion; id: string; error?: string; group: boolean; children: ReactNode }) {
@@ -397,8 +397,8 @@ function Upload({ q, id, value, error, onChange }: FieldProps) {
   const total = files.reduce((n, f) => n + f.size, 0);
   const rules = [
     q.accept?.length ? q.accept.join(", ").toUpperCase() : null,
-    `up to ${q.max_file_mb ?? 10} MB${max > 1 ? " each" : ""}`,
-    max > 1 ? `up to ${max} files` : null,
+    (max > 1 ? tr("up to {mb} MB each", { mb: q.max_file_mb ?? 10 }) : tr("up to {mb} MB", { mb: q.max_file_mb ?? 10 })),
+    max > 1 ? tr("up to {max} files", { max }) : null,
   ].filter(Boolean);
   return (
     <Wrap q={q} id={id} error={error} group>
