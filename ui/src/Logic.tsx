@@ -7,6 +7,7 @@ import { useState } from "react";
 import { earlier, type QRow } from "./rows";
 import { LIKERT_DEFAULT, type Kind } from "./model";
 import { type Condition, describe, fromCel, needsValue, opLabel, opsFor, ordered, type Rule, toCel } from "./rules";
+import { t } from "@ferrum/client";
 
 const CHOICES: Kind[] = ["select", "dropdown", "likert", "multi_select", "ranking"];
 
@@ -16,14 +17,14 @@ function Value({ rule, question, onChange }: { rule: Rule; question: QRow | unde
   if (rule.op === "cell") {
     return (
       <>
-        <select className="select" aria-label="Statement" value={rule.row ?? ""} onChange={(e) => onChange({ ...rule, row: e.target.value })}>
-          <option value="">Statement…</option>
+        <select className="select" aria-label={t("Statement")} value={rule.row ?? ""} onChange={(e) => onChange({ ...rule, row: e.target.value })}>
+          <option value="">{t("Statement…")}</option>
           {question?.matrix_rows.map((r) => (
             <option key={r}>{r}</option>
           ))}
         </select>
-        <select className="select" aria-label="Answer" value={rule.value} onChange={(e) => onChange({ ...rule, value: e.target.value })}>
-          <option value="">Answer…</option>
+        <select className="select" aria-label={t("Answer")} value={rule.value} onChange={(e) => onChange({ ...rule, value: e.target.value })}>
+          <option value="">{t("Answer…")}</option>
           {question?.options.map((o) => (
             <option key={o}>{o}</option>
           ))}
@@ -34,8 +35,8 @@ function Value({ rule, question, onChange }: { rule: Rule; question: QRow | unde
   if (CHOICES.includes(kind)) {
     const options = kind === "likert" && !question?.options.length ? LIKERT_DEFAULT : (question?.options ?? []);
     return (
-      <select className="select" aria-label="Value" value={rule.value} onChange={(e) => onChange({ ...rule, value: e.target.value })}>
-        <option value="">Choose…</option>
+      <select className="select" aria-label={t("Value")} value={rule.value} onChange={(e) => onChange({ ...rule, value: e.target.value })}>
+        <option value="">{t("Choose…")}</option>
         {rule.value && !options.includes(rule.value) && <option>{rule.value}</option>}
         {options.map((o) => (
           <option key={o}>{o}</option>
@@ -44,7 +45,7 @@ function Value({ rule, question, onChange }: { rule: Rule; question: QRow | unde
     );
   }
   const type = kind === "date" ? "date" : kind === "time" ? "time" : ordered(kind) ? "number" : "text";
-  return <input className="input" aria-label="Value" type={type} step={kind === "decimal" ? "any" : undefined} value={rule.value} onChange={(e) => onChange({ ...rule, value: e.target.value })} />;
+  return <input className="input" aria-label={t("Value")} type={type} step={kind === "decimal" ? "any" : undefined} value={rule.value} onChange={(e) => onChange({ ...rule, value: e.target.value })} />;
 }
 
 export function Logic({ rows, index, onChange }: { rows: QRow[]; index: number; onChange: (cel: string) => void }) {
@@ -67,19 +68,19 @@ export function Logic({ rows, index, onChange }: { rows: QRow[]; index: number; 
     return (
       <div className="fm-logic">
         <p className="fm-logic-head">
-          <GitBranch size={15} aria-hidden="true" /> Show this {subject} only if (CEL)
+          <GitBranch size={15} aria-hidden="true" /> {t("Show this {subject} only if (CEL)", { subject })}
         </p>
         <textarea
           className="textarea mono"
           rows={3}
-          aria-label="Condition in CEL"
+          aria-label={t("Condition in CEL")}
           spellCheck={false}
           value={row.visible_if}
           onChange={(e) => onChange(e.target.value)}
           placeholder="answers.country == 'IN' && answers.age >= 18"
         />
         <p className="field-hint">
-          Read an earlier answer as <code>answers.&lt;ID&gt;</code>, today as <code>today</code>. An answer left empty is <code>null</code>.
+          {t("Read an earlier answer as")} <code>answers.&lt;ID&gt;</code>{t(", today as")} <code>today</code>{t(". An answer left empty is")} <code>null</code>.
         </p>
         <div className="row">
           <button
@@ -92,10 +93,10 @@ export function Logic({ rows, index, onChange }: { rows: QRow[]; index: number; 
               setAsCel(false);
             }}
           >
-            Use rules
+            {t("Use rules")}
           </button>
           <button type="button" className="btn btn-ghost btn-sm" onClick={() => (onChange(""), setCond({ join: "all", rules: [] }), setAsCel(false))}>
-            Always show it
+            {t("Always show it")}
           </button>
         </div>
       </div>
@@ -112,9 +113,9 @@ export function Logic({ rows, index, onChange }: { rows: QRow[]; index: number; 
           title={before.length ? undefined : "A condition reads the answers before it: add a question above first"}
           onClick={() => setCond({ join: "all", rules: [{ key: before[before.length - 1]?.key ?? "", op: opsFor(before[before.length - 1]?.question_type ?? "short_text")[0], value: "" }] })}
         >
-          <GitBranch size={15} aria-hidden="true" /> Show this {subject} only if…
+          <GitBranch size={15} aria-hidden="true" /> {t("Show this {subject} only if…", { subject })}
         </button>
-        {!before.length && <span className="faint fm-logic-note">Needs a question before it.</span>}
+        {!before.length && <span className="faint fm-logic-note">{t("Needs a question before it.")}</span>}
       </div>
     );
   }
@@ -122,11 +123,11 @@ export function Logic({ rows, index, onChange }: { rows: QRow[]; index: number; 
   return (
     <div className="fm-logic">
       <p className="fm-logic-head">
-        <GitBranch size={15} aria-hidden="true" /> Show this {subject} if
+        <GitBranch size={15} aria-hidden="true" /> {t("Show this {subject} if", { subject })}
         {cond.rules.length > 1 ? (
-          <select className="select fm-join" aria-label="Match" value={cond.join} onChange={(e) => set({ ...cond, join: e.target.value as "all" | "any" })}>
-            <option value="all">all of these</option>
-            <option value="any">any of these</option>
+          <select className="select fm-join" aria-label={t("Match")} value={cond.join} onChange={(e) => set({ ...cond, join: e.target.value as "all" | "any" })}>
+            <option value="all">{t("all of these")}</option>
+            <option value="any">{t("any of these")}</option>
           </select>
         ) : (
           " this"
@@ -141,7 +142,7 @@ export function Logic({ rows, index, onChange }: { rows: QRow[]; index: number; 
             <li key={i} className="fm-rule" data-bad={r.key && !known ? "" : undefined}>
               <select
                 className="select"
-                aria-label="Question"
+                aria-label={t("Question")}
                 value={r.key}
                 onChange={(e) => {
                   const q = rows.find((x) => x.key === e.target.value);
@@ -149,15 +150,15 @@ export function Logic({ rows, index, onChange }: { rows: QRow[]; index: number; 
                   setRule(i, { key: e.target.value, op: ops.includes(r.op) && kindOf(r.key) === q?.question_type ? r.op : ops[0], value: kindOf(r.key) === q?.question_type ? r.value : "", row: undefined });
                 }}
               >
-                <option value="">Question…</option>
-                {r.key && !known && <option value={r.key}>{r.key} (not before this one)</option>}
+                <option value="">{t("Question…")}</option>
+                {r.key && !known && <option value={r.key}>{t("{key} (not before this one)", { key: r.key })}</option>}
                 {before.map((b) => (
                   <option key={b.uid} value={b.key}>
                     {b.label.trim() || b.key}
                   </option>
                 ))}
               </select>
-              <select className="select" aria-label="Condition" value={r.op} onChange={(e) => setRule(i, { ...r, op: e.target.value as Rule["op"] })}>
+              <select className="select" aria-label={t("Condition")} value={r.op} onChange={(e) => setRule(i, { ...r, op: e.target.value as Rule["op"] })}>
                 {opsFor(kind).map((op) => (
                   <option key={op} value={op}>
                     {opLabel(op, kind)}
@@ -165,7 +166,7 @@ export function Logic({ rows, index, onChange }: { rows: QRow[]; index: number; 
                 ))}
               </select>
               <Value rule={r} question={rows.find((x) => x.key === r.key)} onChange={(next) => setRule(i, next)} />
-              <button type="button" className="icon-btn" aria-label="Remove this rule" onClick={() => set({ ...cond, rules: cond.rules.filter((_, j) => j !== i) })}>
+              <button type="button" className="icon-btn" aria-label={t("Remove this rule")} onClick={() => set({ ...cond, rules: cond.rules.filter((_, j) => j !== i) })}>
                 <X size={16} aria-hidden="true" />
               </button>
             </li>
@@ -178,13 +179,13 @@ export function Logic({ rows, index, onChange }: { rows: QRow[]; index: number; 
           className="btn btn-default btn-sm"
           onClick={() => set({ ...cond, rules: [...cond.rules, { key: before[before.length - 1]?.key ?? "", op: opsFor(before[before.length - 1]?.question_type ?? "short_text")[0], value: "" }] })}
         >
-          <Plus size={14} aria-hidden="true" /> Add a rule
+          <Plus size={14} aria-hidden="true" /> {t("Add a rule")}
         </button>
         <button type="button" className="btn btn-ghost btn-sm" onClick={() => setAsCel(true)}>
-          Edit as CEL
+          {t("Edit as CEL")}
         </button>
         <button type="button" className="btn btn-ghost btn-sm" onClick={() => set({ ...cond, rules: [] })}>
-          Remove the condition
+          {t("Remove the condition")}
         </button>
       </div>
       {row.visible_if && <p className="faint fm-logic-sum">{describe(cond, rows)}</p>}

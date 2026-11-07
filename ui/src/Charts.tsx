@@ -6,7 +6,7 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { ChevronDown } from "lucide-react";
 import { type ReactNode, useId, useState } from "react";
-import { api, formatDateTime } from "@ferrum/client";
+import { api, formatDateTime, t as tr } from "@ferrum/client";
 import { Button, ErrorState, Spinner } from "@ferrum/kit";
 import { kindLabel } from "./model";
 import { type AnswersPage, npsGroup, num, percent, type QSummary, type Summary, trendLine } from "./stats";
@@ -27,7 +27,7 @@ export function Trend({ trend }: { trend: Summary["trend"] }) {
   return (
     <figure className="fm-trend">
       <figcaption className="fm-trend-head">
-        <strong>Responses a day</strong>
+        <strong>{tr("Responses a day")}</strong>
         <span className="faint">
           {total} in {trend.length} days{best.responses > 0 ? `, most on ${day(best.date)} (${best.responses})` : ""}
         </span>
@@ -41,7 +41,7 @@ export function Trend({ trend }: { trend: Summary["trend"] }) {
       </svg>
       <div className="fm-trend-axis faint" aria-hidden="true">
         <span>{day(trend[0].date)}</span>
-        <span>{t.max} a day at most</span>
+        <span>{tr("{max} a day at most", { max: t.max })}</span>
         <span>{day(trend[trend.length - 1].date)}</span>
       </div>
     </figure>
@@ -82,12 +82,12 @@ function Columns({ dist, nps }: { dist: NonNullable<QSummary["distribution"]>; n
         ))}
       </div>
       <table className="sr-only">
-        <caption>Answers by value</caption>
+        <caption>{tr("Answers by value")}</caption>
         <thead>
           <tr>
-            <th>Value</th>
-            <th>Answers</th>
-            <th>Share</th>
+            <th>{tr("Value")}</th>
+            <th>{tr("Answers")}</th>
+            <th>{tr("Share")}</th>
           </tr>
         </thead>
         <tbody>
@@ -133,12 +133,12 @@ function Words({ formId, q }: { formId: string; q: QSummary }) {
     <div className="fm-words">
       {!open ? (
         <Button onClick={() => setOpen(true)}>
-          <ChevronDown size={16} aria-hidden="true" /> Read the answers
+          <ChevronDown size={16} aria-hidden="true" /> {tr("Read the answers")}
         </Button>
       ) : pages.error ? (
         <ErrorState error={pages.error} onRetry={() => void pages.refetch()} />
       ) : !pages.data ? (
-        <Spinner label="Loading the answers" />
+        <Spinner label={tr("Loading the answers")} />
       ) : (
         <>
           <ul className="fm-quotes">
@@ -153,7 +153,7 @@ function Words({ formId, q }: { formId: string; q: QSummary }) {
           </ul>
           {pages.hasNextPage && (
             <Button loading={pages.isFetchingNextPage} onClick={() => void pages.fetchNextPage()}>
-              Show older answers
+              {tr("Show older answers")}
             </Button>
           )}
         </>
@@ -167,7 +167,7 @@ function Words({ formId, q }: { formId: string; q: QSummary }) {
 const signed = (v: string | null | undefined) => (v === null || v === undefined ? "–" : num(v) > 0 ? `+${num(v)}` : String(num(v)));
 
 function Body({ q, formId }: { q: QSummary; formId: string }) {
-  if (q.answered === 0 && q.type !== "checkbox") return <p className="muted">Nobody has answered this yet.</p>;
+  if (q.answered === 0 && q.type !== "checkbox") return <p className="muted">{tr("Nobody has answered this yet.")}</p>;
   switch (q.type) {
     case "select":
     case "dropdown":
@@ -179,7 +179,7 @@ function Body({ q, formId }: { q: QSummary; formId: string }) {
         <>
           <Bars rows={rows} />
           {q.type === "likert" && q.average && <Facts items={[["Average, from 1 to " + (q.options?.length ?? 5), num(q.average)]]} />}
-          {q.type === "multi_select" && <p className="field-hint">Shares are of the people who answered; each could choose more than one.</p>}
+          {q.type === "multi_select" && <p className="field-hint">{tr("Shares are of the people who answered; each could choose more than one.")}</p>}
         </>
       );
     }
@@ -198,7 +198,7 @@ function Body({ q, formId }: { q: QSummary; formId: string }) {
         <>
           <div className="fm-nps-score">
             <p className="fm-nps-n">{signed(q.nps)}</p>
-            <p className="faint">Net promoter score, from −100 to +100</p>
+            <p className="faint">{tr("Net promoter score, from −100 to +100")}</p>
           </div>
           <div className="fm-stack-bar" aria-hidden="true">
             {parts.map(([, g, s]) => (
@@ -229,7 +229,7 @@ function Body({ q, formId }: { q: QSummary; formId: string }) {
             <thead>
               <tr>
                 <th scope="col">
-                  <span className="sr-only">Statement</span>
+                  <span className="sr-only">{tr("Statement")}</span>
                 </th>
                 {columns.map((c) => (
                   <th key={c} scope="col">
@@ -264,14 +264,14 @@ function Body({ q, formId }: { q: QSummary; formId: string }) {
             <li key={it.item}>
               <span className="fm-rank-item">{it.item}</span>
               <span className="faint">
-                average place {it.average_rank ? num(it.average_rank) : "–"} · first for {it.first_place}
+                {tr("average place")} {it.average_rank ? num(it.average_rank) : "–"} {tr("· first for {first_place}", { first_place: it.first_place })}
               </span>
             </li>
           ))}
         </ol>
       );
     case "file":
-      return <p>{q.files ?? 0} {q.files === 1 ? "file" : "files"} uploaded. Open a response to see them.</p>;
+      return <p>{q.files ?? 0} {q.files === 1 ? "file" : "files"} {tr("uploaded. Open a response to see them.")}</p>;
     default:
       return <Words formId={formId} q={q} />;
   }

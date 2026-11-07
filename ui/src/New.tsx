@@ -3,7 +3,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { useNavigate, Link } from "react-router";
-import { api, errorMessage } from "@ferrum/client";
+import { api, errorMessage, t as tr } from "@ferrum/client";
 import { Alert, Button, EmptyState, Field, PageLoading, useShellTitle } from "@ferrum/kit";
 import { can, useEntityMeta } from "@ferrum/records";
 import { rowToDoc } from "./rows";
@@ -43,9 +43,9 @@ export function New() {
   if (meta.isPending) return <PageLoading />;
   if (meta.data && !can(meta.data.permissions, "create")) {
     return (
-      <EmptyState title="You cannot make forms here" icon="doc">
-        <p className="muted">Building forms needs the Forms User role. Ask an administrator of this workspace.</p>
-        <Link to="/">Back to Forms</Link>
+      <EmptyState title={tr("You cannot make forms here")} icon="doc">
+        <p className="muted">{tr("Building forms needs the Forms User role. Ask an administrator of this workspace.")}</p>
+        <Link to="/">{tr("Back to Forms")}</Link>
       </EmptyState>
     );
   }
@@ -53,15 +53,15 @@ export function New() {
   return (
     <form className="fm-page fm-new" onSubmit={(e) => void create(e)}>
       <p className="crumbs">
-        <Link to="/">Forms</Link>
+        <Link to="/">{tr("Forms")}</Link>
       </p>
-      <h1 className="page-title">New form</h1>
+      <h1 className="page-title">{tr("New form")}</h1>
       {error && <Alert tone="error">{error}</Alert>}
-      <Field label="Title" htmlFor="new-title" hint="This is the title people see at the top of the form. You can change it in the builder.">
+      <Field label={tr("Title")} htmlFor="new-title" hint={tr("This is the title people see at the top of the form. You can change it in the builder.")}>
         <input id="new-title" className="input" autoFocus maxLength={200} placeholder={template.id === "blank" ? "Untitled form" : template.name} value={title} onChange={(e) => setTitle(e.target.value)} />
       </Field>
       <fieldset className="fm-templates">
-        <legend className="field-label">Start from</legend>
+        <legend className="field-label">{tr("Start from")}</legend>
         <div className="fm-template-grid">
           {TEMPLATES.map((t) => (
             <label key={t.id} className="fm-template" data-picked={picked === t.id ? "" : undefined}>
@@ -75,10 +75,10 @@ export function New() {
       </fieldset>
       <div className="row">
         <Button type="submit" variant="primary" loading={busy}>
-          Make the form
+          {tr("Make the form")}
         </Button>
         <Link className="btn btn-default btn-md" to="/">
-          Cancel
+          {tr("Cancel")}
         </Link>
       </div>
     </form>

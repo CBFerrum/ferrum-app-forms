@@ -8,7 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import { CalendarClock, Lock, SearchX } from "lucide-react";
 import { type CSSProperties, type ReactNode, useEffect, useMemo, useRef } from "react";
 import { useParams, useSearchParams } from "react-router";
-import { api, ApiError, bootstrap, shell } from "@ferrum/client";
+import { api, ApiError, bootstrap, shell, t as tr } from "@ferrum/client";
 import { Button, Spinner } from "@ferrum/kit";
 import { accentVars } from "./accent";
 import { Notice, QuizResultView } from "./Done";
@@ -62,7 +62,7 @@ function Loading() {
     <Plain>
       <div className="fr-loading" role="status">
         <Spinner />
-        <span className="muted">Opening the form…</span>
+        <span className="muted">{tr("Opening the form…")}</span>
       </div>
     </Plain>
   );
@@ -71,8 +71,8 @@ function Loading() {
 function Missing({ workspace }: { workspace?: string }) {
   return (
     <Plain>
-      <Notice icon={<SearchX size={26} />} title="This form is not available">
-        <p>The link may be wrong, or the form is not published. Ask the person who sent it to you{workspace ? ` at ${workspace}` : ""} for a new link.</p>
+      <Notice icon={<SearchX size={26} />} title={tr("This form is not available")}>
+        <p>{tr("The link may be wrong, or the form is not published. Ask the person who sent it to you")}{workspace ? ` at ${workspace}` : ""} {tr("for a new link.")}</p>
       </Notice>
     </Plain>
   );
@@ -113,7 +113,7 @@ export function RespondPage() {
   if (q.error) {
     return (
       <Plain>
-        <Notice icon={<SearchX size={26} />} title="We could not open this form" actions={<Button onClick={() => void q.refetch()}>Try again</Button>}>
+        <Notice icon={<SearchX size={26} />} title={tr("We could not open this form")} actions={<Button onClick={() => void q.refetch()}>{tr("Try again")}</Button>}>
           <p>{q.error instanceof ApiError && q.error.status !== 0 ? q.error.message : "Check your connection and try again."}</p>
         </Notice>
       </Plain>
@@ -126,14 +126,14 @@ export function RespondPage() {
       <Plain>
         <Notice
           icon={<Lock size={26} />}
-          title="Sign in to open this form"
+          title={tr("Sign in to open this form")}
           actions={
             <a className="btn btn-primary btn-md" href={loginPath(window.location.pathname + window.location.search)}>
-              Sign in
+              {tr("Sign in")}
             </a>
           }
         >
-          <p>This form is not public. If it is for people in {workspace ?? "this workspace"}, sign in to answer it.</p>
+          <p>{tr("This form is not public. If it is for people in")} {workspace ?? "this workspace"}{tr(", sign in to answer it.")}</p>
         </Notice>
       </Plain>
     );
@@ -141,8 +141,8 @@ export function RespondPage() {
   if (loaded.kind === "forbidden") {
     return (
       <Plain>
-        <Notice icon={<Lock size={26} />} title="This form is not for you">
-          <p>It is for people who work in {workspace ?? "this workspace"}. Your account is not one of them.</p>
+        <Notice icon={<Lock size={26} />} title={tr("This form is not for you")}>
+          <p>{tr("It is for people who work in")} {workspace ?? "this workspace"}{tr(". Your account is not one of them.")}</p>
         </Notice>
       </Plain>
     );
@@ -210,8 +210,8 @@ export function ResultPage() {
   if (q.error) {
     return (
       <Plain>
-        <Notice icon={<SearchX size={26} />} title="We could not open this result" actions={<Button onClick={() => void q.refetch()}>Try again</Button>}>
-          <p>Check your connection and try again.</p>
+        <Notice icon={<SearchX size={26} />} title={tr("We could not open this result")} actions={<Button onClick={() => void q.refetch()}>{tr("Try again")}</Button>}>
+          <p>{tr("Check your connection and try again.")}</p>
         </Notice>
       </Plain>
     );
@@ -220,10 +220,10 @@ export function ResultPage() {
   if (!q.data) {
     return (
       <Plain>
-        <Notice icon={<SearchX size={26} />} title="This result is no longer here">
-          <p>Result links work for 30 days after the quiz was sent.</p>
+        <Notice icon={<SearchX size={26} />} title={tr("This result is no longer here")}>
+          <p>{tr("Result links work for 30 days after the quiz was sent.")}</p>
           <p>
-            <a href={formPath(tenant, slug)}>Open the form</a>
+            <a href={formPath(tenant, slug)}>{tr("Open the form")}</a>
           </p>
         </Notice>
       </Plain>
@@ -234,7 +234,7 @@ export function ResultPage() {
       <div className="fr-form">
         <header className="fr-head">
           <h1 className="fr-title">{q.data.form.title}</h1>
-          <p className="fr-desc">Your result{q.data.number ? `, ${q.data.number}` : ""}</p>
+          <p className="fr-desc">{tr("Your result")}{q.data.number ? `, ${q.data.number}` : ""}</p>
         </header>
         <QuizResultView result={q.data.result} />
       </div>

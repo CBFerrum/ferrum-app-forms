@@ -6,6 +6,7 @@ import { ArrowDown, ArrowUp, Paperclip, Star, X } from "lucide-react";
 import { type DragEvent, type ReactNode, useId, useRef, useState } from "react";
 import { extension, type Raw, UPLOAD_LIMIT } from "./flow";
 import type { PQuestion } from "./model";
+import { t as tr } from "@ferrum/client";
 
 export interface FieldProps {
   q: PQuestion;
@@ -135,7 +136,7 @@ function Single({ q, id, value, error, onChange, onPick }: FieldProps) {
         {q.allow_other && (
           <div className="fr-other">
             <Choice type="radio" name={id} checked={other.on} onChange={other.choose}>
-              Other
+              {tr("Other")}
             </Choice>
             {other.on && <input ref={other.box} className="input" aria-label={`${q.label}: your own answer`} maxLength={200} value={other.text} onChange={(e) => other.type(e.target.value)} />}
           </div>
@@ -165,13 +166,13 @@ function Dropdown({ q, id, value, error, onChange, onPick }: FieldProps) {
           }
         }}
       >
-        <option value="">Choose…</option>
+        <option value="">{tr("Choose…")}</option>
         {options.map((o) => (
           <option key={o} value={o}>
             {o}
           </option>
         ))}
-        {q.allow_other && <option value="__other__">Other…</option>}
+        {q.allow_other && <option value="__other__">{tr("Other…")}</option>}
       </select>
       {other.on && <input ref={other.box} className="input fr-other-text" aria-label={`${q.label}: your own answer`} maxLength={200} value={other.text} onChange={(e) => other.type(e.target.value)} />}
     </Wrap>
@@ -211,7 +212,7 @@ function Multi({ q, id, value, error, onChange }: FieldProps) {
                 if (!other) setTimeout(() => box.current?.focus(), 0);
               }}
             >
-              Other
+              {tr("Other")}
             </Choice>
             {other && (
               <input
@@ -368,7 +369,7 @@ function Ranking({ q, id, value, error, onChange }: FieldProps) {
       </ol>
       {!ranked && (
         <button type="button" className="btn btn-default btn-sm fr-keep" onClick={() => onChange([...options])}>
-          Keep this order
+          {tr("Keep this order")}
         </button>
       )}
     </Wrap>
@@ -417,7 +418,7 @@ function Upload({ q, id, value, error, onChange }: FieldProps) {
             }}
           />
         </label>
-        <span className="fr-hint">or drop {max > 1 ? "them" : "it"} here</span>
+        <span className="fr-hint">{tr("or drop")} {max > 1 ? "them" : "it"} here</span>
       </div>
       <p className="fr-hint">{rules.join(" · ")}</p>
       {files.length > 0 && (
@@ -434,7 +435,7 @@ function Upload({ q, id, value, error, onChange }: FieldProps) {
           ))}
         </ul>
       )}
-      {total > UPLOAD_LIMIT && <p className="fr-error">These files are too large to send together. The limit is {size(UPLOAD_LIMIT)} for the whole form.</p>}
+      {total > UPLOAD_LIMIT && <p className="fr-error">{tr("These files are too large to send together. The limit is")} {size(UPLOAD_LIMIT)} {tr("for the whole form.")}</p>}
     </Wrap>
   );
 }
@@ -484,7 +485,7 @@ function Typed({ q, id, value, error, onChange, onCommit, zone }: FieldProps) {
         max={q.type === "date" || q.type === "time" ? q.max : undefined}
         onChange={(e) => onChange(e.target.value)}
       />
-      {q.type === "datetime" && <p className="fr-hint">Times are in {zone.replace(/_/g, " ")}.</p>}
+      {q.type === "datetime" && <p className="fr-hint">{tr("Times are in")} {zone.replace(/_/g, " ")}.</p>}
     </Wrap>
   );
 }

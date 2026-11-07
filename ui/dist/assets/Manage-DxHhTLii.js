@@ -1,1 +1,0 @@
-import{a as r,a5 as e,j as t}from"./index-BFLRXu_x.js";import{R as a,d as s}from"./Shell-Bgt9omsC.js";import"./theme-Djep8seI.js";import"./useQuery-CW0oJZz8.js";s("app",["forms"]);function f(){return r.useEffect(()=>e().ready(),[]),t.jsx(a,{})}export{f as Managed};

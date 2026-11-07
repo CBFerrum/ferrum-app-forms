@@ -7,7 +7,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, BarChart3, Copy, Ellipsis, Eye, ExternalLink, Lock, RotateCcw, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
-import { api, ApiError, bootstrap, docPath, errorMessage } from "@ferrum/client";
+import { api, ApiError, bootstrap, docPath, errorMessage, t as tr } from "@ferrum/client";
 import { Alert, Badge, Button, confirmDialog, ErrorState, PageLoading, TabPanel, Tabs, toast, useDebounced, useLiveEntity, useShellTitle, useUnsavedGuard } from "@ferrum/kit";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@ferrum/kit/primitives";
 import { type Basics, problems, type QRow, toPublic } from "./rows";
@@ -41,22 +41,22 @@ function Preview({ draft, onClose }: { draft: Draft; onClose: () => void }) {
   // Nothing is sent: the preview answers as the server would after a good response.
   const send = useCallback(async (): Promise<Receipt> => ({ status: "received", message, redirect_url: null, replayed: false }), [message]);
   return (
-    <aside className="fm-preview" aria-label="Preview of the form">
+    <aside className="fm-preview" aria-label={tr("Preview of the form")}>
       <div className="fm-preview-bar">
-        <strong>Preview</strong>
-        <Seg label="Device" value={device} options={[["phone", "Phone"], ["computer", "Computer"]]} onChange={setDevice} />
+        <strong>{tr("Preview")}</strong>
+        <Seg label={tr("Device")} value={device} options={[["phone", "Phone"], ["computer", "Computer"]]} onChange={setDevice} />
         <span className="spacer" />
-        <button type="button" className="icon-btn" aria-label="Start the preview again" title="Start again" onClick={() => setRun((n) => n + 1)}>
+        <button type="button" className="icon-btn" aria-label={tr("Start the preview again")} title={tr("Start again")} onClick={() => setRun((n) => n + 1)}>
           <RotateCcw size={16} aria-hidden="true" />
         </button>
-        <button type="button" className="icon-btn" aria-label="Close the preview" onClick={onClose}>
+        <button type="button" className="icon-btn" aria-label={tr("Close the preview")} onClick={onClose}>
           <X size={16} aria-hidden="true" />
         </button>
       </div>
       <div className="fm-device" data-device={device} data-scroll>
         <Runner key={run} form={form} zone={boot?.locale.timezone ?? "UTC"} workspace={boot?.workspace.name} send={send} preview />
       </div>
-      <p className="faint fm-preview-note">Answer it as a respondent would: questions appear and go away as the rules say.</p>
+      <p className="faint fm-preview-note">{tr("Answer it as a respondent would: questions appear and go away as the rules say.")}</p>
     </aside>
   );
 }
@@ -174,7 +174,7 @@ function BuilderPage({ doc }: { doc: FormDoc }) {
     } catch (e) {
       if (e instanceof ApiError && (e.status === 409 || e.status === 412)) {
         void qc.invalidateQueries({ queryKey: key(doc.id) });
-        toast("Someone else changed this form. Reload to see their version.", "error");
+        toast(tr("Someone else changed this form. Reload to see their version."), "error");
       } else if (e instanceof ApiError && e.status === 422) refuse(e);
       else toast(errorMessage(e), "error");
       return false;
@@ -189,7 +189,7 @@ function BuilderPage({ doc }: { doc: FormDoc }) {
       const first = draft.rows.find((_, i) => found[i].length);
       params({ tab: null });
       if (first) setOpen(first.uid);
-      toast("Some questions are not finished. They are marked.", "error");
+      toast(tr("Some questions are not finished. They are marked."), "error");
       return;
     }
     if (isDirty && !(await save())) return;
@@ -216,7 +216,7 @@ function BuilderPage({ doc }: { doc: FormDoc }) {
       await api.post(docPath("Form", doc.id, "actions", "close"), {});
       staleList(qc);
       await qc.invalidateQueries({ queryKey: key(doc.id) });
-      toast("Closed");
+      toast(tr("Closed"));
     } catch (e) {
       toast(errorMessage(e), "error");
     } finally {
@@ -229,7 +229,7 @@ function BuilderPage({ doc }: { doc: FormDoc }) {
       const made = await api.post<{ id: string }>(docPath("Form", doc.id, "actions", "duplicate"), {});
       staleList(qc);
       allowLeave();
-      toast("A copy was made");
+      toast(tr("A copy was made"));
       navigate(`/b/${made.id}`);
     } catch (e) {
       toast(errorMessage(e), "error");
@@ -243,7 +243,7 @@ function BuilderPage({ doc }: { doc: FormDoc }) {
       await api.del(docPath("Form", doc.id));
       staleList(qc);
       allowLeave();
-      toast("Deleted");
+      toast(tr("Deleted"));
       navigate("/");
     } catch (e) {
       toast(errorMessage(e), "error");
@@ -274,8 +274,8 @@ function BuilderPage({ doc }: { doc: FormDoc }) {
       {dialog}
       <header className="fm-head">
         <div className="fm-head-top">
-          <Link className="fm-back" to="/" aria-label="All forms">
-            <ArrowLeft size={16} aria-hidden="true" /> Forms
+          <Link className="fm-back" to="/" aria-label={tr("All forms")}>
+            <ArrowLeft size={16} aria-hidden="true" /> {tr("Forms")}
           </Link>
           <span className="spacer" />
           <p className="fm-saved" role="status" aria-live="polite">
@@ -284,14 +284,14 @@ function BuilderPage({ doc }: { doc: FormDoc }) {
         </div>
         <div className="fm-head-main">
           <div className="fm-title-wrap">
-            <input className="fm-title" aria-label="Title of the form" value={f.title} maxLength={200} placeholder="Untitled form" onChange={(e) => setFields({ title: e.target.value })} />
+            <input className="fm-title" aria-label={tr("Title of the form")} value={f.title} maxLength={200} placeholder={tr("Untitled form")} onChange={(e) => setFields({ title: e.target.value })} />
             {no?.fields.title && <p className="field-error">{no.fields.title}</p>}
           </div>
           <div className="fm-actions">
             <Badge tone={STATUS_TONE[status]}>{STATUS_LABEL[status]}</Badge>
             <Button onClick={() => params({ preview: preview ? null : "1" })} aria-pressed={preview}>
               <Eye size={16} aria-hidden="true" />
-              Preview
+              {tr("Preview")}
             </Button>
             {isDirty && (
               <Button variant={live ? "primary" : "default"} loading={busy === "save"} onClick={() => void save()}>
@@ -305,39 +305,39 @@ function BuilderPage({ doc }: { doc: FormDoc }) {
             )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button type="button" className="icon-btn" aria-label="More">
+                <button type="button" className="icon-btn" aria-label={tr("More")}>
                   <Ellipsis size={18} aria-hidden="true" />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 {url && (
                   <DropdownMenuItem onSelect={() => void copy(url)}>
-                    <Copy size={14} aria-hidden="true" /> Copy the link
+                    <Copy size={14} aria-hidden="true" /> {tr("Copy the link")}
                   </DropdownMenuItem>
                 )}
                 {url && live && (
                   <DropdownMenuItem asChild>
                     <a href={url} target="_blank" rel="noopener noreferrer">
-                      <ExternalLink size={14} aria-hidden="true" /> Open it as a respondent
+                      <ExternalLink size={14} aria-hidden="true" /> {tr("Open it as a respondent")}
                     </a>
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuItem asChild>
                   <Link to={`/e/Form/${doc.id}`}>
-                    <Lock size={14} aria-hidden="true" /> Open the full record
+                    <Lock size={14} aria-hidden="true" /> {tr("Open the full record")}
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => void duplicate()}>
-                  <Copy size={14} aria-hidden="true" /> Make a copy
+                  <Copy size={14} aria-hidden="true" /> {tr("Make a copy")}
                 </DropdownMenuItem>
                 {live && (
                   <DropdownMenuItem onSelect={() => void close()}>
-                    <Lock size={14} aria-hidden="true" /> Close the form
+                    <Lock size={14} aria-hidden="true" /> {tr("Close the form")}
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem variant="destructive" onSelect={() => void remove()}>
-                  <Trash2 size={14} aria-hidden="true" /> Delete
+                  <Trash2 size={14} aria-hidden="true" /> {tr("Delete")}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -349,13 +349,13 @@ function BuilderPage({ doc }: { doc: FormDoc }) {
             value={tab}
             onChange={(t) => params({ tab: t === "questions" ? null : t })}
             tabs={[
-              { id: "questions", label: <>Questions{answerableCount ? <span className="fm-count">{answerableCount}</span> : null}</> },
-              { id: "settings", label: <>Settings{settingProblems ? <span className="tab-errors">{settingProblems}</span> : null}</> },
+              { id: "questions", label: <>{tr("Questions")}{answerableCount ? <span className="fm-count">{answerableCount}</span> : null}</> },
+              { id: "settings", label: <>{tr("Settings")}{settingProblems ? <span className="tab-errors">{settingProblems}</span> : null}</> },
               { id: "share", label: "Share" },
             ]}
           />
           <Link className="fm-results-link" to={`/b/${doc.id}/results`}>
-            <BarChart3 size={15} aria-hidden="true" /> Results
+            <BarChart3 size={15} aria-hidden="true" /> {tr("Results")}
           </Link>
         </div>
       </header>
@@ -373,18 +373,18 @@ function BuilderPage({ doc }: { doc: FormDoc }) {
                 setStale(false);
               }}
             >
-              Load their version
+              {tr("Load their version")}
             </Button>
           }
         >
-          This form was changed somewhere else. Loading it replaces what you have changed here.
+          {tr("This form was changed somewhere else. Loading it replaces what you have changed here.")}
         </Alert>
       )}
-      {live && !stale && isDirty && <Alert tone="info">This form is live. What you change here reaches the people who open it as soon as you save.</Alert>}
+      {live && !stale && isDirty && <Alert tone="info">{tr("This form is live. What you change here reaches the people who open it as soon as you save.")}</Alert>}
       {no && no.other.length > 0 && <Alert tone="error">{no.other.join(" ")}</Alert>}
       {tried && flagged > 0 && tab !== "questions" && (
-        <Alert tone="warning" action={<Button onClick={() => params({ tab: null })}>Show them</Button>}>
-          {flagged} {flagged === 1 ? "question is" : "questions are"} not finished.
+        <Alert tone="warning" action={<Button onClick={() => params({ tab: null })}>{tr("Show them")}</Button>}>
+          {flagged} {flagged === 1 ? "question is" : "questions are"} {tr("not finished.")}
         </Alert>
       )}
 
@@ -429,7 +429,7 @@ function BuilderPage({ doc }: { doc: FormDoc }) {
 export function BuilderRoute() {
   const { id = "" } = useParams();
   const q = useQuery({ queryKey: key(id), queryFn: ({ signal }) => api.get<FormDoc>(docPath("Form", id), undefined, signal), staleTime: 0 });
-  if (q.error) return <ErrorState error={q.error} onRetry={() => void q.refetch()} title="Could not open this form" />;
-  if (!q.data) return <PageLoading label="Opening the form…" />;
+  if (q.error) return <ErrorState error={q.error} onRetry={() => void q.refetch()} title={tr("Could not open this form")} />;
+  if (!q.data) return <PageLoading label={tr("Opening the form…")} />;
   return <BuilderPage key={id} doc={q.data} />;
 }

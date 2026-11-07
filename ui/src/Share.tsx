@@ -4,7 +4,7 @@
 
 import { Copy, ExternalLink, Globe, Lock } from "lucide-react";
 import { useEffect, useId, useState } from "react";
-import { bootstrap, formatDateTime } from "@ferrum/client";
+import { bootstrap, formatDateTime, t as tr } from "@ferrum/client";
 import { confirmDialog, Field, toast } from "@ferrum/kit";
 import type { QRow } from "./rows";
 import type { Fields, Status } from "./formdoc";
@@ -19,7 +19,7 @@ export function linkOf(slug: string): string {
 export async function copy(text: string): Promise<void> {
   try {
     await navigator.clipboard.writeText(text);
-    toast("Link copied");
+    toast(tr("Link copied"));
   } catch {
     toast(text, "info");
   }
@@ -89,22 +89,22 @@ export function Share({ fields: f, set, rows, status, savedSlug, errors, dirty, 
       )}
 
       <section className="fm-section">
-        <h2 className="fm-section-title">The link</h2>
+        <h2 className="fm-section-title">{tr("The link")}</h2>
         {url ? (
           <>
             <div className="fm-link" data-live={live ? "" : undefined}>
-              <input className="input" readOnly aria-label="The link to this form" value={url} onFocus={(e) => e.currentTarget.select()} />
+              <input className="input" readOnly aria-label={tr("The link to this form")} value={url} onFocus={(e) => e.currentTarget.select()} />
               <button type="button" className="btn btn-primary btn-md" onClick={() => void copy(url)}>
-                <Copy size={16} aria-hidden="true" /> Copy
+                <Copy size={16} aria-hidden="true" /> {tr("Copy")}
               </button>
               <a className="btn btn-default btn-md" href={url} target="_blank" rel="noopener noreferrer">
-                <ExternalLink size={16} aria-hidden="true" /> Open
+                <ExternalLink size={16} aria-hidden="true" /> {tr("Open")}
               </a>
             </div>
-            {!live && <p className="field-hint">Not working yet.</p>}
+            {!live && <p className="field-hint">{tr("Not working yet.")}</p>}
           </>
         ) : (
-          <p className="muted">The link appears when the form is saved.</p>
+          <p className="muted">{tr("The link appears when the form is saved.")}</p>
         )}
         <ul className="fm-facts">
           <li>
@@ -116,35 +116,35 @@ export function Share({ fields: f, set, rows, status, savedSlug, errors, dirty, 
           ))}
         </ul>
         <button type="button" className="link-btn" onClick={onSettings}>
-          Change who can answer and when
+          {tr("Change who can answer and when")}
         </button>
       </section>
 
       <section className="fm-section">
-        <h2 className="fm-section-title">Its address</h2>
-        <Field label="The last part of the link" htmlFor={`${id}-slug`} hint="Lower-case letters, numbers and hyphens." error={errors.slug}>
+        <h2 className="fm-section-title">{tr("Its address")}</h2>
+        <Field label={tr("The last part of the link")} htmlFor={`${id}-slug`} hint={tr("Lower-case letters, numbers and hyphens.")} error={errors.slug}>
           <input id={`${id}-slug`} className="input" value={typed} spellCheck={false} autoCapitalize="off" onChange={(e) => setTyped(e.target.value.toLowerCase().replace(/\s+/g, "-"))} onBlur={() => void leave()} />
         </Field>
       </section>
 
       {prefills.length > 0 && savedSlug && (
         <section className="fm-section">
-          <h2 className="fm-section-title">A link that fills in an answer</h2>
-          <p className="muted">Add <code>?{chosen.key}=…</code> to the link to start with an answer filled in, for example in an email to one person.</p>
+          <h2 className="fm-section-title">{tr("A link that fills in an answer")}</h2>
+          <p className="muted">{tr("Add")} <code>?{chosen.key}=…</code> {tr("to the link to start with an answer filled in, for example in an email to one person.")}</p>
           <div className="fm-link">
-            <select className="select" aria-label="Question to fill in" value={chosen.key} onChange={(e) => setPick(e.target.value)}>
+            <select className="select" aria-label={tr("Question to fill in")} value={chosen.key} onChange={(e) => setPick(e.target.value)}>
               {prefills.map((r) => (
                 <option key={r.uid} value={r.key}>
                   {r.label.trim() || r.key}
                 </option>
               ))}
             </select>
-            <input className="input" readOnly aria-label="The link with an answer filled in" value={`${url}?${chosen.key}=`} onFocus={(e) => e.currentTarget.select()} />
+            <input className="input" readOnly aria-label={tr("The link with an answer filled in")} value={`${url}?${chosen.key}=`} onFocus={(e) => e.currentTarget.select()} />
             <button type="button" className="btn btn-default btn-md" onClick={() => void copy(`${url}?${chosen.key}=`)}>
-              <Copy size={16} aria-hidden="true" /> Copy
+              <Copy size={16} aria-hidden="true" /> {tr("Copy")}
             </button>
           </div>
-          <p className="field-hint">Type the answer after the equals sign. Several choices are separated by commas.</p>
+          <p className="field-hint">{tr("Type the answer after the equals sign. Several choices are separated by commas.")}</p>
         </section>
       )}
     </div>

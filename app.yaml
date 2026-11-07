@@ -1,6 +1,6 @@
 id: forms
 name: Forms and Surveys
-version: 0.2.10
+version: 0.2.11
 publisher: cbferrum
 summary: "Form and survey builder with public links, conditional logic, validations, file uploads, record creation from responses, quizzes, NPS and analytics"
 description: README.md

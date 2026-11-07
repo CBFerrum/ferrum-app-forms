@@ -13,6 +13,7 @@ import { blankRow, changeKind, copyRow, FILE_TYPES, lines, move, nameFromLabel, 
 import { KindIcon } from "./kinds";
 import { Logic } from "./Logic";
 import { answerable, gradable, GROUPS, type Kind, KINDS, kindLabel, LIKERT_DEFAULT } from "./model";
+import { t as tr } from "@ferrum/client";
 
 // ───────────────────────────── small controls ─────────────────────────────
 
@@ -46,7 +47,7 @@ function Lines({ id, value, onChange, rows = 4, placeholder, label, hint }: { id
       </label>
       <LinesBox id={id} value={value} onChange={onChange} rows={rows} placeholder={placeholder} />
       <p className="field-hint">
-        {value.length} {value.length === 1 ? "entry" : "entries"}. One per line. {hint}
+        {value.length} {value.length === 1 ? "entry" : "entries"}{tr(". One per line.")} {hint}
       </p>
     </div>
   );
@@ -89,7 +90,7 @@ function Correct({ row, update }: { row: QRow; update: (p: Partial<QRow>) => voi
   if (kind === "select" || kind === "dropdown" || kind === "likert") {
     control = (
       <select id={id} className="select" value={typeof value === "string" ? value : ""} onChange={(e) => set(e.target.value || null)}>
-        <option value="">Choose the right option…</option>
+        <option value="">{tr("Choose the right option…")}</option>
         {options.map((o) => (
           <option key={o}>{o}</option>
         ))}
@@ -110,9 +111,9 @@ function Correct({ row, update }: { row: QRow; update: (p: Partial<QRow>) => voi
   } else if (kind === "checkbox") {
     control = (
       <select id={id} className="select" value={value === true ? "yes" : value === false ? "no" : ""} onChange={(e) => set(e.target.value === "" ? null : e.target.value === "yes")}>
-        <option value="">Choose…</option>
-        <option value="yes">Ticked</option>
-        <option value="no">Not ticked</option>
+        <option value="">{tr("Choose…")}</option>
+        <option value="yes">{tr("Ticked")}</option>
+        <option value="no">{tr("Not ticked")}</option>
       </select>
     );
   } else if (kind === "short_text") {
@@ -141,13 +142,13 @@ function Correct({ row, update }: { row: QRow; update: (p: Partial<QRow>) => voi
     <div className="fm-quiz">
       <div className="field">
         <label className="field-label" htmlFor={id}>
-          The right answer
+          {tr("The right answer")}
         </label>
         {control}
-        {kind === "short_text" && <p className="field-hint">One accepted answer per line. Capital letters and extra spaces do not matter.</p>}
-        {kind === "ranking" && <p className="field-hint">The order is the right answer: first at the top.</p>}
+        {kind === "short_text" && <p className="field-hint">{tr("One accepted answer per line. Capital letters and extra spaces do not matter.")}</p>}
+        {kind === "ranking" && <p className="field-hint">{tr("The order is the right answer: first at the top.")}</p>}
       </div>
-      <Text id={`${id}-points`} label="Points" type="number" value={row.points} onChange={(v) => update({ points: v })} hint="Blank: 1 point." />
+      <Text id={`${id}-points`} label={tr("Points")} type="number" value={row.points} onChange={(v) => update({ points: v })} hint={tr("Blank: 1 point.")} />
     </div>
   );
 }
@@ -162,23 +163,23 @@ function Specifics({ row, update, list }: { row: QRow; update: (p: Partial<QRow>
     case "long_text":
       return (
         <details className="fm-more">
-          <summary>Length and format</summary>
+          <summary>{tr("Length and format")}</summary>
           <div className="fm-grid">
-            <Num id={`${id}-minl`} label="Fewest characters" value={row.min_length} onChange={(v) => update({ min_length: v })} min={0} />
-            <Num id={`${id}-maxl`} label="Most characters" value={row.max_length} onChange={(v) => update({ max_length: v })} min={1} hint={kind === "short_text" ? "Blank: 500. At most 2,000." : "Blank: 10,000. At most 50,000."} />
+            <Num id={`${id}-minl`} label={tr("Fewest characters")} value={row.min_length} onChange={(v) => update({ min_length: v })} min={0} />
+            <Num id={`${id}-maxl`} label={tr("Most characters")} value={row.max_length} onChange={(v) => update({ max_length: v })} min={1} hint={kind === "short_text" ? "Blank: 500. At most 2,000." : "Blank: 10,000. At most 50,000."} />
           </div>
           <Err list={[...list("min_length"), ...list("max_length")]} />
-          <Text id={`${id}-pat`} label="Must match a pattern" value={row.pattern} onChange={(v) => update({ pattern: v })} hint="A regular expression the whole answer must match, such as [A-Z]{3}[0-9]{4}." />
+          <Text id={`${id}-pat`} label={tr("Must match a pattern")} value={row.pattern} onChange={(v) => update({ pattern: v })} hint="A regular expression the whole answer must match, such as [A-Z]{3}[0-9]{4}." />
           <Err list={list("pattern")} />
-          {row.pattern && <Text id={`${id}-patm`} label="Say so when it does not" value={row.pattern_message} onChange={(v) => update({ pattern_message: v })} placeholder="Use three letters and four digits." />}
+          {row.pattern && <Text id={`${id}-patm`} label={tr("Say so when it does not")} value={row.pattern_message} onChange={(v) => update({ pattern_message: v })} placeholder={tr("Use three letters and four digits.")} />}
         </details>
       );
     case "number":
     case "decimal":
       return (
         <div className="fm-grid">
-          <Text id={`${id}-min`} label="Smallest" type="number" value={row.min_value} onChange={(v) => update({ min_value: v })} />
-          <Text id={`${id}-max`} label="Largest" type="number" value={row.max_value} onChange={(v) => update({ max_value: v })} />
+          <Text id={`${id}-min`} label={tr("Smallest")} type="number" value={row.min_value} onChange={(v) => update({ min_value: v })} />
+          <Text id={`${id}-max`} label={tr("Largest")} type="number" value={row.max_value} onChange={(v) => update({ max_value: v })} />
           <Err list={[...list("min_value"), ...list("max_value")]} />
         </div>
       );
@@ -196,16 +197,16 @@ function Specifics({ row, update, list }: { row: QRow; update: (p: Partial<QRow>
     case "multi_select":
       return (
         <>
-          <Lines id={`${id}-options`} label="Options" value={row.options} onChange={(v) => update({ options: v })} placeholder={"Red\nBlue\nGreen"} />
+          <Lines id={`${id}-options`} label={tr("Options")} value={row.options} onChange={(v) => update({ options: v })} placeholder={"Red\nBlue\nGreen"} />
           <Err list={list("options")} />
           <label className="check-field">
             <input type="checkbox" checked={row.allow_other} onChange={(e) => update({ allow_other: e.target.checked })} />
-            <span>Let people write their own answer (“Other”)</span>
+            <span>{tr("Let people write their own answer (“Other”)")}</span>
           </label>
           {kind === "multi_select" && (
             <div className="fm-grid">
-              <Text id={`${id}-min`} label="Fewest to choose" type="number" value={row.min_value} onChange={(v) => update({ min_value: v })} />
-              <Text id={`${id}-max`} label="Most to choose" type="number" value={row.max_value} onChange={(v) => update({ max_value: v })} />
+              <Text id={`${id}-min`} label={tr("Fewest to choose")} type="number" value={row.min_value} onChange={(v) => update({ min_value: v })} />
+              <Text id={`${id}-max`} label={tr("Most to choose")} type="number" value={row.max_value} onChange={(v) => update({ max_value: v })} />
               <Err list={list("min_value")} />
             </div>
           )}
@@ -214,23 +215,23 @@ function Specifics({ row, update, list }: { row: QRow; update: (p: Partial<QRow>
     case "ranking":
       return (
         <>
-          <Lines id={`${id}-options`} label="Things to put in order" value={row.options} onChange={(v) => update({ options: v })} placeholder={"Price\nQuality\nSpeed"} />
+          <Lines id={`${id}-options`} label={tr("Things to put in order")} value={row.options} onChange={(v) => update({ options: v })} placeholder={"Price\nQuality\nSpeed"} />
           <Err list={list("options")} />
         </>
       );
     case "likert":
       return (
         <>
-          <Lines id={`${id}-options`} label="Scale" rows={5} value={row.options} onChange={(v) => update({ options: v })} placeholder={LIKERT_DEFAULT.join("\n")} hint="Leave empty for Strongly disagree to Strongly agree." />
+          <Lines id={`${id}-options`} label={tr("Scale")} rows={5} value={row.options} onChange={(v) => update({ options: v })} placeholder={LIKERT_DEFAULT.join("\n")} hint={tr("Leave empty for Strongly disagree to Strongly agree.")} />
           <Err list={list("options")} />
         </>
       );
     case "matrix":
       return (
         <>
-          <Lines id={`${id}-rows`} label="Statements (rows)" value={row.matrix_rows} onChange={(v) => update({ matrix_rows: v })} placeholder={"Speed\nPrice"} />
+          <Lines id={`${id}-rows`} label={tr("Statements (rows)")} value={row.matrix_rows} onChange={(v) => update({ matrix_rows: v })} placeholder={"Speed\nPrice"} />
           <Err list={list("matrix_rows")} />
-          <Lines id={`${id}-options`} label="Answers (columns)" value={row.options} onChange={(v) => update({ options: v })} placeholder={"Poor\nGood\nExcellent"} />
+          <Lines id={`${id}-options`} label={tr("Answers (columns)")} value={row.options} onChange={(v) => update({ options: v })} placeholder={"Poor\nGood\nExcellent"} />
           <Err list={list("options")} />
         </>
       );
@@ -238,7 +239,7 @@ function Specifics({ row, update, list }: { row: QRow; update: (p: Partial<QRow>
       return (
         <div className="field">
           <label className="field-label" htmlFor={`${id}-scale`}>
-            Stars
+            {tr("Stars")}
           </label>
           <select id={`${id}-scale`} className="select" value={row.max_value || "5"} onChange={(e) => update({ max_value: e.target.value })}>
             {[3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
@@ -250,14 +251,14 @@ function Specifics({ row, update, list }: { row: QRow; update: (p: Partial<QRow>
         </div>
       );
     case "nps":
-      return <p className="field-hint">People choose from 0 to 10. The results sort them into promoters (9 to 10), passives (7 to 8) and detractors (0 to 6).</p>;
+      return <p className="field-hint">{tr("People choose from 0 to 10. The results sort them into promoters (9 to 10), passives (7 to 8) and detractors (0 to 6).")}</p>;
     case "file": {
       const chosen = row.accept.split(/[\s,;]+/).map((e) => e.replace(/^\./, "").toLowerCase()).filter(Boolean);
       const toggle = (t: string) => update({ accept: (chosen.includes(t) ? chosen.filter((x) => x !== t) : [...chosen, t]).join(", ") });
       return (
         <>
           <fieldset className="field fm-types">
-            <legend className="field-label">Accepted files</legend>
+            <legend className="field-label">{tr("Accepted files")}</legend>
             <div className="chips">
               {FILE_TYPES.map((t) => (
                 <button key={t} type="button" className="chip" aria-pressed={chosen.includes(t)} onClick={() => toggle(t)}>
@@ -265,12 +266,12 @@ function Specifics({ row, update, list }: { row: QRow; update: (p: Partial<QRow>
                 </button>
               ))}
             </div>
-            <p className="field-hint">{chosen.length ? "Only these types." : "Documents, pictures and spreadsheets (not zip files)."} Each is checked by its contents, not just its name.</p>
+            <p className="field-hint">{chosen.length ? "Only these types." : "Documents, pictures and spreadsheets (not zip files)."} {tr("Each is checked by its contents, not just its name.")}</p>
           </fieldset>
           <Err list={list("accept")} />
           <div className="fm-grid">
-            <Num id={`${id}-mb`} label="Largest file (MB)" value={row.max_file_mb} onChange={(v) => update({ max_file_mb: v })} min={1} max={20} hint="Blank: 10." />
-            <Text id={`${id}-files`} label="Most files" type="number" value={row.max_value} onChange={(v) => update({ max_value: v })} hint="Blank: 1. At most 10." />
+            <Num id={`${id}-mb`} label={tr("Largest file (MB)")} value={row.max_file_mb} onChange={(v) => update({ max_file_mb: v })} min={1} max={20} hint={tr("Blank: 10.")} />
+            <Text id={`${id}-files`} label={tr("Most files")} type="number" value={row.max_value} onChange={(v) => update({ max_value: v })} hint={tr("Blank: 1. At most 10.")} />
           </div>
           <Err list={[...list("max_file_mb"), ...list("max_value")]} />
         </>
@@ -390,13 +391,13 @@ function Card({ row, index, rows, quiz, open, fresh, usedElsewhere, showProblems
         title: `Delete “${title || "this question"}”?`,
         message: uses.length ? (
           <>
-            <p>Other things depend on it:</p>
+            <p>{tr("Other things depend on it:")}</p>
             <ul>
               {uses.map((u) => (
                 <li key={u}>{u}</li>
               ))}
             </ul>
-            <p>They will need attention before the form can be saved.</p>
+            <p>{tr("They will need attention before the form can be saved.")}</p>
           </>
         ) : (
           "Answers already given to it stay in the responses and exports. It leaves the form when you save."
@@ -419,7 +420,7 @@ function Card({ row, index, rows, quiz, open, fresh, usedElsewhere, showProblems
   const typeSelect = (
     <div className="field fm-type-pick">
       <label className="field-label" htmlFor={`${body}-type`}>
-        Type
+        {tr("Type")}
       </label>
       <select id={`${body}-type`} className="select" value={kind} onChange={(e) => onChange(rows.map((r, i) => (i === index ? changeKind(r, e.target.value as Kind) : r)))}>
         {GROUPS.map((g) => (
@@ -457,18 +458,18 @@ function Card({ row, index, rows, quiz, open, fresh, usedElsewhere, showProblems
             <KindIcon kind={kind} />
           </span>
           <span className="fm-card-title">
-            {page ? <strong>Page {pageNo}</strong> : number ? <span className="fm-num">{number}.</span> : null}
+            {page ? <strong>{tr("Page {pageNo}", { pageNo })}</strong> : number ? <span className="fm-num">{number}.</span> : null}
             <span className={title || page ? undefined : "faint"}>{title || (page ? "" : kind === "statement" ? "Write the text" : "Write the question")}</span>
           </span>
           <span className="fm-card-tags">
             {row.required && answerable(kind) && (
               <span className="fm-tag" title={kind === "checkbox" ? "Must be ticked" : "Required"}>
-                Required
+                {tr("Required")}
               </span>
             )}
             {row.visible_if.trim() && (
-              <span className="fm-tag" title="Shown only if…">
-                <GitBranch size={12} aria-hidden="true" /> Conditional
+              <span className="fm-tag" title={tr("Shown only if…")}>
+                <GitBranch size={12} aria-hidden="true" /> {tr("Conditional")}
               </span>
             )}
             {flagged.length > 0 && (
@@ -487,21 +488,21 @@ function Card({ row, index, rows, quiz, open, fresh, usedElsewhere, showProblems
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem disabled={index === 0} onSelect={() => at(index - 1)}>
-              <ArrowUp size={14} aria-hidden="true" /> Move up
+              <ArrowUp size={14} aria-hidden="true" /> {tr("Move up")}
             </DropdownMenuItem>
             <DropdownMenuItem disabled={index === rows.length - 1} onSelect={() => at(index + 1)}>
-              <ArrowDown size={14} aria-hidden="true" /> Move down
+              <ArrowDown size={14} aria-hidden="true" /> {tr("Move down")}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={() => onAdd("short_text", index + 1)}>
-              <Plus size={14} aria-hidden="true" /> Add a question below
+              <Plus size={14} aria-hidden="true" /> {tr("Add a question below")}
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={copy}>
-              <Copy size={14} aria-hidden="true" /> Duplicate
+              <Copy size={14} aria-hidden="true" /> {tr("Duplicate")}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" onSelect={() => void remove()}>
-              <Trash2 size={14} aria-hidden="true" /> Delete
+              <Trash2 size={14} aria-hidden="true" /> {tr("Delete")}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -512,9 +513,9 @@ function Card({ row, index, rows, quiz, open, fresh, usedElsewhere, showProblems
             <>
               <div className="field">
                 <label className="field-label" htmlFor={`${body}-label`}>
-                  Title of page {pageNo}
+                  {tr("Title of page {pageNo}", { pageNo })}
                 </label>
-                <input id={`${body}-label`} ref={label} className="input" value={row.label} placeholder="Optional" onChange={(e) => update({ label: e.target.value })} />
+                <input id={`${body}-label`} ref={label} className="input" value={row.label} placeholder={tr("Optional")} onChange={(e) => update({ label: e.target.value })} />
               </div>
               <Logic key={row.uid} rows={rows} index={index} onChange={(cel) => update({ visible_if: cel })} />
               <Err list={list("visible_if")} />
@@ -551,9 +552,9 @@ function Card({ row, index, rows, quiz, open, fresh, usedElsewhere, showProblems
                     <span>{kind === "checkbox" ? "Must be ticked" : "Required"}</span>
                   </label>
                   {!["file", "matrix", "ranking"].includes(kind) && (
-                    <label className="check-field" title="A link can fill this in: …/form?answer-id=value">
+                    <label className="check-field" title={tr("A link can fill this in: …/form?answer-id=value")}>
                       <input type="checkbox" checked={row.allow_prefill} onChange={(e) => update({ allow_prefill: e.target.checked })} />
-                      <span>A link can fill it in</span>
+                      <span>{tr("A link can fill it in")}</span>
                     </label>
                   )}
                 </div>
@@ -569,7 +570,7 @@ function Card({ row, index, rows, quiz, open, fresh, usedElsewhere, showProblems
             <p className="faint fm-key">
               {answerable(kind) ? (
                 <>
-                  Answer ID <code>{row.key}</code>
+                  {tr("Answer ID")} <code>{row.key}</code>
                   {row.id ? " (fixed once saved)" : ""}
                 </>
               ) : null}
@@ -629,9 +630,9 @@ export function Questions({ rows, onChange, quiz, open, onOpen, server, showProb
 
   if (!rows.length) {
     return (
-      <section className="fm-empty" aria-label="Add your first question">
-        <h2 className="fm-empty-title">What do you want to ask?</h2>
-        <p className="muted">Pick a type to start. You can change it later, and reorder everything.</p>
+      <section className="fm-empty" aria-label={tr("Add your first question")}>
+        <h2 className="fm-empty-title">{tr("What do you want to ask?")}</h2>
+        <p className="muted">{tr("Pick a type to start. You can change it later, and reorder everything.")}</p>
         <TypeList onPick={(k) => add(k)} />
       </section>
     );
@@ -641,7 +642,7 @@ export function Questions({ rows, onChange, quiz, open, onOpen, server, showProb
     <>
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={end} accessibility={{ announcements }}>
         <SortableContext items={rows.map((r) => r.uid)} strategy={verticalListSortingStrategy}>
-          <ol className="fm-cards" aria-label="Questions">
+          <ol className="fm-cards" aria-label={tr("Questions")}>
             {rows.map((r, i) => (
               <Card
                 key={r.uid}
@@ -668,7 +669,7 @@ export function Questions({ rows, onChange, quiz, open, onOpen, server, showProb
         <AddButton variant="primary" onPick={(k) => add(k)} />
         <button type="button" className="btn btn-default btn-md" onClick={() => add("page_break")}>
           <Plus size={16} aria-hidden="true" />
-          Add a page break
+          {tr("Add a page break")}
         </button>
       </div>
     </>
