@@ -2,7 +2,7 @@
 // (`/api/site/{workspace}/forms`), the signed-in ones for forms the workspace's people answer
 // (`/api/app/forms`), a closed form's reasons, and the addresses that lead to a form.
 
-import { routeBase } from "@ferrum/client";
+import { routeBase, t } from "@ferrum/client";
 
 export const siteBase = (tenant: string) => `/api/site/${encodeURIComponent(tenant)}/forms`;
 export const APP_BASE = "/api/app/forms";
@@ -47,11 +47,11 @@ export function closedState(message: string): Closed {
   const opens = /^This form opens at (\S+?)\.?$/.exec(m);
   if (opens) {
     const at = new Date(opens[1]);
-    if (!Number.isNaN(at.getTime())) return { title: "This form is not open yet", body: `It opens on ${at.toLocaleString(undefined, { dateStyle: "full", timeStyle: "short" })}.`, opensAt: at };
+    if (!Number.isNaN(at.getTime())) return { title: t("This form is not open yet"), body: `It opens on ${at.toLocaleString(undefined, { dateStyle: "full", timeStyle: "short" })}.`, opensAt: at };
   }
-  if (m === DEFAULT_FULL) return { title: "This form is full", body: "It has all the responses it was set up to take.", opensAt: null };
-  if (!m || m === DEFAULT_CLOSED) return { title: "This form is closed", body: "It is not taking responses any more.", opensAt: null };
-  return { title: "This form is closed", body: m, opensAt: null };
+  if (m === DEFAULT_FULL) return { title: t("This form is full"), body: "It has all the responses it was set up to take.", opensAt: null };
+  if (!m || m === DEFAULT_CLOSED) return { title: t("This form is closed"), body: "It is not taking responses any more.", opensAt: null };
+  return { title: t("This form is closed"), body: m, opensAt: null };
 }
 
 export const ALREADY = "A response was already received from you for this form.";

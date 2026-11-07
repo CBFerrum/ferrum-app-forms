@@ -13,12 +13,12 @@ import { blankRow, changeKind, copyRow, FILE_TYPES, lines, move, nameFromLabel, 
 import { KindIcon } from "./kinds";
 import { Logic } from "./Logic";
 import { answerable, gradable, GROUPS, type Kind, KINDS, kindLabel, LIKERT_DEFAULT } from "./model";
-import { t as tr } from "@ferrum/client";
+import { t as tr, isolate } from "@ferrum/client";
 
 // ───────────────────────────── small controls ─────────────────────────────
 
 function Err({ list }: { list: Problem[] }) {
-  return list.length ? <p className="field-error">{list[0].message}</p> : null;
+  return list.length ? <p className="field-error">{isolate(list[0].message)}</p> : null;
 }
 
 /** A box of one entry per line: what is typed stays as typed, and the list follows it. */
@@ -43,11 +43,11 @@ function Lines({ id, value, onChange, rows = 4, placeholder, label, hint }: { id
   return (
     <div className="field">
       <label className="field-label" htmlFor={id}>
-        {label}
+        {isolate(label)}
       </label>
       <LinesBox id={id} value={value} onChange={onChange} rows={rows} placeholder={placeholder} />
       <p className="field-hint">
-        {value.length} {value.length === 1 ? "entry" : "entries"}{tr(". One per line.")} {hint}
+        {value.length} {value.length === 1 ? tr("entry") : tr("entries")}{tr(". One per line.")} {hint}
       </p>
     </div>
   );
@@ -57,10 +57,10 @@ function Num({ id, label, value, onChange, min, max, hint }: { id: string; label
   return (
     <div className="field">
       <label className="field-label" htmlFor={id}>
-        {label}
+        {isolate(label)}
       </label>
       <input id={id} className="input num" type="number" inputMode="numeric" min={min} max={max} value={value ?? ""} onChange={(e) => onChange(e.target.value === "" ? null : Number(e.target.value))} />
-      {hint && <p className="field-hint">{hint}</p>}
+      {hint && <p className="field-hint">{isolate(hint)}</p>}
     </div>
   );
 }
@@ -69,10 +69,10 @@ function Text({ id, label, value, onChange, type = "text", hint, placeholder }: 
   return (
     <div className="field">
       <label className="field-label" htmlFor={id}>
-        {label}
+        {isolate(label)}
       </label>
       <input id={id} className="input" type={type} value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
-      {hint && <p className="field-hint">{hint}</p>}
+      {hint && <p className="field-hint">{isolate(hint)}</p>}
     </div>
   );
 }
@@ -92,7 +92,7 @@ function Correct({ row, update }: { row: QRow; update: (p: Partial<QRow>) => voi
       <select id={id} className="select" value={typeof value === "string" ? value : ""} onChange={(e) => set(e.target.value || null)}>
         <option value="">{tr("Choose the right option…")}</option>
         {options.map((o) => (
-          <option key={o}>{o}</option>
+          <option key={o}>{isolate(o)}</option>
         ))}
       </select>
     );
@@ -103,7 +103,7 @@ function Correct({ row, update }: { row: QRow; update: (p: Partial<QRow>) => voi
         {options.map((o) => (
           <label key={o} className="check-field">
             <input type="checkbox" checked={chosen.includes(o)} onChange={() => set(chosen.includes(o) ? chosen.filter((x) => x !== o) : [...chosen, o])} />
-            <span>{o}</span>
+            <span>{isolate(o)}</span>
           </label>
         ))}
       </div>
@@ -124,11 +124,11 @@ function Correct({ row, update }: { row: QRow; update: (p: Partial<QRow>) => voi
       <ol className="fm-order" id={id}>
         {order.map((o, i) => (
           <li key={o}>
-            <span>{o}</span>
-            <button type="button" className="icon-btn icon-btn-sm" aria-label={`Move ${o} up`} disabled={i === 0} onClick={() => set(move(order, i, i - 1))}>
+            <span>{isolate(o)}</span>
+            <button type="button" className="icon-btn icon-btn-sm" aria-label={tr("Move {o} up", { o })} disabled={i === 0} onClick={() => set(move(order, i, i - 1))}>
               <ArrowUp size={14} aria-hidden="true" />
             </button>
-            <button type="button" className="icon-btn icon-btn-sm" aria-label={`Move ${o} down`} disabled={i === order.length - 1} onClick={() => set(move(order, i, i + 1))}>
+            <button type="button" className="icon-btn icon-btn-sm" aria-label={tr("Move {o} down", { o })} disabled={i === order.length - 1} onClick={() => set(move(order, i, i + 1))}>
               <ArrowDown size={14} aria-hidden="true" />
             </button>
           </li>
@@ -166,7 +166,7 @@ function Specifics({ row, update, list }: { row: QRow; update: (p: Partial<QRow>
           <summary>{tr("Length and format")}</summary>
           <div className="fm-grid">
             <Num id={`${id}-minl`} label={tr("Fewest characters")} value={row.min_length} onChange={(v) => update({ min_length: v })} min={0} />
-            <Num id={`${id}-maxl`} label={tr("Most characters")} value={row.max_length} onChange={(v) => update({ max_length: v })} min={1} hint={kind === "short_text" ? "Blank: 500. At most 2,000." : "Blank: 10,000. At most 50,000."} />
+            <Num id={`${id}-maxl`} label={tr("Most characters")} value={row.max_length} onChange={(v) => update({ max_length: v })} min={1} hint={kind === "short_text" ? tr("Blank: 500. At most 2,000.") : tr("Blank: 10,000. At most 50,000.")} />
           </div>
           <Err list={[...list("min_length"), ...list("max_length")]} />
           <Text id={`${id}-pat`} label={tr("Must match a pattern")} value={row.pattern} onChange={(v) => update({ pattern: v })} hint="A regular expression the whole answer must match, such as [A-Z]{3}[0-9]{4}." />
@@ -187,8 +187,8 @@ function Specifics({ row, update, list }: { row: QRow; update: (p: Partial<QRow>
     case "time":
       return (
         <div className="fm-grid">
-          <Text id={`${id}-min`} label={kind === "date" ? "Earliest" : "From"} type={kind} value={row.min_value} onChange={(v) => update({ min_value: v })} />
-          <Text id={`${id}-max`} label={kind === "date" ? "Latest" : "Until"} type={kind} value={row.max_value} onChange={(v) => update({ max_value: v })} />
+          <Text id={`${id}-min`} label={kind === "date" ? tr("Earliest") : tr("From")} type={kind} value={row.min_value} onChange={(v) => update({ min_value: v })} />
+          <Text id={`${id}-max`} label={kind === "date" ? tr("Latest") : tr("Until")} type={kind} value={row.max_value} onChange={(v) => update({ max_value: v })} />
           <Err list={list("min_value")} />
         </div>
       );
@@ -197,7 +197,7 @@ function Specifics({ row, update, list }: { row: QRow; update: (p: Partial<QRow>
     case "multi_select":
       return (
         <>
-          <Lines id={`${id}-options`} label={tr("Options")} value={row.options} onChange={(v) => update({ options: v })} placeholder={"Red\nBlue\nGreen"} />
+          <Lines id={`${id}-options`} label={tr("Options")} value={row.options} onChange={(v) => update({ options: v })} placeholder={tr("Red\nBlue\nGreen")} />
           <Err list={list("options")} />
           <label className="check-field">
             <input type="checkbox" checked={row.allow_other} onChange={(e) => update({ allow_other: e.target.checked })} />
@@ -215,7 +215,7 @@ function Specifics({ row, update, list }: { row: QRow; update: (p: Partial<QRow>
     case "ranking":
       return (
         <>
-          <Lines id={`${id}-options`} label={tr("Things to put in order")} value={row.options} onChange={(v) => update({ options: v })} placeholder={"Price\nQuality\nSpeed"} />
+          <Lines id={`${id}-options`} label={tr("Things to put in order")} value={row.options} onChange={(v) => update({ options: v })} placeholder={tr("Price\nQuality\nSpeed")} />
           <Err list={list("options")} />
         </>
       );
@@ -229,9 +229,9 @@ function Specifics({ row, update, list }: { row: QRow; update: (p: Partial<QRow>
     case "matrix":
       return (
         <>
-          <Lines id={`${id}-rows`} label={tr("Statements (rows)")} value={row.matrix_rows} onChange={(v) => update({ matrix_rows: v })} placeholder={"Speed\nPrice"} />
+          <Lines id={`${id}-rows`} label={tr("Statements (rows)")} value={row.matrix_rows} onChange={(v) => update({ matrix_rows: v })} placeholder={tr("Speed\nPrice")} />
           <Err list={list("matrix_rows")} />
-          <Lines id={`${id}-options`} label={tr("Answers (columns)")} value={row.options} onChange={(v) => update({ options: v })} placeholder={"Poor\nGood\nExcellent"} />
+          <Lines id={`${id}-options`} label={tr("Answers (columns)")} value={row.options} onChange={(v) => update({ options: v })} placeholder={tr("Poor\nGood\nExcellent")} />
           <Err list={list("options")} />
         </>
       );
@@ -244,7 +244,7 @@ function Specifics({ row, update, list }: { row: QRow; update: (p: Partial<QRow>
           <select id={`${id}-scale`} className="select" value={row.max_value || "5"} onChange={(e) => update({ max_value: e.target.value })}>
             {[3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
               <option key={n} value={n}>
-                {n} stars
+                {tr("{n} stars", { n })}
               </option>
             ))}
           </select>
@@ -262,11 +262,11 @@ function Specifics({ row, update, list }: { row: QRow; update: (p: Partial<QRow>
             <div className="chips">
               {FILE_TYPES.map((t) => (
                 <button key={t} type="button" className="chip" aria-pressed={chosen.includes(t)} onClick={() => toggle(t)}>
-                  {t}
+                  {isolate(t)}
                 </button>
               ))}
             </div>
-            <p className="field-hint">{chosen.length ? "Only these types." : "Documents, pictures and spreadsheets (not zip files)."} {tr("Each is checked by its contents, not just its name.")}</p>
+            <p className="field-hint">{chosen.length ? tr("Only these types.") : tr("Documents, pictures and spreadsheets (not zip files).")} {tr("Each is checked by its contents, not just its name.")}</p>
           </fieldset>
           <Err list={list("accept")} />
           <div className="fm-grid">
@@ -290,7 +290,7 @@ export function TypeList({ onPick }: { onPick: (k: Kind) => void }) {
     <div className="fm-types-list">
       {GROUPS.map((g) => (
         <section key={g} aria-label={g}>
-          <h3 className="fm-group">{g}</h3>
+          <h3 className="fm-group">{isolate(g)}</h3>
           <ul>
             {KINDS.filter((k) => k.group === g).map((k) => (
               <li key={k.kind}>
@@ -299,8 +299,8 @@ export function TypeList({ onPick }: { onPick: (k: Kind) => void }) {
                     <KindIcon kind={k.kind} />
                   </span>
                   <span className="fm-type-text">
-                    <span>{k.label}</span>
-                    <span className="faint">{k.hint}</span>
+                    <span>{isolate(k.label)}</span>
+                    <span className="faint">{isolate(k.hint)}</span>
                   </span>
                 </button>
               </li>
@@ -388,7 +388,7 @@ function Card({ row, index, rows, quiz, open, fresh, usedElsewhere, showProblems
     const uses = [...readers(rows, row.key).map((i) => `shown only if this is answered: “${rows[i].label.trim() || rows[i].key}”`), ...usedElsewhere(row.key)];
     if (uses.length || row.id) {
       const ok = await confirmDialog({
-        title: `Delete “${title || "this question"}”?`,
+        title: tr("Delete “{value}”?", { value: title || "this question" }),
         message: uses.length ? (
           <>
             <p>{tr("Other things depend on it:")}</p>
@@ -400,9 +400,9 @@ function Card({ row, index, rows, quiz, open, fresh, usedElsewhere, showProblems
             <p>{tr("They will need attention before the form can be saved.")}</p>
           </>
         ) : (
-          "Answers already given to it stay in the responses and exports. It leaves the form when you save."
+          tr("Answers already given to it stay in the responses and exports. It leaves the form when you save.")
         ),
-        confirmLabel: "Delete it",
+        confirmLabel: tr("Delete it"),
         danger: true,
       });
       if (!ok) return;
@@ -427,7 +427,7 @@ function Card({ row, index, rows, quiz, open, fresh, usedElsewhere, showProblems
           <optgroup key={g} label={g}>
             {KINDS.filter((k) => k.group === g).map((k) => (
               <option key={k.kind} value={k.kind}>
-                {k.label}
+                {isolate(k.label)}
               </option>
             ))}
           </optgroup>
@@ -450,7 +450,7 @@ function Card({ row, index, rows, quiz, open, fresh, usedElsewhere, showProblems
       style={{ transform: CSS.Translate.toString(transform), transition }}
     >
       <div className="fm-card-head">
-        <button type="button" className="fm-grip" ref={setActivatorNodeRef} {...attributes} {...listeners} aria-label={`Reorder ${title ? `“${title}”` : page ? "this page break" : "this question"}`}>
+        <button type="button" className="fm-grip" ref={setActivatorNodeRef} {...attributes} {...listeners} aria-label={tr("Reorder {value}", { value: title ? `“${title}”` : page ? "this page break" : "this question" })}>
           <GripVertical size={16} aria-hidden="true" />
         </button>
         <button type="button" className="fm-card-toggle" aria-expanded={open} aria-controls={body} onClick={onToggle} onKeyDown={key}>
@@ -459,11 +459,11 @@ function Card({ row, index, rows, quiz, open, fresh, usedElsewhere, showProblems
           </span>
           <span className="fm-card-title">
             {page ? <strong>{tr("Page {pageNo}", { pageNo })}</strong> : number ? <span className="fm-num">{number}.</span> : null}
-            <span className={title || page ? undefined : "faint"}>{title || (page ? "" : kind === "statement" ? "Write the text" : "Write the question")}</span>
+            <span className={title || page ? undefined : "faint"}>{title || (page ? "" : kind === "statement" ? tr("Write the text") : tr("Write the question"))}</span>
           </span>
           <span className="fm-card-tags">
             {row.required && answerable(kind) && (
-              <span className="fm-tag" title={kind === "checkbox" ? "Must be ticked" : "Required"}>
+              <span className="fm-tag" title={kind === "checkbox" ? tr("Must be ticked") : tr("Required")}>
                 {tr("Required")}
               </span>
             )}
@@ -474,7 +474,7 @@ function Card({ row, index, rows, quiz, open, fresh, usedElsewhere, showProblems
             )}
             {flagged.length > 0 && (
               <span className="fm-warn" title={flagged[0].message}>
-                <TriangleAlert size={15} aria-label={`Needs attention: ${flagged[0].message}`} />
+                <TriangleAlert size={15} aria-label={tr("Needs attention: {message}", { message: flagged[0].message })} />
               </span>
             )}
           </span>
@@ -482,7 +482,7 @@ function Card({ row, index, rows, quiz, open, fresh, usedElsewhere, showProblems
         </button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button type="button" className="icon-btn" aria-label={`More for ${title ? `“${title}”` : "this question"}`}>
+            <button type="button" className="icon-btn" aria-label={tr("More for {value}", { value: title ? `“${title}”` : "this question" })}>
               <Ellipsis size={16} aria-hidden="true" />
             </button>
           </DropdownMenuTrigger>
@@ -524,7 +524,7 @@ function Card({ row, index, rows, quiz, open, fresh, usedElsewhere, showProblems
             <>
               <div className="field">
                 <label className="field-label" htmlFor={`${body}-label`}>
-                  {kind === "statement" ? "Heading" : "Question"}
+                  {kind === "statement" ? tr("Heading") : tr("Question")}
                 </label>
                 <input
                   id={`${body}-label`}
@@ -532,7 +532,7 @@ function Card({ row, index, rows, quiz, open, fresh, usedElsewhere, showProblems
                   className="input"
                   value={row.label}
                   maxLength={500}
-                  placeholder={kind === "statement" ? "A heading (optional)" : "What would you like to ask?"}
+                  placeholder={kind === "statement" ? tr("A heading (optional)") : tr("What would you like to ask?")}
                   onChange={(e) => update({ label: e.target.value })}
                   onBlur={() => onChange(nameFromLabel(rows, index))}
                 />
@@ -540,16 +540,16 @@ function Card({ row, index, rows, quiz, open, fresh, usedElsewhere, showProblems
               </div>
               <div className="field">
                 <label className="field-label" htmlFor={`${body}-help`}>
-                  {kind === "statement" ? "Text" : "Help text"}
+                  {kind === "statement" ? tr("Text") : tr("Help text")}
                 </label>
-                <textarea id={`${body}-help`} className="textarea" rows={2} maxLength={2000} value={row.help_text} placeholder={kind === "statement" ? "The words to read" : "Optional: say how to answer"} onChange={(e) => update({ help_text: e.target.value })} />
+                <textarea id={`${body}-help`} className="textarea" rows={2} maxLength={2000} value={row.help_text} placeholder={kind === "statement" ? tr("The words to read") : tr("Optional: say how to answer")} onChange={(e) => update({ help_text: e.target.value })} />
               </div>
               <Specifics key={`${row.uid}-${kind}`} row={row} update={update} list={list} />
               {answerable(kind) && (
                 <div className="fm-switches">
                   <label className="check-field">
                     <input type="checkbox" checked={row.required} onChange={(e) => update({ required: e.target.checked })} />
-                    <span>{kind === "checkbox" ? "Must be ticked" : "Required"}</span>
+                    <span>{kind === "checkbox" ? tr("Must be ticked") : tr("Required")}</span>
                   </label>
                   {!["file", "matrix", "ranking"].includes(kind) && (
                     <label className="check-field" title={tr("A link can fill this in: …/form?answer-id=value")}>
@@ -570,8 +570,8 @@ function Card({ row, index, rows, quiz, open, fresh, usedElsewhere, showProblems
             <p className="faint fm-key">
               {answerable(kind) ? (
                 <>
-                  {tr("Answer ID")} <code>{row.key}</code>
-                  {row.id ? " (fixed once saved)" : ""}
+                  {tr("Answer ID")} <code>{isolate(row.key)}</code>
+                  {row.id ? tr(" (fixed once saved)") : ""}
                 </>
               ) : null}
               <Err list={list("key")} />

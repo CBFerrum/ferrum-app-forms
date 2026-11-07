@@ -7,7 +7,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, BarChart3, Copy, Ellipsis, Eye, ExternalLink, Lock, RotateCcw, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
-import { api, ApiError, bootstrap, docPath, errorMessage, t as tr } from "@ferrum/client";
+import { api, ApiError, bootstrap, docPath, errorMessage, t as tr, isolate } from "@ferrum/client";
 import { Alert, Badge, Button, confirmDialog, ErrorState, PageLoading, TabPanel, Tabs, toast, useDebounced, useLiveEntity, useShellTitle, useUnsavedGuard } from "@ferrum/kit";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@ferrum/kit/primitives";
 import { type Basics, problems, type QRow, toPublic } from "./rows";
@@ -84,7 +84,7 @@ function BuilderPage({ doc }: { doc: FormDoc }) {
   const found = useMemo(() => problems(draft.rows), [draft.rows]);
   const flagged = found.reduce((n, p) => n + (p.length ? 1 : 0), 0);
   const { allowLeave, dialog } = useUnsavedGuard(isDirty);
-  useShellTitle(draft.fields.title.trim() || "Untitled form");
+  useShellTitle(draft.fields.title.trim() || tr("Untitled form"));
 
   // The server has a newer form (a save elsewhere, a publish): take it if nothing here is unsaved.
   useEffect(() => {
@@ -147,7 +147,7 @@ function BuilderPage({ doc }: { doc: FormDoc }) {
       params({ tab: null });
       setOpen(first.uid);
     } else if (Object.keys(r.fields).length) params({ tab: r.fields.slug ? "share" : "settings" });
-    toast(`${refused(r)} ${refused(r) === 1 ? "thing needs" : "things need"} another look before this can be saved.`, "error");
+    toast(tr("{r} {value} another look before this can be saved.", { r: refused(r), value: refused(r) === 1 ? "thing needs" : "things need" }), "error");
   };
 
   const save = async (): Promise<boolean> => {
@@ -199,7 +199,7 @@ function BuilderPage({ doc }: { doc: FormDoc }) {
       staleList(qc);
       await qc.invalidateQueries({ queryKey: key(doc.id) });
       params({ tab: "share" });
-      toast(status === "Closed" ? "Reopened" : "Published. The link works now.");
+      toast(status === "Closed" ? tr("Reopened") : tr("Published. The link works now."));
     } catch (e) {
       if (e instanceof ApiError && e.status === 422) refuse(e);
       else toast(errorMessage(e), "error");
@@ -209,7 +209,7 @@ function BuilderPage({ doc }: { doc: FormDoc }) {
   };
 
   const close = async () => {
-    const ok = await confirmDialog({ title: "Close this form?", message: "People who open its link are told it is closed. You can reopen it any time.", confirmLabel: "Close it" });
+    const ok = await confirmDialog({ title: tr("Close this form?"), message: tr("People who open its link are told it is closed. You can reopen it any time."), confirmLabel: tr("Close it") });
     if (!ok) return;
     setBusy("close");
     try {
@@ -237,7 +237,7 @@ function BuilderPage({ doc }: { doc: FormDoc }) {
   };
 
   const remove = async () => {
-    const ok = await confirmDialog({ title: `Delete “${draft.fields.title || "this form"}”?`, message: "The form and its questions are deleted. A form with responses cannot be deleted: close it instead.", confirmLabel: "Delete it", danger: true });
+    const ok = await confirmDialog({ title: tr("Delete “{value}”?", { value: draft.fields.title || "this form" }), message: tr("The form and its questions are deleted. A form with responses cannot be deleted: close it instead."), confirmLabel: tr("Delete it"), danger: true });
     if (!ok) return;
     try {
       await api.del(docPath("Form", doc.id));
@@ -279,28 +279,28 @@ function BuilderPage({ doc }: { doc: FormDoc }) {
           </Link>
           <span className="spacer" />
           <p className="fm-saved" role="status" aria-live="polite">
-            {busy === "save" ? "Saving…" : isDirty ? "Unsaved changes" : "All changes saved"}
+            {busy === "save" ? tr("Saving…") : isDirty ? tr("Unsaved changes") : tr("All changes saved")}
           </p>
         </div>
         <div className="fm-head-main">
           <div className="fm-title-wrap">
             <input className="fm-title" aria-label={tr("Title of the form")} value={f.title} maxLength={200} placeholder={tr("Untitled form")} onChange={(e) => setFields({ title: e.target.value })} />
-            {no?.fields.title && <p className="field-error">{no.fields.title}</p>}
+            {no?.fields.title && <p className="field-error">{isolate(no.fields.title)}</p>}
           </div>
           <div className="fm-actions">
-            <Badge tone={STATUS_TONE[status]}>{STATUS_LABEL[status]}</Badge>
+            <Badge tone={STATUS_TONE[status]}>{isolate(STATUS_LABEL[status])}</Badge>
             <Button onClick={() => params({ preview: preview ? null : "1" })} aria-pressed={preview}>
               <Eye size={16} aria-hidden="true" />
               {tr("Preview")}
             </Button>
             {isDirty && (
               <Button variant={live ? "primary" : "default"} loading={busy === "save"} onClick={() => void save()}>
-                {live ? "Save changes" : "Save"}
+                {live ? tr("Save changes") : tr("Save")}
               </Button>
             )}
             {!live && (
               <Button variant="primary" loading={busy === "publish"} onClick={() => void publish()}>
-                {status === "Closed" ? "Reopen" : "Publish"}
+                {status === "Closed" ? tr("Reopen") : tr("Publish")}
               </Button>
             )}
             <DropdownMenu>
@@ -351,7 +351,7 @@ function BuilderPage({ doc }: { doc: FormDoc }) {
             tabs={[
               { id: "questions", label: <>{tr("Questions")}{answerableCount ? <span className="fm-count">{answerableCount}</span> : null}</> },
               { id: "settings", label: <>{tr("Settings")}{settingProblems ? <span className="tab-errors">{settingProblems}</span> : null}</> },
-              { id: "share", label: "Share" },
+              { id: "share", label: tr("Share") },
             ]}
           />
           <Link className="fm-results-link" to={`/b/${doc.id}/results`}>
@@ -381,10 +381,10 @@ function BuilderPage({ doc }: { doc: FormDoc }) {
         </Alert>
       )}
       {live && !stale && isDirty && <Alert tone="info">{tr("This form is live. What you change here reaches the people who open it as soon as you save.")}</Alert>}
-      {no && no.other.length > 0 && <Alert tone="error">{no.other.join(" ")}</Alert>}
+      {no && no.other.length > 0 && <Alert tone="error">{isolate(no.other.join(" "))}</Alert>}
       {tried && flagged > 0 && tab !== "questions" && (
         <Alert tone="warning" action={<Button onClick={() => params({ tab: null })}>{tr("Show them")}</Button>}>
-          {flagged} {flagged === 1 ? "question is" : "questions are"} {tr("not finished.")}
+          {flagged} {flagged === 1 ? tr("question is") : tr("questions are")} {tr("not finished.")}
         </Alert>
       )}
 

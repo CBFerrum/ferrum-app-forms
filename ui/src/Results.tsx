@@ -6,7 +6,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Copy, Download, Pencil } from "lucide-react";
 import { useCallback, useEffect, useRef } from "react";
 import { Link, Navigate, useParams, useSearchParams } from "react-router";
-import { api, bootstrap, docPath, download, errorMessage, t } from "@ferrum/client";
+import { api, bootstrap, docPath, download, errorMessage, t, isolate } from "@ferrum/client";
 import { Badge, Button, EmptyState, ErrorState, PageLoading, TabPanel, Tabs, toast, useLiveEntity, useShellTitle } from "@ferrum/kit";
 import { can, useEntityMeta } from "@ferrum/records";
 import { QuestionCard, Trend } from "./Charts";
@@ -22,8 +22,8 @@ function Tile({ label, value, hint, to }: { label: string; value: string | numbe
   const inner = (
     <>
       <span className="fm-tile-n">{value}</span>
-      <span className="fm-tile-l">{label}</span>
-      {hint && <span className="faint fm-tile-h">{hint}</span>}
+      <span className="fm-tile-l">{isolate(label)}</span>
+      {hint && <span className="faint fm-tile-h">{isolate(hint)}</span>}
     </>
   );
   return to ? (
@@ -54,7 +54,7 @@ export function ResultsRoute() {
     queryKey: ["forms", "summary", id, from, to],
     queryFn: ({ signal }) => api.get<Summary>(`/api/app/forms/forms/${id}/summary`, { from, to }, signal),
   });
-  useShellTitle(doc.data ? `Results: ${String(doc.data.title ?? "")}` : "Results");
+  useShellTitle(doc.data ? t("Results: {value}", { value: String(doc.data.title ?? "") }) : t("Results"));
 
   // New responses arrive while this is open: refresh, but not for each one of a burst.
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -106,11 +106,11 @@ export function ResultsRoute() {
         </div>
         <div className="fm-head-main">
           <div className="fm-title-wrap">
-            <h1 className="page-title">{String(form.title ?? "Untitled form")}</h1>
+            <h1 className="page-title">{isolate(String(form.title ?? "Untitled form"))}</h1>
             <p className="page-sub">{t("Results")}</p>
           </div>
           <div className="fm-actions">
-            <Badge tone={STATUS_TONE[(form.status ?? "Draft") as Status]}>{STATUS_LABEL[(form.status ?? "Draft") as Status]}</Badge>
+            <Badge tone={STATUS_TONE[(form.status ?? "Draft") as Status]}>{isolate(STATUS_LABEL[(form.status ?? "Draft") as Status])}</Badge>
             {slug && live && (
               <Button onClick={() => void copy(linkOf(slug))}>
                 <Copy size={16} aria-hidden="true" />
@@ -135,7 +135,7 @@ export function ResultsRoute() {
             value={view}
             onChange={(v) => set({ view: v === "responses" ? "responses" : null, open: null })}
             tabs={[
-              { id: "summary", label: "Summary" },
+              { id: "summary", label: t("Summary") },
               { id: "responses", label: <>{t("Responses")}{s ? <span className="fm-count">{s.responses}</span> : null}</> },
             ]}
           />
@@ -146,7 +146,7 @@ export function ResultsRoute() {
         <div className="chips">
           {PRESETS.map(([p, label]) => (
             <button key={p} type="button" className="chip" aria-pressed={preset === p} onClick={() => { const [a, b] = presetRange(p, today); set({ from: a, to: b }); }}>
-              {label}
+              {isolate(label)}
             </button>
           ))}
         </div>
@@ -173,7 +173,7 @@ export function ResultsRoute() {
               ))}
             </div>
           ) : s.responses === 0 && !s.spam ? (
-            <EmptyState title={from || to ? "No responses in these days" : "No responses yet"} icon="doc">
+            <EmptyState title={from || to ? t("No responses in these days") : t("No responses yet")} icon="doc">
               {from || to ? (
                 <Button onClick={() => set({ from: null, to: null })}>{t("Look at all time")}</Button>
               ) : live && slug ? (
@@ -185,9 +185,9 @@ export function ResultsRoute() {
                 </>
               ) : (
                 <>
-                  <p className="muted">{form.status === "Closed" ? "It was closed before anyone answered." : "Publish the form to start taking responses."}</p>
+                  <p className="muted">{form.status === "Closed" ? t("It was closed before anyone answered.") : t("Publish the form to start taking responses.")}</p>
                   <Link className="btn btn-primary btn-md" to={`/b/${id}?tab=share`}>
-                    {form.status === "Closed" ? "Reopen it" : "Publish it"}
+                    {form.status === "Closed" ? t("Reopen it") : t("Publish it")}
                   </Link>
                 </>
               )}
@@ -195,12 +195,12 @@ export function ResultsRoute() {
           ) : (
             <>
               <div className="fm-tiles">
-                <Tile label={s.responses === 1 ? "response" : "responses"} value={s.responses} />
+                <Tile label={s.responses === 1 ? t("response") : t("responses")} value={s.responses} />
                 <Tile label={t("opened it")} value={s.views} hint={t("people who opened the link")} />
                 <Tile label="finished" value={percent(s.completion_rate)} hint={t("of those who opened it")} />
                 <Tile label={t("typical time")} value={duration(s.completion_time.median_seconds)} />
-                {s.quiz && <Tile label={t("average score")} value={percent(s.quiz.average_percent)} hint={`${s.quiz.graded} marked`} />}
-                {s.quiz && s.quiz.passed + s.quiz.failed > 0 && <Tile label="passed" value={percent(s.quiz.pass_rate)} hint={`${s.quiz.passed} of ${s.quiz.passed + s.quiz.failed}`} />}
+                {s.quiz && <Tile label={t("average score")} value={percent(s.quiz.average_percent)} hint={t("{graded} marked", { graded: s.quiz.graded })} />}
+                {s.quiz && s.quiz.passed + s.quiz.failed > 0 && <Tile label="passed" value={percent(s.quiz.pass_rate)} hint={t("{passed} of {value}", { passed: s.quiz.passed, value: s.quiz.passed + s.quiz.failed })} />}
                 {s.spam > 0 && <Tile label={t("kept as spam")} value={s.spam} to={`?view=responses&status=Spam`} />}
               </div>
               <Trend trend={s.trend} />

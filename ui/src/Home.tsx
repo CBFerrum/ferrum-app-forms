@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { BarChart3, Copy, Ellipsis, ExternalLink, Globe, Link2, Lock, Plus, Search, Trash2 } from "lucide-react";
 import { useCallback, useMemo } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
-import { api, ApiError, docPath, errorMessage, relativeTime, t } from "@ferrum/client";
+import { api, ApiError, docPath, errorMessage, relativeTime, t, isolate } from "@ferrum/client";
 import { Badge, Button, confirmDialog, EmptyState, ErrorState, toast, useLiveEntity, useShellTitle } from "@ferrum/kit";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@ferrum/kit/primitives";
 import { can, useEntityMeta } from "@ferrum/records";
@@ -40,7 +40,7 @@ const FILTERS: [string, string][] = [
 ];
 
 export function Home() {
-  useShellTitle("Forms");
+  useShellTitle(t("Forms"));
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [sp, setSp] = useSearchParams();
@@ -82,13 +82,13 @@ export function Home() {
       const r = await api.post<{ id?: string }>(docPath("Form", f.id, "actions", action), {});
       refresh();
       if (action === "duplicate" && r.id) navigate(`/b/${r.id}`);
-      else toast(action === "close" ? "Closed" : "Published");
+      else toast(action === "close" ? t("Closed") : t("Published"));
     } catch (e) {
       toast(errorMessage(e), "error");
     }
   };
   const remove = async (f: FormRow) => {
-    const ok = await confirmDialog({ title: `Delete “${f.title ?? "this form"}”?`, message: "A form with responses cannot be deleted: close it instead.", confirmLabel: "Delete it", danger: true });
+    const ok = await confirmDialog({ title: t("Delete “{value}”?", { value: f.title ?? "this form" }), message: t("A form with responses cannot be deleted: close it instead."), confirmLabel: t("Delete it"), danger: true });
     if (!ok) return;
     try {
       await api.del(docPath("Form", f.id));
@@ -147,7 +147,7 @@ export function Home() {
               <div className="chips" role="group" aria-label={t("Show")}>
                 {FILTERS.map(([v, label]) => (
                   <button key={v} type="button" className="chip" aria-pressed={status === v} onClick={() => set({ status: v })}>
-                    {label}
+                    {isolate(label)}
                   </button>
                 ))}
               </div>
@@ -176,34 +176,34 @@ export function Home() {
                   <li key={f.id} className="fm-form">
                     <div className="fm-form-main">
                       <Link className="fm-form-title" to={`/b/${f.id}`}>
-                        {f.title || "Untitled form"}
+                        {f.title || t("Untitled form")}
                       </Link>
                       <p className="fm-form-meta faint">
-                        <span>{f.kind}</span>
+                        <span>{isolate(f.kind ?? "")}</span>
                         <span className="fm-dot" aria-hidden="true" />
-                        <span title={f.access === "Internal" ? "Only people signed in to this workspace" : "Anyone with the link"}>
-                          {f.access === "Internal" ? <Lock size={12} aria-hidden="true" /> : <Globe size={12} aria-hidden="true" />} {f.access === "Internal" ? "Workspace" : "Public"}
+                        <span title={f.access === "Internal" ? t("Only people signed in to this workspace") : t("Anyone with the link")}>
+                          {f.access === "Internal" ? <Lock size={12} aria-hidden="true" /> : <Globe size={12} aria-hidden="true" />} {f.access === "Internal" ? t("Workspace") : t("Public")}
                         </span>
                         {f.updated_at && (
                           <>
                             <span className="fm-dot" aria-hidden="true" />
-                            <span>{t("Edited")} {relativeTime(f.updated_at)}</span>
+                            <span>{t("Edited")} {isolate(relativeTime(f.updated_at))}</span>
                           </>
                         )}
                       </p>
                     </div>
-                    <Badge tone={STATUS_TONE[f.status ?? "Draft"]}>{STATUS_LABEL[f.status ?? "Draft"]}</Badge>
+                    <Badge tone={STATUS_TONE[f.status ?? "Draft"]}>{isolate(STATUS_LABEL[f.status ?? "Draft"])}</Badge>
                     <Link className="fm-stat" to={`/b/${f.id}/results`} title={t("See the results")}>
                       <strong>{o?.responses ?? "–"}</strong>
-                      <span className="faint">{o?.responses === 1 ? "response" : "responses"}</span>
+                      <span className="faint">{o?.responses === 1 ? t("response") : t("responses")}</span>
                     </Link>
                     <p className="fm-stat">
                       <strong>{o?.completion_rate != null ? `${Number(o.completion_rate)}%` : "–"}</strong>
-                      <span className="faint">completed</span>
+                      <span className="faint">{t("completed")}</span>
                     </p>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <button type="button" className="icon-btn" aria-label={`More for ${f.title ?? "this form"}`}>
+                        <button type="button" className="icon-btn" aria-label={t("More for {value}", { value: f.title ?? "this form" })}>
                           <Ellipsis size={16} aria-hidden="true" />
                         </button>
                       </DropdownMenuTrigger>
@@ -236,7 +236,7 @@ export function Home() {
                             <Lock size={14} aria-hidden="true" /> {t("Close it")}
                           </DropdownMenuItem>
                         ) : (
-                          <DropdownMenuItem onSelect={() => void act(f, "publish")}>{f.status === "Closed" ? "Reopen it" : "Publish it"}</DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => void act(f, "publish")}>{f.status === "Closed" ? t("Reopen it") : t("Publish it")}</DropdownMenuItem>
                         )}
                         <DropdownMenuSeparator />
                         <DropdownMenuItem variant="destructive" onSelect={() => void remove(f)}>

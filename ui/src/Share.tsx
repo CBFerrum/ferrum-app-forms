@@ -4,7 +4,7 @@
 
 import { Copy, ExternalLink, Globe, Lock } from "lucide-react";
 import { useEffect, useId, useState } from "react";
-import { bootstrap, formatDateTime, t as tr } from "@ferrum/client";
+import { bootstrap, formatDateTime, t as tr, isolate } from "@ferrum/client";
 import { confirmDialog, Field, toast } from "@ferrum/kit";
 import type { QRow } from "./rows";
 import type { Fields, Status } from "./formdoc";
@@ -64,7 +64,7 @@ export function Share({ fields: f, set, rows, status, savedSlug, errors, dirty, 
     const next = typed.trim().toLowerCase();
     if (next === f.slug) return;
     if (live && savedSlug && next !== savedSlug) {
-      const ok = await confirmDialog({ title: "Change the address?", message: `Links already sent to ${savedSlug} will stop working once you save.`, confirmLabel: "Change it", danger: true });
+      const ok = await confirmDialog({ title: tr("Change the address?"), message: tr("Links already sent to {savedSlug} will stop working once you save.", { savedSlug }), confirmLabel: tr("Change it"), danger: true });
       if (!ok) {
         setTyped(f.slug);
         return;
@@ -78,12 +78,12 @@ export function Share({ fields: f, set, rows, status, savedSlug, errors, dirty, 
       {!live && (
         <div className="fm-callout">
           <div>
-            <strong>{status === "Closed" ? "This form is closed." : "This form is a draft."}</strong>
-            <p className="muted">{status === "Closed" ? "Its link tells people it is closed. Reopen it to take responses again." : "Its link does not work yet. Publish it to take responses."}</p>
+            <strong>{status === "Closed" ? tr("This form is closed.") : tr("This form is a draft.")}</strong>
+            <p className="muted">{status === "Closed" ? tr("Its link tells people it is closed. Reopen it to take responses again.") : tr("Its link does not work yet. Publish it to take responses.")}</p>
           </div>
           <button type="button" className="btn btn-primary btn-md" disabled={publishing} onClick={onPublish}>
-            {status === "Closed" ? "Reopen" : "Publish"}
-            {dirty ? " and save" : ""}
+            {status === "Closed" ? tr("Reopen") : tr("Publish")}
+            {dirty ? tr(" and save") : ""}
           </button>
         </div>
       )}
@@ -109,10 +109,10 @@ export function Share({ fields: f, set, rows, status, savedSlug, errors, dirty, 
         <ul className="fm-facts">
           <li>
             {f.access === "Public" ? <Globe size={15} aria-hidden="true" /> : <Lock size={15} aria-hidden="true" />}
-            {facts[0]}
+            {isolate(facts[0] ?? "")}
           </li>
           {facts.slice(1).map((t) => (
-            <li key={t as string}>{t}</li>
+            <li key={t as string}>{isolate(t ?? "")}</li>
           ))}
         </ul>
         <button type="button" className="link-btn" onClick={onSettings}>
@@ -130,7 +130,7 @@ export function Share({ fields: f, set, rows, status, savedSlug, errors, dirty, 
       {prefills.length > 0 && savedSlug && (
         <section className="fm-section">
           <h2 className="fm-section-title">{tr("A link that fills in an answer")}</h2>
-          <p className="muted">{tr("Add")} <code>?{chosen.key}=…</code> {tr("to the link to start with an answer filled in, for example in an email to one person.")}</p>
+          <p className="muted">{tr("Add")} <code>?{isolate(chosen.key)}=…</code> {tr("to the link to start with an answer filled in, for example in an email to one person.")}</p>
           <div className="fm-link">
             <select className="select" aria-label={tr("Question to fill in")} value={chosen.key} onChange={(e) => setPick(e.target.value)}>
               {prefills.map((r) => (

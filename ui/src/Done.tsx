@@ -5,7 +5,7 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import { toast } from "@ferrum/kit";
 import type { Kind, PForm, QuizResult, Receipt } from "./model";
 import { safeRedirect } from "./site";
-import { t as tr } from "@ferrum/client";
+import { t as tr, isolate } from "@ferrum/client";
 
 /** What the server says when its owner wrote nothing. */
 const DEFAULT_THANKS = "Thank you! Your response was recorded.";
@@ -13,7 +13,7 @@ const DEFAULT_THANKS = "Thank you! Your response was recorded.";
 /** A correct answer as words (the server keeps accepted texts in lower case). */
 function said(v: unknown, type?: Kind): string {
   if (v === null || v === undefined) return "";
-  if (typeof v === "boolean") return v ? "Yes" : "No";
+  if (typeof v === "boolean") return v ? tr("Yes") : tr("No");
   if (Array.isArray(v)) return v.map(String).join(type === "short_text" ? " or " : type === "ranking" ? " › " : ", ");
   return String(v);
 }
@@ -24,8 +24,8 @@ export function QuizResultView({ result, types }: { result: QuizResult; types?: 
     <section className="fr-result" aria-label={tr("Your result")}>
       <div className="fr-score">
         <p className="fr-score-n">
-          {result.score}
-          <span className="faint"> / {result.max_score}</span>
+          {isolate(result.score)}
+          <span className="faint"> / {isolate(result.max_score)}</span>
         </p>
         {percent !== null && (
           <div className="fr-meter" role="img" aria-label={`${percent}%`}>
@@ -36,7 +36,7 @@ export function QuizResultView({ result, types }: { result: QuizResult; types?: 
           {percent !== null && <strong>{percent}%</strong>}
           {result.passed !== null && (
             <span className="badge" data-tone={result.passed ? "pass" : "fail"}>
-              {result.passed ? "Passed" : "Not passed"}
+              {result.passed ? tr("Passed") : tr("Not passed")}
             </span>
           )}
         </p>
@@ -47,10 +47,10 @@ export function QuizResultView({ result, types }: { result: QuizResult; types?: 
             {q.correct ? <Check size={16} aria-label={tr("Right")} /> : <CircleX size={16} aria-label={tr("Wrong")} />}
             <span className="fr-mark-body">
               <span>{q.label ?? q.key}</span>
-              {!q.correct && q.correct_answer !== undefined && <span className="faint fr-mark-answer">{tr("Right answer:")} {said(q.correct_answer, types?.[q.key])}</span>}
+              {!q.correct && q.correct_answer !== undefined && <span className="faint fr-mark-answer">{tr("Right answer:")} {isolate(said(q.correct_answer, types?.[q.key]))}</span>}
             </span>
             <span className="faint fr-mark-points">
-              {q.earned} / {q.points}
+              {isolate(q.earned)} / {isolate(q.points)}
             </span>
           </li>
         ))}
@@ -72,7 +72,7 @@ export function Thanks({ receipt, form, preview, resultLink, onAgain }: { receip
   // The thanks is announced and starts where the form was.
   const title = useRef<HTMLHeadingElement>(null);
   useEffect(() => title.current?.focus({ preventScroll: true }), []);
-  const message = receipt.message === DEFAULT_THANKS ? "Your response was recorded." : receipt.message;
+  const message = receipt.message === DEFAULT_THANKS ? tr("Your response was recorded.") : receipt.message;
   return (
     <div className="fr-thanks" role="status">
       <span className="fr-tick-big" aria-hidden="true">
@@ -81,11 +81,11 @@ export function Thanks({ receipt, form, preview, resultLink, onAgain }: { receip
       <h2 ref={title} tabIndex={-1} className="fr-thanks-title">
         {tr("Thank you")}
       </h2>
-      <p className="fr-thanks-message">{message}</p>
+      <p className="fr-thanks-message">{isolate(message)}</p>
       {receipt.number && <p className="faint fr-ref">{tr("Reference {number}", { number: receipt.number })}</p>}
       {next && (
         <p className="muted">
-          {leaving ? "Taking you on…" : "Taking you on in a moment."} <a href={next}>{tr("Go now")}</a>
+          {leaving ? tr("Taking you on…") : tr("Taking you on in a moment.")} <a href={next}>{tr("Go now")}</a>
         </p>
       )}
       {receipt.result && <QuizResultView result={receipt.result} types={types} />}
@@ -122,7 +122,7 @@ export function Notice({ icon, title, children, actions }: { icon: ReactNode; ti
         {icon}
       </span>
       <h1 className="fr-notice-title" tabIndex={-1}>
-        {title}
+        {isolate(title)}
       </h1>
       {children && <div className="fr-notice-body">{children}</div>}
       {actions && <div className="fr-notice-actions">{actions}</div>}

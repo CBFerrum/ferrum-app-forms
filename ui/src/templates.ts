@@ -3,6 +3,7 @@
 import { blankRow, type QRow } from "./rows";
 import type { Fields } from "./formdoc";
 import type { Kind } from "./model";
+import { t } from "@ferrum/client";
 
 export interface Template {
   id: string;
@@ -23,11 +24,11 @@ function build(specs: Spec[]): QRow[] {
 }
 
 export const TEMPLATES: Template[] = [
-  { id: "blank", name: "Blank form", hint: "Start from nothing.", kind: "Form", rows: () => [] },
+  { id: "blank", name: "Blank form", get hint() { return t("Start from nothing."); }, kind: "Form", rows: () => [] },
   {
     id: "contact",
     name: "Contact form",
-    hint: "A name, an email and a message.",
+    get hint() { return t("A name, an email and a message."); },
     kind: "Form",
     settings: { confirmation_message: "Thanks for getting in touch. We will reply soon." },
     rows: () =>
@@ -41,7 +42,7 @@ export const TEMPLATES: Template[] = [
   {
     id: "event",
     name: "Event registration",
-    hint: "Who is coming, with how many, and what they need.",
+    get hint() { return t("Who is coming, with how many, and what they need."); },
     kind: "Form",
     settings: { confirmation_message: "You are registered. We look forward to seeing you." },
     rows: () =>
@@ -56,7 +57,7 @@ export const TEMPLATES: Template[] = [
   {
     id: "feedback",
     name: "Customer feedback",
-    hint: "A score, a rating and what to improve.",
+    get hint() { return t("A score, a rating and what to improve."); },
     kind: "Survey",
     settings: { confirmation_message: "Thank you for your feedback. It helps us a lot." },
     rows: () =>
@@ -70,7 +71,7 @@ export const TEMPLATES: Template[] = [
   {
     id: "quiz",
     name: "Short quiz",
-    hint: "Questions with right answers, marked for you.",
+    get hint() { return t("Questions with right answers, marked for you."); },
     kind: "Quiz",
     settings: { passing_score: "60", reveal_answers: true, layout: "One question at a time" },
     rows: () =>

@@ -6,6 +6,7 @@
 import { Dbl, compile, quote, type Node } from "./cel";
 import type { QRow } from "./rows";
 import type { Kind } from "./model";
+import { t } from "@ferrum/client";
 
 export type Op =
   | "is"
@@ -85,7 +86,7 @@ export function opLabel(op: Op, kind: Kind): string {
     first: "is ranked first",
     cell: "is",
     answered: "is answered",
-    empty: "is not answered",
+    empty: t("is not answered"),
     eq: "is equal to",
     ne: "is not equal to",
     gt: "is more than",
