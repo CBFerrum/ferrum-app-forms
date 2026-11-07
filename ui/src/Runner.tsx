@@ -150,7 +150,7 @@ export function Runner({ form, prefill, zone, workspace, send, keep, preview, re
       if (refused.first) {
         setErrors(refused.errors);
         if (refused.pageId) setPageId(refused.pageId);
-        setBanner({ tone: "error", text: `${n === 1 ? "One answer" : `${n} answers`} could not be accepted. Please look again.` });
+        setBanner({ tone: "error", text: (n === 1 ? tr("One answer could not be accepted. Please look again.") : tr("{n} answers could not be accepted. Please look again.", { n })) });
         const first = refused.first;
         setTimeout(() => focusQuestion(first), 60);
       } else setBanner({ tone: "error", text: refused.rest[0] ?? e.message });
@@ -175,7 +175,7 @@ export function Runner({ form, prefill, zone, workspace, send, keep, preview, re
     const keys = Object.keys(found);
     if (keys.length) {
       setErrors(found);
-      setBanner({ tone: "error", text: keys.length === 1 ? "One question needs another look." : `${keys.length} questions need another look.` });
+      setBanner({ tone: "error", text: keys.length === 1 ? "One question needs another look." : tr("{length} questions need another look.", { length: keys.length }) });
       const first = page.items.map((i) => form.questions[i].key).find((k) => k in found);
       if (first) focusQuestion(first);
       return;
@@ -199,7 +199,7 @@ export function Runner({ form, prefill, zone, workspace, send, keep, preview, re
   };
 
   const accent = accentVars(form.theme.accent_color) as CSSProperties | undefined;
-  const footer = workspace ? (form.access === "Internal" ? `Only for people in ${workspace}.` : `Collected for ${workspace}.`) : undefined;
+  const footer = workspace ? (form.access === "Internal" ? tr("Only for people in {workspace}.", { workspace }) : tr("Collected for {workspace}.", { workspace })) : undefined;
 
   if (phase.kind === "done") {
     return (
@@ -231,22 +231,22 @@ export function Runner({ form, prefill, zone, workspace, send, keep, preview, re
   }
 
   const firstPage = index === 0;
-  const unit = layout === "single" ? "Question" : "Page";
+  const single = layout === "single";
   return (
     <Frame accent={accent} footer={footer} preview={preview}>
       <form className="fr-form" onSubmit={onSubmit} noValidate>
         {many && (
           <div className="fr-top">
-            <div className="fr-progress" role="progressbar" aria-label={tr("Progress")} aria-valuemin={1} aria-valuemax={pages.length} aria-valuenow={index + 1} aria-valuetext={`${unit} ${index + 1} of ${pages.length}`}>
+            <div className="fr-progress" role="progressbar" aria-label={tr("Progress")} aria-valuemin={1} aria-valuemax={pages.length} aria-valuenow={index + 1} aria-valuetext={single ? tr("Question {value} of {length}", { value: index + 1, length: pages.length }) : tr("Page {value} of {length}", { value: index + 1, length: pages.length })}>
               <span style={{ width: `${((index + 1) / pages.length) * 100}%` }} />
             </div>
             <p className="fr-step faint">
-              {isolate(unit)} {index + 1} {tr("of {length}", { length: pages.length })}
+              {single ? tr("Question {value} of {length}", { value: index + 1, length: pages.length }) : tr("Page {value} of {length}", { value: index + 1, length: pages.length })}
             </p>
           </div>
         )}
         <p className="sr-only" aria-live="polite">
-          {many ? tr("{unit} {value} of {length}{value2}", { unit, value: index + 1, length: pages.length, value2: page.title ? `: ${page.title}` : "" }) : ""}
+          {many ? (single ? tr("Question {value} of {length}{value2}", { value: index + 1, length: pages.length, value2: page.title ? `: ${page.title}` : "" }) : tr("Page {value} of {length}{value2}", { value: index + 1, length: pages.length, value2: page.title ? `: ${page.title}` : "" })) : ""}
         </p>
         {firstPage ? (
           <header className="fr-head">
@@ -285,7 +285,7 @@ export function Runner({ form, prefill, zone, workspace, send, keep, preview, re
             </button>
           </p>
         )}
-        <section key={page.id} ref={section} className="fr-page" tabIndex={-1} aria-label={page.title ?? (many ? `${unit} ${index + 1}` : form.title)}>
+        <section key={page.id} ref={section} className="fr-page" tabIndex={-1} aria-label={page.title ?? (many ? (single ? tr("Question {value}", { value: index + 1 }) : tr("Page {value}", { value: index + 1 })) : form.title)}>
           {page.title && <h2 className="fr-page-title">{isolate(page.title)}</h2>}
           {page.items.some((i) => form.questions[i].required && form.questions[i].type !== "checkbox") && (
             <p className="fr-legend faint">

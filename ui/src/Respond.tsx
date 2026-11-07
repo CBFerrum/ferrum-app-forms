@@ -205,7 +205,7 @@ export function ResultPage() {
   useEffect(() => shell().ready(), []);
   const q = useQuery({ queryKey: ["result", tenant, token], queryFn: ({ signal }) => openResult(tenant, token, signal), staleTime: Infinity, retry: false, refetchOnWindowFocus: false });
   useEffect(() => {
-    document.title = q.data ? `Your result · ${q.data.form.title}` : "Your result";
+    document.title = q.data ? tr("Your result · {title}", { title: q.data.form.title }) : "Your result";
   }, [q.data]);
   if (q.error) {
     return (

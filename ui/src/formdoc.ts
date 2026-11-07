@@ -3,6 +3,7 @@
 // mean on the screen (a field, or a card).
 
 import type { ApiError } from "@ferrum/client";
+import { t as tr } from "@ferrum/client";
 import type { Tone } from "@ferrum/kit";
 import { type Problem, type QRow, rowFromDoc, rowToDoc } from "./rows";
 import { sentence } from "./flow";
@@ -161,7 +162,7 @@ export function refusal(e: Pick<ApiError, "fields" | "message">, rows: QRow[]): 
       if (card) (r.cards[card.uid] ??= []).push({ field: f.field, message: sentence(f.message) });
       else r.other.push(sentence(f.message));
     } else if (f.row) {
-      r.fields[f.row[0]] ??= `${f.row[0] === "notify_users" ? "" : `Row ${f.row[1] + 1}: `}${sentence(f.message)}`;
+      r.fields[f.row[0]] ??= `${f.row[0] === "notify_users" ? "" : tr("Row {value}: ", { value: f.row[1] + 1 })}${sentence(f.message)}`;
     } else r.fields[f.field] ??= sentence(f.message);
   }
   return r;
