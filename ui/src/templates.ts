@@ -24,61 +24,61 @@ function build(specs: Spec[]): QRow[] {
 }
 
 export const TEMPLATES: Template[] = [
-  { id: "blank", name: "Blank form", get hint() { return t("Start from nothing."); }, kind: "Form", rows: () => [] },
+  { id: "blank", get name() { return t("Blank form"); }, get hint() { return t("Start from nothing."); }, kind: "Form", rows: () => [] },
   {
     id: "contact",
-    name: "Contact form",
+    get name() { return t("Contact form"); },
     get hint() { return t("A name, an email and a message."); },
     kind: "Form",
     settings: { confirmation_message: "Thanks for getting in touch. We will reply soon." },
     rows: () =>
       build([
-        ["short_text", "Your name", { required: true }],
-        ["email", "Your email", { required: true }],
-        ["phone", "Phone number"],
-        ["long_text", "How can we help?", { required: true }],
+        ["short_text", t("Your name"), { required: true }],
+        ["email", t("Your email"), { required: true }],
+        ["phone", t("Phone number")],
+        ["long_text", t("How can we help?"), { required: true }],
       ]),
   },
   {
     id: "event",
-    name: "Event registration",
+    get name() { return t("Event registration"); },
     get hint() { return t("Who is coming, with how many, and what they need."); },
     kind: "Form",
     settings: { confirmation_message: "You are registered. We look forward to seeing you." },
     rows: () =>
       build([
-        ["short_text", "Your name", { required: true }],
-        ["email", "Your email", { required: true }],
-        ["number", "How many people are coming?", { required: true, min_value: "1", max_value: "10" }],
-        ["multi_select", "Anything we should know about food?", { options: ["Vegetarian", "Vegan", "Gluten-free", "Nut allergy"], allow_other: true }],
-        ["long_text", "Anything else?"],
+        ["short_text", t("Your name"), { required: true }],
+        ["email", t("Your email"), { required: true }],
+        ["number", t("How many people are coming?"), { required: true, min_value: "1", max_value: "10" }],
+        ["multi_select", t("Anything we should know about food?"), { options: ["Vegetarian", "Vegan", "Gluten-free", "Nut allergy"], allow_other: true }],
+        ["long_text", t("Anything else?")],
       ]),
   },
   {
     id: "feedback",
-    name: "Customer feedback",
+    get name() { return t("Customer feedback"); },
     get hint() { return t("A score, a rating and what to improve."); },
     kind: "Survey",
     settings: { confirmation_message: "Thank you for your feedback. It helps us a lot." },
     rows: () =>
       build([
-        ["nps", "How likely are you to recommend us to a friend or colleague?", { required: true }],
-        ["rating", "How would you rate your last experience?", { required: true, max_value: "5" }],
-        ["long_text", "What is one thing we could do better?"],
-        ["checkbox", "You may contact me about my feedback"],
+        ["nps", t("How likely are you to recommend us to a friend or colleague?"), { required: true }],
+        ["rating", t("How would you rate your last experience?"), { required: true, max_value: "5" }],
+        ["long_text", t("What is one thing we could do better?")],
+        ["checkbox", t("You may contact me about my feedback")],
       ]),
   },
   {
     id: "quiz",
-    name: "Short quiz",
+    get name() { return t("Short quiz"); },
     get hint() { return t("Questions with right answers, marked for you."); },
     kind: "Quiz",
     settings: { passing_score: "60", reveal_answers: true, layout: "One question at a time" },
     rows: () =>
       build([
-        ["select", "What is the capital of France?", { required: true, options: ["Paris", "Lyon", "Marseille"], correct_answer: "Paris", points: "1" }],
-        ["multi_select", "Which of these are prime numbers?", { required: true, options: ["2", "3", "4", "9"], correct_answer: ["2", "3"], points: "2" }],
-        ["short_text", "What is 6 times 7?", { required: true, correct_answer: ["42", "forty-two"], points: "1" }],
+        ["select", t("What is the capital of France?"), { required: true, options: ["Paris", "Lyon", "Marseille"], correct_answer: "Paris", points: "1" }],
+        ["multi_select", t("Which of these are prime numbers?"), { required: true, options: ["2", "3", "4", "9"], correct_answer: ["2", "3"], points: "2" }],
+        ["short_text", t("What is 6 times 7?"), { required: true, correct_answer: ["42", "forty-two"], points: "1" }],
       ]),
   },
 ];

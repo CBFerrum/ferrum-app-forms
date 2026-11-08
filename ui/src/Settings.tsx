@@ -15,7 +15,7 @@ const zone = (() => {
   try {
     return Intl.DateTimeFormat().resolvedOptions().timeZone;
   } catch {
-    return "your time zone";
+    return tr("your time zone");
   }
 })();
 
@@ -205,7 +205,7 @@ export function Settings({ fields: f, set, rows, formId, errors }: SettingsProps
             <Seg label={tr("Kind")} value={f.kind} options={[["Form", "Form"], ["Survey", "Survey"], ["Quiz", "Quiz"]]} onChange={(kind) => set({ kind })} />
           </Field>
           <Field label={tr("People go through it")} error={errors.layout}>
-            <Seg label={tr("Layout")} value={f.layout} options={[["Pages", "Page by page"], ["One question at a time", "One question at a time"]]} onChange={(layout) => set({ layout })} />
+            <Seg label={tr("Layout")} value={f.layout} options={[["Pages", tr("Page by page")], ["One question at a time", tr("One question at a time")]]} onChange={(layout) => set({ layout })} />
           </Field>
         </div>
         <p className="field-hint">{tr("Page by page: page breaks end a page, and a form without any is one page.")}</p>
@@ -213,7 +213,7 @@ export function Settings({ fields: f, set, rows, formId, errors }: SettingsProps
 
       <Section title={tr("Who can answer")}>
         <Field label={tr("Access")} error={errors.access}>
-          <Seg label={tr("Access")} value={f.access} options={[["Public", "Anyone with the link"], ["Internal", "People signed in to this workspace"]]} onChange={(access) => set({ access, one_response_per: access === "Public" && f.one_response_per === "User" ? "" : f.one_response_per })} />
+          <Seg label={tr("Access")} value={f.access} options={[["Public", tr("Anyone with the link")], ["Internal", tr("People signed in to this workspace")]]} onChange={(access) => set({ access, one_response_per: access === "Public" && f.one_response_per === "User" ? "" : f.one_response_per })} />
         </Field>
         <label className="check-field">
           <input type="checkbox" checked={f.anonymous} onChange={(e) => set({ anonymous: e.target.checked, ...(e.target.checked && f.one_response_per === "Email" ? { one_response_per: "" as const } : {}) })} />

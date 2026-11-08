@@ -2,6 +2,7 @@
 // element (radio, checkbox, select, input), so keyboards, screen readers and phones work without
 // help; the look is in styles.css. Answers are held as `Raw` (flow.ts).
 
+import { placed } from "@ferrum/kit";
 import { ArrowDown, ArrowUp, Paperclip, Star, X } from "lucide-react";
 import { type DragEvent, type ReactNode, useId, useRef, useState } from "react";
 import { extension, type Raw, UPLOAD_LIMIT } from "./flow";
@@ -418,7 +419,7 @@ function Upload({ q, id, value, error, onChange }: FieldProps) {
             }}
           />
         </label>
-        <span className="fr-hint">{tr("or drop")} {max > 1 ? tr("them") : tr("it")} {tr("here")}</span>
+        <span className="fr-hint">{(max > 1 ? tr("or drop them here") : tr("or drop it here"))}</span>
       </div>
       <p className="fr-hint">{isolate(rules.join(" · "))}</p>
       {files.length > 0 && (
@@ -435,7 +436,7 @@ function Upload({ q, id, value, error, onChange }: FieldProps) {
           ))}
         </ul>
       )}
-      {total > UPLOAD_LIMIT && <p className="fr-error">{tr("These files are too large to send together. The limit is")} {isolate(size(UPLOAD_LIMIT))} {tr("for the whole form.")}</p>}
+      {total > UPLOAD_LIMIT && <p className="fr-error">{placed(tr("These files are too large to send together. The limit is {p1} for the whole form."), { p1: isolate(size(UPLOAD_LIMIT)) })}</p>}
     </Wrap>
   );
 }

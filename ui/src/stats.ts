@@ -86,11 +86,12 @@ export function shiftDay(iso: string, days: number): string {
 
 export type Preset = "7" | "30" | "month" | "all";
 
-export const PRESETS: [Preset, string][] = [
-  ["7", "Last 7 days"],
-  ["30", "Last 30 days"],
-  ["month", "This month"],
-  ["all", "All time"],
+/** The periods a person picks, each with its name in the page's language. */
+export const presets = (): [Preset, string][] => [
+  ["7", tr("Last 7 days")],
+  ["30", tr("Last 30 days")],
+  ["month", tr("This month")],
+  ["all", tr("All time")],
 ];
 
 /** The days a preset covers, ending today: [from, to] (null: open). */
@@ -103,7 +104,7 @@ export function presetRange(p: Preset, today: string): [string | null, string | 
 /** Which preset the dates are, if any. */
 export function presetOf(from: string | null, to: string | null, today: string): Preset | null {
   if (!from && !to) return "all";
-  return PRESETS.map(([p]) => p).find((p) => {
+  return presets().map(([p]) => p).find((p) => {
     const [a, b] = presetRange(p, today);
     return a === from && b === to;
   }) ?? null;

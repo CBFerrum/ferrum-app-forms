@@ -29,7 +29,7 @@ export function Trend({ trend }: { trend: Summary["trend"] }) {
       <figcaption className="fm-trend-head">
         <strong>{tr("Responses a day")}</strong>
         <span className="faint">
-          {tr("{total} in {length} days", { total, length: trend.length })}{best.responses > 0 ? tr(", most on {value} ({responses})", { value: day(best.date), responses: best.responses }) : ""}
+          {(best.responses > 0 ? tr("{total} in {length} days, most on {value} ({responses})", { total, length: trend.length, value: day(best.date), responses: best.responses }) : tr("{total} in {length} days", { total, length: trend.length }))}
         </span>
       </figcaption>
       <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-labelledby={id} className="fm-trend-svg">
@@ -178,7 +178,7 @@ function Body({ q, formId }: { q: QSummary; formId: string }) {
       return (
         <>
           <Bars rows={rows} />
-          {q.type === "likert" && q.average && <Facts items={[["Average, from 1 to " + (q.options?.length ?? 5), num(q.average)]]} />}
+          {q.type === "likert" && q.average && <Facts items={[[tr("Average, from 1 to ") + (q.options?.length ?? 5), num(q.average)]]} />}
           {q.type === "multi_select" && <p className="field-hint">{tr("Shares are of the people who answered; each could choose more than one.")}</p>}
         </>
       );
@@ -189,11 +189,11 @@ function Body({ q, formId }: { q: QSummary; formId: string }) {
       return (
         <>
           <Columns dist={q.distribution ?? []} />
-          <Facts items={[["Average", q.average ? num(q.average) : "–"]]} />
+          <Facts items={[[tr("Average"), q.average ? num(q.average) : "–"]]} />
         </>
       );
     case "nps": {
-      const parts: [string, string, typeof q.promoters][] = [["Promoters", "promoter", q.promoters], ["Passives", "passive", q.passives], ["Detractors", "detractor", q.detractors]];
+      const parts: [string, string, typeof q.promoters][] = [[tr("Promoters"), "promoter", q.promoters], [tr("Passives"), "passive", q.passives], [tr("Detractors"), "detractor", q.detractors]];
       return (
         <>
           <div className="fm-nps-score">
@@ -214,13 +214,13 @@ function Body({ q, formId }: { q: QSummary; formId: string }) {
             ))}
           </ul>
           <Columns dist={q.distribution ?? []} nps />
-          <Facts items={[["Average", q.average ? num(q.average) : "–"]]} />
+          <Facts items={[[tr("Average"), q.average ? num(q.average) : "–"]]} />
         </>
       );
     }
     case "number":
     case "decimal":
-      return <Facts items={[["Average", q.average ? num(q.average) : "–"], ["Smallest", q.min ?? "–"], ["Largest", q.max ?? "–"], ["Total", q.sum ?? "–"]]} />;
+      return <Facts items={[[tr("Average"), q.average ? num(q.average) : "–"], [tr("Smallest"), q.min ?? "–"], [tr("Largest"), q.max ?? "–"], ["Total", q.sum ?? "–"]]} />;
     case "matrix": {
       const columns = q.rows?.[0]?.columns.map((c) => c.column) ?? [];
       return (
@@ -271,7 +271,7 @@ function Body({ q, formId }: { q: QSummary; formId: string }) {
         </ol>
       );
     case "file":
-      return <p>{q.files ?? 0} {q.files === 1 ? tr("file") : tr("files")} {tr("uploaded. Open a response to see them.")}</p>;
+      return <p>{q.files ?? 0} {(q.files === 1 ? tr("file uploaded. Open a response to see them.") : tr("files uploaded. Open a response to see them."))}</p>;
     default:
       return <Words formId={formId} q={q} />;
   }
@@ -285,8 +285,7 @@ export function QuestionCard({ q, formId, n }: { q: QSummary; formId: string; n:
           <span className="fm-num">{n}.</span> {isolate(q.label)}
         </h3>
         <p className="faint">
-          {tr("{value} · {answered} answered", { value: kindLabel(q.type), answered: q.answered })}
-          {q.skipped > 0 ? tr(", {skipped} skipped", { skipped: q.skipped }) : ""}
+          {(q.skipped > 0 ? tr("{value} · {answered} answered, {skipped} skipped", { value: kindLabel(q.type), answered: q.answered, skipped: q.skipped }) : tr("{value} · {answered} answered", { value: kindLabel(q.type), answered: q.answered }))}
         </p>
       </header>
       <Body q={q} formId={formId} />

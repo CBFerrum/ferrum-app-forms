@@ -315,63 +315,63 @@ export function problems(rows: QRow[]): Problem[][] {
     const out: Problem[] = [];
     const add = (field: string, message: string) => out.push({ field, message });
     const kind = r.question_type;
-    if (answerable(kind) && !r.label.trim()) add("label", "Write the question.");
-    if (kind === "statement" && !r.label.trim() && !r.help_text.trim()) add("label", "Write the text.");
-    if (!KEY_PATTERN.test(r.key)) add("key", "Use 1 to 40 of a to z, 0 to 9 and _, starting with a letter.");
-    else if (keys.indexOf(r.key) !== i) add("key", `Another question uses the ID "${r.key}".`);
+    if (answerable(kind) && !r.label.trim()) add("label", t("Write the question."));
+    if (kind === "statement" && !r.label.trim() && !r.help_text.trim()) add("label", t("Write the text."));
+    if (!KEY_PATTERN.test(r.key)) add("key", t("Use 1 to 40 of a to z, 0 to 9 and _, starting with a letter."));
+    else if (keys.indexOf(r.key) !== i) add("key", t("Another question uses the ID \"{key}\".", { key: r.key }));
     if (hasOptions(kind)) {
       const fewest = ["select", "dropdown", "multi_select"].includes(kind) ? 1 : kind === "likert" ? 0 : 2;
-      if (r.options.length < fewest) add("options", fewest === 1 ? "Add at least one option." : `Add at least ${fewest} ${kind === "matrix" ? "columns" : "options"}.`);
-      if (r.options.length > MAX_OPTIONS) add("options", `Use at most ${MAX_OPTIONS}.`);
+      if (r.options.length < fewest) add("options", fewest === 1 ? t("Add at least one option.") : (kind === "matrix" ? t("Add at least {fewest} columns.", { fewest }) : t("Add at least {fewest} options.", { fewest })));
+      if (r.options.length > MAX_OPTIONS) add("options", t("Use at most {MAX_OPTIONS}.", { MAX_OPTIONS }));
       const twice = duplicate(r.options);
-      if (twice) add("options", `"${twice}" is listed twice.`);
-      if (r.options.some((o) => [...o].length > OPTION_CHARS)) add("options", `Keep each to ${OPTION_CHARS} characters.`);
+      if (twice) add("options", t("\"{twice}\" is listed twice.", { twice }));
+      if (r.options.some((o) => [...o].length > OPTION_CHARS)) add("options", t("Keep each to {OPTION_CHARS} characters.", { OPTION_CHARS }));
     }
     if (kind === "matrix") {
-      if (!r.matrix_rows.length) add("matrix_rows", "Add at least one statement.");
+      if (!r.matrix_rows.length) add("matrix_rows", t("Add at least one statement."));
       const twice = duplicate(r.matrix_rows);
-      if (twice) add("matrix_rows", `"${twice}" is listed twice.`);
+      if (twice) add("matrix_rows", t("\"{twice}\" is listed twice.", { twice }));
     }
     if (kind === "number") {
-      if (r.min_value && !whole(r.min_value)) add("min_value", "Use a whole number.");
-      if (r.max_value && !whole(r.max_value)) add("max_value", "Use a whole number.");
-      if (whole(r.min_value) && whole(r.max_value) && Number(r.min_value) > Number(r.max_value)) add("min_value", "The smallest cannot be more than the largest.");
+      if (r.min_value && !whole(r.min_value)) add("min_value", t("Use a whole number."));
+      if (r.max_value && !whole(r.max_value)) add("max_value", t("Use a whole number."));
+      if (whole(r.min_value) && whole(r.max_value) && Number(r.min_value) > Number(r.max_value)) add("min_value", t("The smallest cannot be more than the largest."));
     }
     if (kind === "decimal") {
       const [lo, hi] = [Number(r.min_value), Number(r.max_value)];
-      if (r.min_value && !Number.isFinite(lo)) add("min_value", "Use a number.");
-      if (r.max_value && !Number.isFinite(hi)) add("max_value", "Use a number.");
-      if (r.min_value && r.max_value && lo > hi) add("min_value", "The smallest cannot be more than the largest.");
+      if (r.min_value && !Number.isFinite(lo)) add("min_value", t("Use a number."));
+      if (r.max_value && !Number.isFinite(hi)) add("max_value", t("Use a number."));
+      if (r.min_value && r.max_value && lo > hi) add("min_value", t("The smallest cannot be more than the largest."));
     }
     if (kind === "date" || kind === "time") {
-      if (r.min_value && r.max_value && r.min_value > r.max_value) add("min_value", "The earliest cannot be after the latest.");
+      if (r.min_value && r.max_value && r.min_value > r.max_value) add("min_value", t("The earliest cannot be after the latest."));
     }
     if (kind === "multi_select") {
       const [lo, hi] = [Number(r.min_value || 0), Number(r.max_value || Infinity)];
-      if ((r.min_value && !whole(r.min_value)) || (r.max_value && !whole(r.max_value))) add("min_value", "Use whole numbers.");
-      else if (lo > hi) add("min_value", "The fewest cannot be more than the most.");
-      else if (lo > r.options.length + (r.allow_other ? 1 : 0) && r.options.length) add("min_value", `There are only ${r.options.length + (r.allow_other ? 1 : 0)} options to choose.`);
+      if ((r.min_value && !whole(r.min_value)) || (r.max_value && !whole(r.max_value))) add("min_value", t("Use whole numbers."));
+      else if (lo > hi) add("min_value", t("The fewest cannot be more than the most."));
+      else if (lo > r.options.length + (r.allow_other ? 1 : 0) && r.options.length) add("min_value", t("There are only {value} options to choose.", { value: r.options.length + (r.allow_other ? 1 : 0) }));
     }
-    if (kind === "rating" && r.max_value && !(whole(r.max_value) && Number(r.max_value) >= 3 && Number(r.max_value) <= 10)) add("max_value", "A rating goes up to 3 to 10.");
+    if (kind === "rating" && r.max_value && !(whole(r.max_value) && Number(r.max_value) >= 3 && Number(r.max_value) <= 10)) add("max_value", t("A rating goes up to 3 to 10."));
     if (kind === "short_text" || kind === "long_text") {
       const cap = kind === "short_text" ? 2000 : 50000;
-      if (r.max_length !== null && (r.max_length < 1 || r.max_length > cap)) add("max_length", `Use 1 to ${cap}.`);
-      if (r.min_length !== null && r.max_length !== null && r.min_length > r.max_length) add("min_length", "The shortest cannot be longer than the longest.");
+      if (r.max_length !== null && (r.max_length < 1 || r.max_length > cap)) add("max_length", t("Use 1 to {cap}.", { cap }));
+      if (r.min_length !== null && r.max_length !== null && r.min_length > r.max_length) add("min_length", t("The shortest cannot be longer than the longest."));
     }
     if (kind === "file") {
       const accepted = r.accept.split(/[\s,;]+/).map((e) => e.replace(/^\./, "").toLowerCase()).filter(Boolean);
       const bad = accepted.find((e) => !FILE_TYPES.includes(e));
-      if (bad) add("accept", `Files of type "${bad}" cannot be accepted.`);
-      if (r.max_value && !(whole(r.max_value) && Number(r.max_value) >= 1 && Number(r.max_value) <= 10)) add("max_value", "Allow 1 to 10 files.");
-      if (r.max_file_mb !== null && (r.max_file_mb < 1 || r.max_file_mb > 20)) add("max_file_mb", "Use 1 to 20 MB.");
+      if (bad) add("accept", t("Files of type \"{bad}\" cannot be accepted.", { bad }));
+      if (r.max_value && !(whole(r.max_value) && Number(r.max_value) >= 1 && Number(r.max_value) <= 10)) add("max_value", t("Allow 1 to 10 files."));
+      if (r.max_file_mb !== null && (r.max_file_mb < 1 || r.max_file_mb > 20)) add("max_file_mb", t("Use 1 to 20 MB."));
     }
     if (r.visible_if.trim()) {
       const p = compile(r.visible_if);
       if (p) {
         for (const k of answerKeys(p)) {
           const at = keys.indexOf(k);
-          if (!answerableKeys.has(k)) add("visible_if", `There is no question "${k}".`);
-          else if (at >= i) add("visible_if", `The condition reads "${k}", which is not before this question.`);
+          if (!answerableKeys.has(k)) add("visible_if", t("There is no question \"{k}\".", { k }));
+          else if (at >= i) add("visible_if", t("The condition reads \"{k}\", which is not before this question.", { k }));
         }
       }
     }

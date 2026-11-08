@@ -124,7 +124,7 @@ export function Runner({ form, prefill, zone, workspace, send, keep, preview, re
     setPhase({ kind: "sending" });
     setBanner(null);
     try {
-      if (uploadBytes(form, shown, answers) > UPLOAD_LIMIT) throw new Error("The files are too large to send together. Remove one, or choose smaller files.");
+      if (uploadBytes(form, shown, answers) > UPLOAD_LIMIT) throw new Error(tr("The files are too large to send together. Remove one, or choose smaller files."));
       const receipt = await send(await payload(form, shown, answers), honeypot);
       if (keep && !preview) clearDraft(keep.tenant, keep.slug);
       setPhase({ kind: "done", receipt });
@@ -137,7 +137,7 @@ export function Runner({ form, prefill, zone, workspace, send, keep, preview, re
 
   const fail = (e: unknown) => {
     if (e instanceof Refreshed) {
-      setBanner({ tone: "info", text: "This page had been open for a long time, so it was refreshed. Your answers are still here: press Send once more." });
+      setBanner({ tone: "info", text: tr("This page had been open for a long time, so it was refreshed. Your answers are still here: press Send once more.") });
       return;
     }
     if (!(e instanceof ApiError)) {
@@ -164,8 +164,8 @@ export function Runner({ form, prefill, zone, workspace, send, keep, preview, re
           </>
         ),
       });
-    else if (e.status === 0) setBanner({ tone: "error", text: "We could not reach the server. Your answers are safe here: check your connection and press Send again." });
-    else if (e.status === 429) setBanner({ tone: "error", text: "Too many tries just now. Wait a moment, then press Send again." });
+    else if (e.status === 0) setBanner({ tone: "error", text: tr("We could not reach the server. Your answers are safe here: check your connection and press Send again.") });
+    else if (e.status === 429) setBanner({ tone: "error", text: tr("Too many tries just now. Wait a moment, then press Send again.") });
     else setBanner({ tone: "error", text: e.message });
   };
 
@@ -175,7 +175,7 @@ export function Runner({ form, prefill, zone, workspace, send, keep, preview, re
     const keys = Object.keys(found);
     if (keys.length) {
       setErrors(found);
-      setBanner({ tone: "error", text: keys.length === 1 ? "One question needs another look." : tr("{length} questions need another look.", { length: keys.length }) });
+      setBanner({ tone: "error", text: keys.length === 1 ? tr("One question needs another look.") : tr("{length} questions need another look.", { length: keys.length }) });
       const first = page.items.map((i) => form.questions[i].key).find((k) => k in found);
       if (first) focusQuestion(first);
       return;

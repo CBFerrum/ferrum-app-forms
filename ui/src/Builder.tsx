@@ -30,14 +30,13 @@ const basics = (f: Fields): Basics => ({ title: f.title, description: f.descript
 
 // ───────────────────────────── the preview ─────────────────────────────
 
-const THANKS = "Thank you! Your response was recorded.";
 
 function Preview({ draft, onClose }: { draft: Draft; onClose: () => void }) {
   const [device, setDevice] = useState<"phone" | "computer">("phone");
   const [run, setRun] = useState(0);
   const form = useDebounced(useMemo(() => toPublic(basics(draft.fields), draft.rows), [draft]), 250);
   const boot = bootstrap();
-  const message = draft.fields.confirmation_message.trim() || THANKS;
+  const message = draft.fields.confirmation_message.trim() || tr("Thank you! Your response was recorded.");
   // Nothing is sent: the preview answers as the server would after a good response.
   const send = useCallback(async (): Promise<Receipt> => ({ status: "received", message, redirect_url: null, replayed: false }), [message]);
   return (
@@ -147,7 +146,7 @@ function BuilderPage({ doc }: { doc: FormDoc }) {
       params({ tab: null });
       setOpen(first.uid);
     } else if (Object.keys(r.fields).length) params({ tab: r.fields.slug ? "share" : "settings" });
-    toast(tr("{r} {value} another look before this can be saved.", { r: refused(r), value: refused(r) === 1 ? "thing needs" : "things need" }), "error");
+    toast(refused(r) === 1 ? tr("1 thing needs another look before this can be saved.") : tr("{n} things need another look before this can be saved.", { n: refused(r) }), "error");
   };
 
   const save = async (): Promise<boolean> => {
@@ -237,7 +236,7 @@ function BuilderPage({ doc }: { doc: FormDoc }) {
   };
 
   const remove = async () => {
-    const ok = await confirmDialog({ title: tr("Delete “{value}”?", { value: draft.fields.title || "this form" }), message: tr("The form and its questions are deleted. A form with responses cannot be deleted: close it instead."), confirmLabel: tr("Delete it"), danger: true });
+    const ok = await confirmDialog({ title: tr("Delete “{value}”?", { value: draft.fields.title || tr("this form") }), message: tr("The form and its questions are deleted. A form with responses cannot be deleted: close it instead."), confirmLabel: tr("Delete it"), danger: true });
     if (!ok) return;
     try {
       await api.del(docPath("Form", doc.id));
@@ -384,7 +383,7 @@ function BuilderPage({ doc }: { doc: FormDoc }) {
       {no && no.other.length > 0 && <Alert tone="error">{isolate(no.other.join(" "))}</Alert>}
       {tried && flagged > 0 && tab !== "questions" && (
         <Alert tone="warning" action={<Button onClick={() => params({ tab: null })}>{tr("Show them")}</Button>}>
-          {flagged} {flagged === 1 ? tr("question is") : tr("questions are")} {tr("not finished.")}
+          {flagged} {(flagged === 1 ? tr("question is not finished.") : tr("questions are not finished."))}
         </Alert>
       )}
 
