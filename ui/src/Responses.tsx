@@ -6,7 +6,7 @@ import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-quer
 import { ChevronLeft, ChevronRight, Columns3, ExternalLink, Paperclip } from "lucide-react";
 import { type ReactNode, useEffect } from "react";
 import { api, docPath, errorMessage, formatDateTime, formatMoment, shell, t as tr, isolate } from "@ferrum/client";
-import { Badge, Button, EmptyState, ErrorState, Spinner, type Tone, toast } from "@ferrum/kit";
+import { Badge, Button, EmptyState, ErrorState, Spinner, type Tone, toast, placed } from "@ferrum/kit";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger, Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@ferrum/kit/primitives";
 import { listOf } from "./rows";
 import { answerable, type Kind } from "./model";
@@ -183,7 +183,7 @@ function Detail({ id, asked, canRecord, ids, onGo, onChanged }: { id: string; as
       </dl>
       {r.max_score && Number(r.max_score) > 0 && (
         <p className="fm-score-line">
-          {tr("Score")} <strong>{isolate(r.score ?? "")}</strong> {tr("of {max_score}", { max_score: r.max_score })} {r.quiz_result && <Badge tone={r.quiz_result === "Passed" ? "green" : "red"}>{isolate(r.quiz_result)}</Badge>}
+          {placed(tr("Score {p1} of {max_score} {p2}"), { p1: <strong>{isolate(r.score ?? "")}</strong>, max_score: r.max_score, p2: r.quiz_result && <Badge tone={r.quiz_result === "Passed" ? "green" : "red"}>{isolate(r.quiz_result)}</Badge> })}
         </p>
       )}
       <ol className="fm-answers">

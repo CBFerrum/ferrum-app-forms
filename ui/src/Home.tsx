@@ -88,7 +88,7 @@ export function Home() {
     }
   };
   const remove = async (f: FormRow) => {
-    const ok = await confirmDialog({ title: t("Delete “{value}”?", { value: f.title ?? "this form" }), message: t("A form with responses cannot be deleted: close it instead."), confirmLabel: t("Delete it"), danger: true });
+    const ok = await confirmDialog({ title: t("Delete “{value}”?", { value: f.title ?? t("this form") }), message: t("A form with responses cannot be deleted: close it instead."), confirmLabel: t("Delete it"), danger: true });
     if (!ok) return;
     try {
       await api.del(docPath("Form", f.id));
@@ -203,7 +203,7 @@ export function Home() {
                     </p>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <button type="button" className="icon-btn" aria-label={t("More for {value}", { value: f.title ?? "this form" })}>
+                        <button type="button" className="icon-btn" aria-label={t("More for {value}", { value: f.title ?? t("this form") })}>
                           <Ellipsis size={16} aria-hidden="true" />
                         </button>
                       </DropdownMenuTrigger>

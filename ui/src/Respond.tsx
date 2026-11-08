@@ -9,7 +9,7 @@ import { CalendarClock, Lock, SearchX } from "lucide-react";
 import { type CSSProperties, type ReactNode, useEffect, useMemo, useRef } from "react";
 import { useParams, useSearchParams } from "react-router";
 import { api, ApiError, bootstrap, shell, t as tr, isolate } from "@ferrum/client";
-import { Button, Spinner } from "@ferrum/kit";
+import { Button, Spinner, placed } from "@ferrum/kit";
 import { accentVars } from "./accent";
 import { Notice, QuizResultView } from "./Done";
 import type { Opened, QuizResult, Receipt } from "./model";
@@ -72,7 +72,7 @@ function Missing({ workspace }: { workspace?: string }) {
   return (
     <Plain>
       <Notice icon={<SearchX size={26} />} title={tr("This form is not available")}>
-        <p>{tr("The link may be wrong, or the form is not published. Ask the person who sent it to you")}{workspace ? tr(" at {workspace}", { workspace }) : ""} {tr("for a new link.")}</p>
+        <p>{placed(tr("The link may be wrong, or the form is not published. Ask the person who sent it to you{p1} for a new link."), { p1: workspace ? tr(" at {workspace}", { workspace }) : "" })}</p>
       </Notice>
     </Plain>
   );
@@ -107,7 +107,7 @@ export function RespondPage() {
     sessionAt.current = Date.now();
   }, [opened?.token]);
   useEffect(() => {
-    document.title = opened ? opened.form.title : loaded ? "Form" : "Opening the form…";
+    document.title = opened ? opened.form.title : loaded ? "Form" : tr("Opening the form…");
   }, [opened, loaded]);
 
   if (q.error) {
@@ -133,7 +133,7 @@ export function RespondPage() {
             </a>
           }
         >
-          <p>{tr("This form is not public. If it is for people in")} {workspace ?? tr("this workspace")}{tr(", sign in to answer it.")}</p>
+          <p>{placed(tr("This form is not public. If it is for people in {p1}, sign in to answer it."), { p1: workspace ?? tr("this workspace") })}</p>
         </Notice>
       </Plain>
     );
@@ -142,7 +142,7 @@ export function RespondPage() {
     return (
       <Plain>
         <Notice icon={<Lock size={26} />} title={tr("This form is not for you")}>
-          <p>{tr("It is for people who work in")} {workspace ?? tr("this workspace")}{tr(". Your account is not one of them.")}</p>
+          <p>{placed(tr("It is for people who work in {p1}. Your account is not one of them."), { p1: workspace ?? tr("this workspace") })}</p>
         </Notice>
       </Plain>
     );
@@ -205,7 +205,7 @@ export function ResultPage() {
   useEffect(() => shell().ready(), []);
   const q = useQuery({ queryKey: ["result", tenant, token], queryFn: ({ signal }) => openResult(tenant, token, signal), staleTime: Infinity, retry: false, refetchOnWindowFocus: false });
   useEffect(() => {
-    document.title = q.data ? tr("Your result · {title}", { title: q.data.form.title }) : "Your result";
+    document.title = q.data ? tr("Your result · {title}", { title: q.data.form.title }) : tr("Your result");
   }, [q.data]);
   if (q.error) {
     return (

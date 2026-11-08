@@ -13,7 +13,7 @@ import { QuestionCard, Trend } from "./Charts";
 import { zonedNow } from "./flow";
 import { type FormDoc, STATUS_LABEL, STATUS_TONE, type Status } from "./formdoc";
 import { type Asked, askedOf, Responses } from "./Responses";
-import { duration, percent, PRESETS, presetOf, presetRange, type Summary } from "./stats";
+import { duration, percent, presets, presetOf, presetRange, type Summary } from "./stats";
 import { copy, linkOf } from "./Share";
 
 const day = (v: string | null) => (v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null);
@@ -106,7 +106,7 @@ export function ResultsRoute() {
         </div>
         <div className="fm-head-main">
           <div className="fm-title-wrap">
-            <h1 className="page-title">{isolate(String(form.title ?? "Untitled form"))}</h1>
+            <h1 className="page-title">{isolate(String(form.title ?? t("Untitled form")))}</h1>
             <p className="page-sub">{t("Results")}</p>
           </div>
           <div className="fm-actions">
@@ -144,7 +144,7 @@ export function ResultsRoute() {
 
       <div className="fm-filters" role="group" aria-label={t("Days to look at")}>
         <div className="chips">
-          {PRESETS.map(([p, label]) => (
+          {presets().map(([p, label]) => (
             <button key={p} type="button" className="chip" aria-pressed={preset === p} onClick={() => { const [a, b] = presetRange(p, today); set({ from: a, to: b }); }}>
               {isolate(label)}
             </button>

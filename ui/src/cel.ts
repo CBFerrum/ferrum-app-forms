@@ -66,10 +66,10 @@ function lex(src: string): Tok[] {
       let j = i + sm[0].length;
       let s = "";
       for (;;) {
-        if (j >= src.length) throw new SyntaxError("unterminated string");
+        if (j >= src.length) throw new SyntaxError(tr("unterminated string"));
         if (src.startsWith(quote, j)) break;
         const ch = src[j];
-        if (quote.length === 1 && ch === "\n") throw new SyntaxError("unterminated string");
+        if (quote.length === 1 && ch === "\n") throw new SyntaxError(tr("unterminated string"));
         if (ch === "\\" && !raw) {
           const e = src[j + 1];
           if (e === "x" || e === "X") {
@@ -87,7 +87,7 @@ function lex(src: string): Tok[] {
           } else if (e in ESCAPES) {
             s += ESCAPES[e];
             j += 2;
-          } else throw new SyntaxError("bad escape");
+          } else throw new SyntaxError(tr("bad escape"));
         } else {
           s += ch;
           j++;
@@ -113,7 +113,7 @@ function lex(src: string): Tok[] {
       continue;
     }
     const sym = SYMBOLS.find((s) => src.startsWith(s, i));
-    if (!sym) throw new SyntaxError(`unexpected character '${c}'`);
+    if (!sym) throw new SyntaxError(tr("unexpected character '{c}'", { c }));
     out.push({ k: "sym", v: sym });
     i += sym.length;
   }
@@ -131,10 +131,10 @@ function parse(src: string): Node {
   const isSym = (v: string) => toks[p].k === "sym" && toks[p].v === v;
   const eat = (v: string) => (isSym(v) ? (p++, true) : false);
   const expect = (v: string) => {
-    if (!eat(v)) throw new SyntaxError(`expected '${v}'`);
+    if (!eat(v)) throw new SyntaxError(tr("expected '{v}'", { v }));
   };
   const deeper = <T>(f: () => T): T => {
-    if (++depth > MAX_DEPTH) throw new SyntaxError("nested too deeply");
+    if (++depth > MAX_DEPTH) throw new SyntaxError(tr("nested too deeply"));
     try {
       return f();
     } finally {
@@ -205,7 +205,7 @@ function parse(src: string): Node {
     for (;;) {
       if (eat(".")) {
         const t = toks[p++];
-        if (t.k !== "id") throw new SyntaxError("expected a name after '.'");
+        if (t.k !== "id") throw new SyntaxError(tr("expected a name after '.'"));
         n = eat("(") ? { t: "call", fn: t.v, target: n, args: args(")") } : { t: "sel", obj: n, field: t.v, test: false };
       } else if (eat("[")) {
         const index = expr();
@@ -254,11 +254,11 @@ function parse(src: string): Node {
         return { t: "map", entries };
       }
     }
-    throw new SyntaxError(t.k === "end" ? "the condition ends too soon" : `unexpected '${t.v}'`);
+    throw new SyntaxError(t.k === "end" ? tr("the condition ends too soon") : tr("unexpected '{v}'", { v: t.v }));
   };
 
   const ast = expr();
-  if (peek().k !== "end") throw new SyntaxError(`unexpected '${peek().v}'`);
+  if (peek().k !== "end") throw new SyntaxError(tr("unexpected '{v}'", { v: peek().v }));
   return ast;
 }
 
@@ -292,12 +292,12 @@ function equal(a: Val, b: Val): boolean {
 function order(a: Val, b: Val): number | CelError {
   if (isNum(a) && isNum(b)) {
     const [x, y] = [num(a), num(b)];
-    return x < y ? -1 : x > y ? 1 : x === y ? 0 : fail("not comparable");
+    return x < y ? -1 : x > y ? 1 : x === y ? 0 : fail(tr("not comparable"));
   }
   if (typeof a === "string" && typeof b === "string") return a < b ? -1 : a > b ? 1 : 0;
   if (typeof a === "boolean" && typeof b === "boolean") return a === b ? 0 : a ? 1 : -1;
   if (a === null && b === null) return 0;
-  return fail("no ordering between these values");
+  return fail(tr("no ordering between these values"));
 }
 
 const chars = (s: string) => [...s].length;
@@ -321,7 +321,7 @@ function pattern(re: string): RegExp {
 }
 
 function truthy(v: R): boolean | CelError {
-  return typeof v === "boolean" ? v : v instanceof CelError ? v : fail("expected true or false");
+  return typeof v === "boolean" ? v : v instanceof CelError ? v : fail(tr("expected true or false"));
 }
 
 function run(n: Node, vars: Vars, scope: Scope): R {
@@ -338,7 +338,7 @@ function run(n: Node, vars: Vars, scope: Scope): R {
     case "sel": {
       const o = run(n.obj, vars, scope);
       if (o instanceof CelError) return o;
-      if (n.test) return o instanceof Map ? o.has(n.field) : fail("has() needs a map");
+      if (n.test) return o instanceof Map ? o.has(n.field) : fail(tr("has() needs a map"));
       if (!(o instanceof Map)) return fail(tr("cannot read '{field}' of this value", { field: n.field }));
       return o.has(n.field) ? (o.get(n.field) as Val) : fail(tr("no such key '{field}'", { field: n.field }));
     }
@@ -348,12 +348,12 @@ function run(n: Node, vars: Vars, scope: Scope): R {
       if (o instanceof CelError) return o;
       if (i instanceof CelError) return i;
       if (Array.isArray(o)) {
-        if (typeof i !== "number" && !(i instanceof Dbl && Number.isInteger(i.v))) return fail("a list is indexed by a whole number");
+        if (typeof i !== "number" && !(i instanceof Dbl && Number.isInteger(i.v))) return fail(tr("a list is indexed by a whole number"));
         const k = num(i as number | Dbl);
-        return k >= 0 && k < o.length ? o[k] : fail("index out of range");
+        return k >= 0 && k < o.length ? o[k] : fail(tr("index out of range"));
       }
-      if (o instanceof Map) return typeof i === "string" && o.has(i) ? (o.get(i) as Val) : fail("no such key");
-      return fail("cannot index this value");
+      if (o instanceof Map) return typeof i === "string" && o.has(i) ? (o.get(i) as Val) : fail(tr("no such key"));
+      return fail(tr("cannot index this value"));
     }
     case "list": {
       const out: Val[] = [];
@@ -378,12 +378,12 @@ function run(n: Node, vars: Vars, scope: Scope): R {
     }
     case "not": {
       const v = run(n.e, vars, scope);
-      return typeof v === "boolean" ? !v : v instanceof CelError ? v : fail("! needs true or false");
+      return typeof v === "boolean" ? !v : v instanceof CelError ? v : fail(tr("! needs true or false"));
     }
     case "neg": {
       const v = run(n.e, vars, scope);
       if (v instanceof CelError) return v;
-      return typeof v === "number" ? -v : v instanceof Dbl ? new Dbl(-v.v) : fail("cannot negate this value");
+      return typeof v === "number" ? -v : v instanceof Dbl ? new Dbl(-v.v) : fail(tr("cannot negate this value"));
     }
     case "cond": {
       const c = truthy(run(n.c, vars, scope));
@@ -428,8 +428,8 @@ function binary(n: Extract<Node, { t: "bin" }>, vars: Vars, scope: Scope): R {
     }
     case "in":
       if (Array.isArray(r)) return r.some((x) => equal(l, x));
-      if (r instanceof Map) return typeof l === "string" ? r.has(l) : fail("a map is searched by text");
-      return fail("in needs a list or a map");
+      if (r instanceof Map) return typeof l === "string" ? r.has(l) : fail(tr("a map is searched by text"));
+      return fail(tr("in needs a list or a map"));
     case "+":
       if (typeof l === "string" && typeof r === "string") return l + r;
       if (Array.isArray(l) && Array.isArray(r)) return [...l, ...r];
@@ -447,9 +447,9 @@ function binary(n: Extract<Node, { t: "bin" }>, vars: Vars, scope: Scope): R {
       case "*":
         return wrap(x * y);
       case "/":
-        return dbl ? new Dbl(x / y) : y === 0 ? fail("division by zero") : Math.trunc(x / y);
+        return dbl ? new Dbl(x / y) : y === 0 ? fail(tr("division by zero")) : Math.trunc(x / y);
       case "%":
-        return dbl ? fail("% needs whole numbers") : y === 0 ? fail("modulus by zero") : x % y;
+        return dbl ? fail(tr("% needs whole numbers")) : y === 0 ? fail(tr("modulus by zero")) : x % y;
     }
   }
   return fail(tr("{op} does not work on these values", { op: n.op }));
@@ -478,7 +478,7 @@ function call(n: Extract<Node, { t: "call" }>, vars: Vars, scope: Scope): R {
   switch (fn) {
     case "size":
       if (all.length !== 1) break;
-      return typeof s === "string" ? chars(s) : Array.isArray(s) ? s.length : s instanceof Map ? s.size : fail("size() needs text, a list or a map");
+      return typeof s === "string" ? chars(s) : Array.isArray(s) ? s.length : s instanceof Map ? s.size : fail(tr("size() needs text, a list or a map"));
     case "contains":
     case "startsWith":
     case "endsWith":
@@ -487,26 +487,26 @@ function call(n: Extract<Node, { t: "call" }>, vars: Vars, scope: Scope): R {
       return fn === "contains" ? s.includes(a1) : fn === "startsWith" ? s.startsWith(a1) : s.endsWith(a1);
     case "matches":
       if (all.length !== 2) break;
-      if (typeof s !== "string" || typeof a1 !== "string") return fail("matches() needs text");
+      if (typeof s !== "string" || typeof a1 !== "string") return fail(tr("matches() needs text"));
       return pattern(a1).test(s);
     case "int":
       if (all.length !== 1 || n.target) break;
       if (typeof s === "number") return s;
-      if (s instanceof Dbl) return Number.isFinite(s.v) ? Math.trunc(s.v) : fail("out of range");
+      if (s instanceof Dbl) return Number.isFinite(s.v) ? Math.trunc(s.v) : fail(tr("out of range"));
       if (typeof s === "string" && /^[+-]?\d+$/.test(s.trim())) return Number(s.trim());
-      return fail("int() cannot read this value");
+      return fail(tr("int() cannot read this value"));
     case "double":
       if (all.length !== 1 || n.target) break;
       if (isNum(s as R)) return new Dbl(num(s as number | Dbl));
       if (typeof s === "string" && s.trim() !== "" && Number.isFinite(Number(s))) return new Dbl(Number(s));
-      return fail("double() cannot read this value");
+      return fail(tr("double() cannot read this value"));
     case "string":
       if (all.length !== 1 || n.target) break;
       if (typeof s === "string") return s;
       if (typeof s === "number") return String(s);
       if (s instanceof Dbl) return String(s.v);
       if (typeof s === "boolean") return String(s);
-      return fail("string() cannot show this value");
+      return fail(tr("string() cannot show this value"));
   }
   throw new Unsupported(fn);
 }

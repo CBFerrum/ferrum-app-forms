@@ -47,7 +47,7 @@ function Lines({ id, value, onChange, rows = 4, placeholder, label, hint }: { id
       </label>
       <LinesBox id={id} value={value} onChange={onChange} rows={rows} placeholder={placeholder} />
       <p className="field-hint">
-        {value.length} {value.length === 1 ? tr("entry") : tr("entries")}{tr(". One per line.")} {hint}
+        {value.length} {(value.length === 1 ? tr("entry. One per line.") : tr("entries. One per line."))} {hint}
       </p>
     </div>
   );
@@ -266,7 +266,7 @@ function Specifics({ row, update, list }: { row: QRow; update: (p: Partial<QRow>
                 </button>
               ))}
             </div>
-            <p className="field-hint">{chosen.length ? tr("Only these types.") : tr("Documents, pictures and spreadsheets (not zip files).")} {tr("Each is checked by its contents, not just its name.")}</p>
+            <p className="field-hint">{(chosen.length ? tr("Only these types. Each is checked by its contents, not just its name.") : tr("Documents, pictures and spreadsheets (not zip files). Each is checked by its contents, not just its name."))}</p>
           </fieldset>
           <Err list={list("accept")} />
           <div className="fm-grid">
@@ -312,7 +312,7 @@ export function TypeList({ onPick }: { onPick: (k: Kind) => void }) {
   );
 }
 
-function AddButton({ onPick, children = "Add a question", variant = "default" }: { onPick: (k: Kind) => void; children?: ReactNode; variant?: "default" | "primary" }) {
+function AddButton({ onPick, children = tr("Add a question"), variant = "default" }: { onPick: (k: Kind) => void; children?: ReactNode; variant?: "default" | "primary" }) {
   const [open, setOpen] = useState(false);
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -388,7 +388,7 @@ function Card({ row, index, rows, quiz, open, fresh, usedElsewhere, showProblems
     const uses = [...readers(rows, row.key).map((i) => tr("shown only if this is answered: “{value}”", { value: rows[i].label.trim() || rows[i].key })), ...usedElsewhere(row.key)];
     if (uses.length || row.id) {
       const ok = await confirmDialog({
-        title: tr("Delete “{value}”?", { value: title || "this question" }),
+        title: tr("Delete “{value}”?", { value: title || tr("this question") }),
         message: uses.length ? (
           <>
             <p>{tr("Other things depend on it:")}</p>
@@ -450,7 +450,7 @@ function Card({ row, index, rows, quiz, open, fresh, usedElsewhere, showProblems
       style={{ transform: CSS.Translate.toString(transform), transition }}
     >
       <div className="fm-card-head">
-        <button type="button" className="fm-grip" ref={setActivatorNodeRef} {...attributes} {...listeners} aria-label={tr("Reorder {value}", { value: title ? `“${title}”` : page ? "this page break" : "this question" })}>
+        <button type="button" className="fm-grip" ref={setActivatorNodeRef} {...attributes} {...listeners} aria-label={tr("Reorder {value}", { value: title ? `“${title}”` : page ? tr("this page break") : tr("this question") })}>
           <GripVertical size={16} aria-hidden="true" />
         </button>
         <button type="button" className="fm-card-toggle" aria-expanded={open} aria-controls={body} onClick={onToggle} onKeyDown={key}>
@@ -482,7 +482,7 @@ function Card({ row, index, rows, quiz, open, fresh, usedElsewhere, showProblems
         </button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button type="button" className="icon-btn" aria-label={tr("More for {value}", { value: title ? `“${title}”` : "this question" })}>
+            <button type="button" className="icon-btn" aria-label={tr("More for {value}", { value: title ? `“${title}”` : tr("this question") })}>
               <Ellipsis size={16} aria-hidden="true" />
             </button>
           </DropdownMenuTrigger>
@@ -613,7 +613,7 @@ export function Questions({ rows, onChange, quiz, open, onOpen, server, showProb
   // What a screen reader says while a card is moved: its words, not its identifier.
   const name = (id: UniqueIdentifier) => {
     const r = rows.find((x) => x.uid === id);
-    return r ? `“${r.label.trim() || kindLabel(r.question_type)}”` : "the question";
+    return r ? `“${r.label.trim() || kindLabel(r.question_type)}”` : tr("the question");
   };
   const place = (id: UniqueIdentifier | undefined) => tr("position {value} of {length}", { value: rows.findIndex((r) => r.uid === id) + 1, length: rows.length });
   const announcements: Announcements = {

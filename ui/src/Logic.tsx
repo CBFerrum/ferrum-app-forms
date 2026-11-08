@@ -2,6 +2,7 @@
 // a value), or the CEL itself for anything rules cannot say. Whatever is written is the
 // question's `visible_if`; the server reads it again when it is saved, and when anyone answers.
 
+import { placed } from "@ferrum/kit";
 import { GitBranch, Plus, X } from "lucide-react";
 import { useState } from "react";
 import { earlier, type QRow } from "./rows";
@@ -80,7 +81,7 @@ export function Logic({ rows, index, onChange }: { rows: QRow[]; index: number; 
           placeholder="answers.country == 'IN' && answers.age >= 18"
         />
         <p className="field-hint">
-          {t("Read an earlier answer as")} <code>answers.&lt;ID&gt;</code>{t(", today as")} <code>{t("today")}</code>{t(". An answer left empty is")} <code>{t("null")}</code>.
+          {placed(t("Read an earlier answer as {p1}, today as {p2}. An answer left empty is {p3}"), { p1: <code>answers.&lt;ID&gt;</code>, p2: <code>today</code>, p3: <code>null</code> })}.
         </p>
         <div className="row">
           <button

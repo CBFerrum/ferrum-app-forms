@@ -50,8 +50,6 @@ const BLANK: Norm = { kind: "blank" };
 const ok = (value: unknown): Norm => ({ kind: "ok", value });
 const bad = (message: string): Norm => ({ kind: "error", message });
 
-export const REQUIRED = "This question needs an answer.";
-export const TICK = "Please tick this box to continue.";
 
 const EMAIL = /^[^@\s]{1,64}@[^@\s]+\.[^@\s]+$/;
 const PHONE = /^[+0-9 ()\-./]{3,40}$/;
@@ -116,45 +114,45 @@ export function normalize(q: PQuestion, raw: Raw): Norm {
     case "short_text":
     case "long_text": {
       const s = type === "short_text" ? text().trim() : text().replace(/\r\n?/g, "\n").trim();
-      if (type === "short_text" && /[\u0000-\u001f\u007f]/.test(s)) return bad("Keep this to a single line.");
+      if (type === "short_text" && /[\u0000-\u001f\u007f]/.test(s)) return bad(tr("Keep this to a single line."));
       const n = [...s].length;
       if (q.min_length && n < q.min_length) return bad(tr("Use at least {min_length} characters.", { min_length: q.min_length }));
       const max = q.max_length ?? (type === "short_text" ? SHORT_DEFAULT : LONG_DEFAULT);
       if (n > max) return bad(tr("Use at most {max} characters. This is {n}.", { max, n }));
       const re = q.pattern ? wholePattern(q.pattern) : null;
-      if (re && !re.test(s)) return bad(q.pattern_message || "That does not look right.");
+      if (re && !re.test(s)) return bad(q.pattern_message || tr("That does not look right."));
       return ok(s);
     }
     case "email": {
       const s = text().trim();
-      return EMAIL.test(s) && s.length <= 254 ? ok(s.toLowerCase()) : bad("Enter a valid email address, like name@example.com.");
+      return EMAIL.test(s) && s.length <= 254 ? ok(s.toLowerCase()) : bad(tr("Enter a valid email address, like name@example.com."));
     }
     case "phone": {
       const s = text().trim();
-      return PHONE.test(s) ? ok(s) : bad("Enter a phone number with digits, spaces and a leading + if you need one.");
+      return PHONE.test(s) ? ok(s) : bad(tr("Enter a phone number with digits, spaces and a leading + if you need one."));
     }
     case "number": {
       const n = wholeNumber(text());
-      if (n === null || !Number.isSafeInteger(n)) return bad("Enter a whole number.");
+      if (n === null || !Number.isSafeInteger(n)) return bad(tr("Enter a whole number."));
       return bounded(n, wholeNumber(q.min), wholeNumber(q.max)) ?? ok(n);
     }
     case "decimal": {
       const s = text().replace(/,/g, "").trim();
-      if (!/^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/.test(s) || !Number.isFinite(Number(s))) return bad("Enter a number, like 12.50.");
+      if (!/^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/.test(s) || !Number.isFinite(Number(s))) return bad(tr("Enter a number, like 12.50."));
       const lo = q.min !== undefined && q.min !== "" && Number.isFinite(Number(q.min)) ? Number(q.min) : null;
       const hi = q.max !== undefined && q.max !== "" && Number.isFinite(Number(q.max)) ? Number(q.max) : null;
       return bounded(Number(s), lo, hi) ?? ok(Number(s));
     }
     case "date": {
       const s = text().trim();
-      if (!realDate(s)) return bad("Pick a date.");
+      if (!realDate(s)) return bad(tr("Pick a date."));
       if (q.min && s < q.min) return bad(tr("Pick a date on or after {value}.", { value: showDay(q.min) }));
       if (q.max && s > q.max) return bad(tr("Pick a date on or before {value}.", { value: showDay(q.max) }));
       return ok(s);
     }
     case "time": {
       const m = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(text().trim());
-      if (!m || +m[1] > 23 || +m[2] > 59 || (m[3] !== undefined && +m[3] > 59)) return bad("Enter a time, like 14:30.");
+      if (!m || +m[1] > 23 || +m[2] > 59 || (m[3] !== undefined && +m[3] > 59)) return bad(tr("Enter a time, like 14:30."));
       const s = `${pad(+m[1])}:${m[2]}${m[3] && m[3] !== "00" ? `:${m[3]}` : ""}`;
       if (q.min && s < q.min.padStart(5, "0")) return bad(tr("Pick a time at or after {min}.", { min: q.min }));
       if (q.max && s > q.max.padStart(5, "0")) return bad(tr("Pick a time at or before {max}.", { max: q.max }));
@@ -163,7 +161,7 @@ export function normalize(q: PQuestion, raw: Raw): Norm {
     case "datetime": {
       // Bounds are instants; the server reads a local time in the workspace's zone and decides.
       const s = text().trim();
-      return /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2})?$/.test(s) && realDate(s.slice(0, 10)) ? ok(s) : bad("Pick a date and a time.");
+      return /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2})?$/.test(s) && realDate(s.slice(0, 10)) ? ok(s) : bad(tr("Pick a date and a time."));
     }
     case "select":
     case "dropdown":
@@ -171,14 +169,14 @@ export function normalize(q: PQuestion, raw: Raw): Norm {
       const s = text().trim();
       if (q.options?.includes(s)) return ok(s);
       if (q.allow_other && s && [...s].length <= OPTION_MAX && !/[\u0000-\u001f\u007f]/.test(s)) return ok(s);
-      return bad("Choose one of the options.");
+      return bad(tr("Choose one of the options."));
     }
     case "multi_select": {
-      if (!Array.isArray(raw) || raw.some((x) => typeof x !== "string")) return bad("Choose from the options.");
+      if (!Array.isArray(raw) || raw.some((x) => typeof x !== "string")) return bad(tr("Choose from the options."));
       const chosen = (raw as string[]).map((x) => x.trim()).filter(Boolean);
       const others = chosen.filter((x) => !q.options?.includes(x));
-      if (others.length > 1 || (others.length === 1 && (!q.allow_other || [...others[0]].length > OPTION_MAX))) return bad("Choose from the options.");
-      if (new Set(chosen).size !== chosen.length) return bad("Each option can be chosen once.");
+      if (others.length > 1 || (others.length === 1 && (!q.allow_other || [...others[0]].length > OPTION_MAX))) return bad(tr("Choose from the options."));
+      if (new Set(chosen).size !== chosen.length) return bad(tr("Each option can be chosen once."));
       const lo = wholeNumber(q.min);
       const hi = wholeNumber(q.max);
       if (lo !== null && chosen.length < lo) return bad(tr("Choose at least {lo}.", { lo }));
@@ -192,23 +190,23 @@ export function normalize(q: PQuestion, raw: Raw): Norm {
       return Number.isInteger(n) && n >= lo && n <= hi ? ok(n) : bad(tr("Choose a number from {lo} to {hi}.", { lo, hi }));
     }
     case "matrix": {
-      if (typeof raw !== "object" || Array.isArray(raw)) return bad("Answer each row.");
+      if (typeof raw !== "object" || Array.isArray(raw)) return bad(tr("Answer each row."));
       const cells = Object.entries(raw as Record<string, unknown>).filter(([, c]) => c !== null && c !== undefined && c !== "");
-      for (const [row, col] of cells) if (!q.rows?.includes(row) || typeof col !== "string" || !q.columns?.includes(col)) return bad("Choose one of the columns for each row.");
+      for (const [row, col] of cells) if (!q.rows?.includes(row) || typeof col !== "string" || !q.columns?.includes(col)) return bad(tr("Choose one of the columns for each row."));
       if (!cells.length) return BLANK;
-      if (q.required && cells.length < (q.rows?.length ?? 0)) return bad("Answer every row.");
+      if (q.required && cells.length < (q.rows?.length ?? 0)) return bad(tr("Answer every row."));
       return ok(Object.fromEntries(cells));
     }
     case "ranking": {
       const list = Array.isArray(raw) ? (raw as unknown[]) : [];
       const options = q.options ?? [];
       const complete = list.length === options.length && options.every((o) => list.filter((x) => x === o).length === 1);
-      return complete ? ok(list) : bad("Put every option in your order.");
+      return complete ? ok(list) : bad(tr("Put every option in your order."));
     }
     case "file": {
       const files = Array.isArray(raw) ? (raw as File[]) : [];
       const max = q.max_files ?? 1;
-      if (files.length > max) return bad(max === 1 ? "Attach one file." : tr("Attach at most {max} files.", { max }));
+      if (files.length > max) return bad(max === 1 ? tr("Attach one file.") : tr("Attach at most {max} files.", { max }));
       const limit = (q.max_file_mb ?? 10) * 1024 * 1024;
       for (const f of files) {
         if (q.accept?.length && !q.accept.includes(extension(f.name))) return bad(tr("{name}: files of this kind are not accepted. Use {value}.", { name: f.name, value: q.accept.join(", ") }));
@@ -305,30 +303,31 @@ export function check(form: PForm, items: number[], answers: Answers): Record<st
     if (!answerable(q.type)) continue;
     const n = normalize(q, answers[q.key]);
     if (n.kind === "error") errors[q.key] = n.message;
-    else if (n.kind === "blank" && q.required) errors[q.key] = REQUIRED;
-    else if (n.kind === "ok" && q.type === "checkbox" && q.required && n.value === false) errors[q.key] = TICK;
+    else if (n.kind === "blank" && q.required) errors[q.key] = tr("This question needs an answer.");
+    else if (n.kind === "ok" && q.type === "checkbox" && q.required && n.value === false) errors[q.key] = tr("Please tick this box to continue.");
   }
   return errors;
 }
 
-const KNOWN: [string, string][] = [
-  ["is required", REQUIRED],
-  ["must be checked", TICK],
-  ["must be one of the options", "Choose one of the options."],
-  ["answer every row", "Answer every row."],
-  ["rank every option exactly once", "Put every option in your order."],
-  ["is not in the expected format", "That does not look right."],
-  ["must be a single line of text", "Keep this to a single line."],
-  ["not a valid email address", "Enter a valid email address, like name@example.com."],
-  ["not a valid phone number", "Enter a phone number with digits, spaces and a leading + if you need one."],
-  ["must be a whole number", "Enter a whole number."],
-  ["must be a number", "Enter a number, like 12.50."],
+/** The server's reasons, and each as a sentence in the page's language. */
+const reasons = (): [string, string][] => [
+  ["is required", tr("This question needs an answer.")],
+  ["must be checked", tr("Please tick this box to continue.")],
+  ["must be one of the options", tr("Choose one of the options.")],
+  ["answer every row", tr("Answer every row.")],
+  ["rank every option exactly once", tr("Put every option in your order.")],
+  ["is not in the expected format", tr("That does not look right.")],
+  ["must be a single line of text", tr("Keep this to a single line.")],
+  ["not a valid email address", tr("Enter a valid email address, like name@example.com.")],
+  ["not a valid phone number", tr("Enter a phone number with digits, spaces and a leading + if you need one.")],
+  ["must be a whole number", tr("Enter a whole number.")],
+  ["must be a number", tr("Enter a number, like 12.50.")],
 ];
 
 /** The server's reason, which reads after the question's name ("is required"), as a sentence. */
 export function sentence(message: string): string {
   const m = message.trim();
-  const known = KNOWN.find(([k]) => m === k);
+  const known = reasons().find(([k]) => m === k);
   if (known) return known[1];
   const s = m.charAt(0).toUpperCase() + m.slice(1);
   return /[.!?]$/.test(s) ? s : `${s}.`;

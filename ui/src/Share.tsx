@@ -5,7 +5,7 @@
 import { Copy, ExternalLink, Globe, Lock } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 import { bootstrap, formatDateTime, t as tr, isolate } from "@ferrum/client";
-import { confirmDialog, Field, toast } from "@ferrum/kit";
+import { confirmDialog, Field, toast, placed } from "@ferrum/kit";
 import type { QRow } from "./rows";
 import type { Fields, Status } from "./formdoc";
 import { formPath } from "./site";
@@ -49,12 +49,12 @@ export function Share({ fields: f, set, rows, status, savedSlug, errors, dirty, 
   const prefills = rows.filter((r) => r.allow_prefill && r.question_type !== "page_break");
   const chosen = prefills.find((r) => r.key === pick) ?? prefills[0];
   const facts = [
-    f.access === "Public" ? "Anyone with the link can answer." : "Only people signed in to this workspace can answer.",
-    f.anonymous ? "Answers are anonymous." : null,
+    f.access === "Public" ? tr("Anyone with the link can answer.") : tr("Only people signed in to this workspace can answer."),
+    f.anonymous ? tr("Answers are anonymous.") : null,
     f.opens_at && new Date(f.opens_at) > new Date() ? tr("Opens {value}.", { value: String(moment(f.opens_at)) }) : null,
     f.closes_at ? tr("Closes {value}.", { value: String(moment(f.closes_at)) }) : null,
     f.response_limit ? tr("Closes after {response_limit} responses.", { response_limit: f.response_limit }) : null,
-    f.one_response_per === "Email" ? "One response per email address." : f.one_response_per === "User" ? "One response per person." : null,
+    f.one_response_per === "Email" ? tr("One response per email address.") : f.one_response_per === "User" ? tr("One response per person.") : null,
   ].filter(Boolean);
 
   // The address is typed, and set when the field is left: a live form asks first.
@@ -130,7 +130,7 @@ export function Share({ fields: f, set, rows, status, savedSlug, errors, dirty, 
       {prefills.length > 0 && savedSlug && (
         <section className="fm-section">
           <h2 className="fm-section-title">{tr("A link that fills in an answer")}</h2>
-          <p className="muted">{tr("Add")} <code>?{isolate(chosen.key)}=…</code> {tr("to the link to start with an answer filled in, for example in an email to one person.")}</p>
+          <p className="muted">{placed(tr("Add {p1} to the link to start with an answer filled in, for example in an email to one person."), { p1: <code>?{isolate(chosen.key)}=…</code> })}</p>
           <div className="fm-link">
             <select className="select" aria-label={tr("Question to fill in")} value={chosen.key} onChange={(e) => setPick(e.target.value)}>
               {prefills.map((r) => (
