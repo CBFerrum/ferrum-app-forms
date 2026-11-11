@@ -308,6 +308,7 @@ export function Settings({ fields: f, set, rows, formId, errors }: SettingsProps
         <div className="fm-grid">
           <Field label={tr("Colour")} htmlFor={`${id}-colour`} hint={tr("For buttons and progress. Any colour stays readable.")} error={errors.accent_color}>
             <div className="row">
+              {/* ui-lint-allow raw-color: the form owner's own theme colour (data), shown in a colour picker; not interface chrome */}
               <input id={`${id}-colour`} type="color" value={hexOf(f.accent_color) ?? "#2f5bea"} onChange={(e) => set({ accent_color: e.target.value })} aria-label={tr("Colour")} />
               {f.accent_color && (
                 <button type="button" className="btn btn-ghost btn-sm" onClick={() => set({ accent_color: null })}>

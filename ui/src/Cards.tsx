@@ -261,7 +261,7 @@ function Specifics({ row, update, list }: { row: QRow; update: (p: Partial<QRow>
             <legend className="field-label">{tr("Accepted files")}</legend>
             <div className="chips">
               {FILE_TYPES.map((t) => (
-                <button key={t} type="button" className="chip" aria-pressed={chosen.includes(t)} onClick={() => toggle(t)}>
+                <button key={t} type="button" className="fm-pill" aria-pressed={chosen.includes(t)} onClick={() => toggle(t)}>
                   {isolate(t)}
                 </button>
               ))}

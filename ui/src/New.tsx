@@ -4,7 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { useNavigate, Link } from "react-router";
 import { api, errorMessage, t as tr, isolate } from "@ferrum/client";
-import { Alert, Button, EmptyState, Field, PageLoading, useShellTitle } from "@ferrum/kit";
+import { Alert, Button, Field, FormSkeleton, StatePanel, useShellTitle } from "@ferrum/kit";
 import { can, useEntityMeta } from "@ferrum/records";
 import { rowToDoc } from "./rows";
 import type { FormDoc } from "./formdoc";
@@ -40,13 +40,12 @@ export function New() {
     }
   };
 
-  if (meta.isPending) return <PageLoading />;
+  if (meta.isPending) return <FormSkeleton />;
   if (meta.data && !can(meta.data.permissions, "create")) {
     return (
-      <EmptyState title={tr("You cannot make forms here")} icon="doc">
-        <p className="muted">{tr("Building forms needs the Forms User role. Ask an administrator of this workspace.")}</p>
-        <Link to="/">{tr("Back to Forms")}</Link>
-      </EmptyState>
+      <StatePanel kind="denied" title={tr("You cannot make forms here")} action={<Link to="/">{tr("Back to Forms")}</Link>}>
+        {tr("Building forms needs the Forms User role. Ask an administrator of this workspace.")}
+      </StatePanel>
     );
   }
 

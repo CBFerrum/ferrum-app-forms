@@ -6,7 +6,7 @@ import { BarChart3, Copy, Ellipsis, ExternalLink, Globe, Link2, Lock, Plus, Sear
 import { useCallback, useMemo } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { api, ApiError, docPath, errorMessage, relativeTime, t, isolate } from "@ferrum/client";
-import { Badge, Button, confirmDialog, EmptyState, ErrorState, toast, useLiveEntity, useShellTitle } from "@ferrum/kit";
+import { Badge, confirmDialog, ListSkeleton, StatePanel, toast, useLiveEntity, useShellTitle } from "@ferrum/kit";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@ferrum/kit/primitives";
 import { can, useEntityMeta } from "@ferrum/records";
 import { STATUS_LABEL, STATUS_TONE, type Status } from "./formdoc";
@@ -122,20 +122,13 @@ export function Home() {
       </header>
 
       {denied ? (
-        <EmptyState title={t("Forms are built by people with the Forms User role")} icon="doc">
-          <p className="muted">{t("If someone sent you a link to a form, open that link to answer it. To build forms, ask an administrator of this workspace for the role.")}</p>
-        </EmptyState>
+        <StatePanel kind="denied" title={t("Forms are built by people with the Forms User role")}>
+          {t("If someone sent you a link to a form, open that link to answer it. To build forms, ask an administrator of this workspace for the role.")}
+        </StatePanel>
       ) : forms.error ? (
-        <ErrorState error={forms.error} onRetry={() => void forms.refetch()} />
+        <StatePanel kind="failed" error={forms.error} onRetry={() => void forms.refetch()} />
       ) : !forms.data ? (
-        <div className="fm-list" aria-busy="true" aria-label={t("Loading the forms")}>
-          {[0, 1, 2].map((i) => (
-            <div key={i} className="fm-form fm-skeleton">
-              <span className="skeleton" style={{ width: "40%", height: 16 }} />
-              <span className="skeleton" style={{ width: "25%" }} />
-            </div>
-          ))}
-        </div>
+        <ListSkeleton rows={3} />
       ) : (
         <>
           {forms.data.length > 0 && (
@@ -146,7 +139,7 @@ export function Home() {
               </div>
               <div className="chips" role="group" aria-label={t("Show")}>
                 {FILTERS.map(([v, label]) => (
-                  <button key={v} type="button" className="chip" aria-pressed={status === v} onClick={() => set({ status: v })}>
+                  <button key={v} type="button" className="fm-pill" aria-pressed={status === v} onClick={() => set({ status: v })}>
                     {isolate(label)}
                   </button>
                 ))}
@@ -154,19 +147,22 @@ export function Home() {
             </div>
           )}
           {!forms.data.length ? (
-            <EmptyState title={t("No forms yet")} icon="doc">
-              <p className="muted">{t("Build a form, a survey or a quiz, publish it, and share its link.")}</p>
-              {canCreate && (
-                <Link className="btn btn-primary btn-md" to="/new">
-                  <Plus size={16} aria-hidden="true" />
-                  {t("Make your first form")}
-                </Link>
-              )}
-            </EmptyState>
+            <StatePanel
+              kind="empty"
+              title={t("No forms yet")}
+              action={
+                canCreate && (
+                  <Link className="btn btn-primary btn-md" to="/new">
+                    <Plus size={16} aria-hidden="true" />
+                    {t("Make your first form")}
+                  </Link>
+                )
+              }
+            >
+              {t("Build a form, a survey or a quiz, publish it, and share its link.")}
+            </StatePanel>
           ) : !shown.length ? (
-            <EmptyState title={t("No form matches")} icon="search">
-              <Button onClick={() => set({ q: "", status: "" })}>{t("Show every form")}</Button>
-            </EmptyState>
+            <StatePanel kind="no-matches" title={t("No form matches")} onClear={() => set({ q: "", status: "" })} clearLabel={t("Show every form")} />
           ) : (
             <ul className="fm-list">
               {shown.map((f) => {

@@ -6,7 +6,7 @@ import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-quer
 import { ChevronLeft, ChevronRight, Columns3, ExternalLink, Paperclip } from "lucide-react";
 import { type ReactNode, useEffect } from "react";
 import { api, docPath, errorMessage, formatDateTime, formatMoment, shell, t as tr, isolate } from "@ferrum/client";
-import { Badge, Button, EmptyState, ErrorState, Spinner, type Tone, toast, placed } from "@ferrum/kit";
+import { Badge, Button, ListSkeleton, StatePanel, type Tone, toast, placed } from "@ferrum/kit";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger, Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@ferrum/kit/primitives";
 import { listOf } from "./rows";
 import { answerable, type Kind } from "./model";
@@ -98,7 +98,7 @@ function Answer({ a, v }: { a: Asked; v: unknown }) {
       return (
         <div className="chips">
           {(v as string[]).map((x) => (
-            <span key={x} className="chip">
+            <span key={x} className="fm-pill">
               {isolate(x)}
             </span>
           ))}
@@ -141,8 +141,8 @@ function Detail({ id, asked, canRecord, ids, onGo, onChanged }: { id: string; as
     return () => window.removeEventListener("keydown", onKey);
   }, [at, ids, onGo]);
 
-  if (q.error) return <ErrorState error={q.error} onRetry={() => void q.refetch()} />;
-  if (!r) return <Spinner label={tr("Loading the response")} />;
+  if (q.error) return <StatePanel kind="failed" error={q.error} onRetry={() => void q.refetch()} />;
+  if (!r) return <ListSkeleton rows={2} />;
   const detail = new Map((r.quiz_detail ?? []).map((d) => [d.key, d]));
   const spam = r.status === "Spam";
   return (
@@ -261,22 +261,16 @@ export function Responses({ formId, asked, zone, status, from, to, open, canReco
   };
 
   let body: ReactNode;
-  if (list.error) body = <ErrorState error={list.error} onRetry={() => void list.refetch()} />;
+  if (list.error) body = <StatePanel kind="failed" error={list.error} onRetry={() => void list.refetch()} />;
   else if (!list.data) {
     body = (
-      <div className="fm-list" aria-busy="true" aria-label={tr("Loading the responses")}>
-        {[0, 1, 2, 3].map((i) => (
-          <div key={i} className="fm-form fm-skeleton">
-            <span className="skeleton" style={{ width: "30%", height: 16 }} />
-          </div>
-        ))}
-      </div>
+      <ListSkeleton rows={4} />
     );
   } else if (!rows.length) {
     body = (
-      <EmptyState title={status === "Spam" ? tr("No spam") : status ? tr("No {status} responses", { status: status.toLowerCase() }) : from || to ? tr("No responses in these days") : tr("No responses yet")} icon="doc">
-        <p className="muted">{status || from || to ? tr("Try other days, or another filter.") : tr("They appear here as soon as someone sends the form.")}</p>
-      </EmptyState>
+<StatePanel kind={status || from || to ? "no-matches" : "empty"} title={status === "Spam" ? tr("No spam") : status ? tr("No {status} responses", { status: status.toLowerCase() }) : from || to ? tr("No responses in these days") : tr("No responses yet")}>
+        {status || from || to ? tr("Try other days, or another filter.") : tr("They appear here as soon as someone sends the form.")}
+      </StatePanel>
     );
   } else {
     body = (
@@ -335,7 +329,7 @@ export function Responses({ formId, asked, zone, status, from, to, open, canReco
       <div className="fm-tools">
         <div className="chips" role="group" aria-label={tr("Show")}>
           {STATUS.map(([v, label]) => (
-            <button key={v} type="button" className="chip" aria-pressed={status === v} onClick={() => onStatus(v)}>
+            <button key={v} type="button" className="fm-pill" aria-pressed={status === v} onClick={() => onStatus(v)}>
               {isolate(label)}
             </button>
           ))}
