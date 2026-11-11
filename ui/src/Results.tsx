@@ -7,7 +7,7 @@ import { ArrowLeft, Copy, Download, Pencil } from "lucide-react";
 import { useCallback, useEffect, useRef } from "react";
 import { Link, Navigate, useParams, useSearchParams } from "react-router";
 import { api, bootstrap, docPath, download, errorMessage, t, isolate } from "@ferrum/client";
-import { Badge, Button, EmptyState, ErrorState, PageLoading, TabPanel, Tabs, toast, useLiveEntity, useShellTitle } from "@ferrum/kit";
+import { Badge, Button, Stat, StatGrid, StatePanel, TableSkeleton, TabPanel, Tabs, toast, useLiveEntity, useShellTitle } from "@ferrum/kit";
 import { can, useEntityMeta } from "@ferrum/records";
 import { QuestionCard, Trend } from "./Charts";
 import { zonedNow } from "./flow";
@@ -17,23 +17,6 @@ import { duration, percent, presets, presetOf, presetRange, type Summary } from 
 import { copy, linkOf } from "./Share";
 
 const day = (v: string | null) => (v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null);
-
-function Tile({ label, value, hint, to }: { label: string; value: string | number; hint?: string; to?: string }) {
-  const inner = (
-    <>
-      <span className="fm-tile-n">{value}</span>
-      <span className="fm-tile-l">{isolate(label)}</span>
-      {hint && <span className="faint fm-tile-h">{isolate(hint)}</span>}
-    </>
-  );
-  return to ? (
-    <Link className="fm-tile" to={to}>
-      {inner}
-    </Link>
-  ) : (
-    <div className="fm-tile">{inner}</div>
-  );
-}
 
 export function ResultsRoute() {
   const { id = "" } = useParams();
@@ -80,8 +63,8 @@ export function ResultsRoute() {
       { replace: true },
     );
 
-  if (doc.error) return <ErrorState error={doc.error} onRetry={() => void doc.refetch()} title={t("Could not open this form")} />;
-  if (!doc.data) return <PageLoading label={t("Opening the results…")} />;
+  if (doc.error) return <StatePanel kind="failed" error={doc.error} onRetry={() => void doc.refetch()} title={t("Could not open this form")} />;
+  if (!doc.data) return <TableSkeleton columns={4} rows={4} />;
   const form = doc.data;
   const asked: Asked[] = askedOf(form);
   const live = form.status === "Published";
@@ -145,7 +128,7 @@ export function ResultsRoute() {
       <div className="fm-filters" role="group" aria-label={t("Days to look at")}>
         <div className="chips">
           {presets().map(([p, label]) => (
-            <button key={p} type="button" className="chip" aria-pressed={preset === p} onClick={() => { const [a, b] = presetRange(p, today); set({ from: a, to: b }); }}>
+            <button key={p} type="button" className="fm-pill" aria-pressed={preset === p} onClick={() => { const [a, b] = presetRange(p, today); set({ from: a, to: b }); }}>
               {isolate(label)}
             </button>
           ))}
@@ -163,46 +146,48 @@ export function ResultsRoute() {
       <TabPanel id="results" tab={view}>
         {view === "summary" ? (
           summary.error ? (
-            <ErrorState error={summary.error} onRetry={() => void summary.refetch()} />
+            <StatePanel kind="failed" error={summary.error} onRetry={() => void summary.refetch()} />
           ) : !s ? (
-            <div className="fm-tiles" aria-busy="true" aria-label={t("Loading the numbers")}>
-              {[0, 1, 2, 3].map((i) => (
-                <div key={i} className="fm-tile">
-                  <span className="skeleton" style={{ width: "50%", height: 24 }} />
-                </div>
-              ))}
-            </div>
+            <TableSkeleton columns={4} rows={2} />
           ) : s.responses === 0 && !s.spam ? (
-            <EmptyState title={from || to ? t("No responses in these days") : t("No responses yet")} icon="doc">
-              {from || to ? (
-                <Button onClick={() => set({ from: null, to: null })}>{t("Look at all time")}</Button>
-              ) : live && slug ? (
-                <>
-                  <p className="muted">{t("Share the link and the answers collect here.")}</p>
+            from || to ? (
+              <StatePanel kind="no-matches" title={t("No responses in these days")} onClear={() => set({ from: null, to: null })} clearLabel={t("Look at all time")} />
+            ) : live && slug ? (
+              <StatePanel
+                kind="empty"
+                title={t("No responses yet")}
+                action={
                   <Button variant="primary" onClick={() => void copy(linkOf(slug))}>
                     <Copy size={16} aria-hidden="true" /> {t("Copy the link")}
                   </Button>
-                </>
-              ) : (
-                <>
-                  <p className="muted">{form.status === "Closed" ? t("It was closed before anyone answered.") : t("Publish the form to start taking responses.")}</p>
+                }
+              >
+                {t("Share the link and the answers collect here.")}
+              </StatePanel>
+            ) : (
+              <StatePanel
+                kind="empty"
+                title={t("No responses yet")}
+                action={
                   <Link className="btn btn-primary btn-md" to={`/b/${id}?tab=share`}>
                     {form.status === "Closed" ? t("Reopen it") : t("Publish it")}
                   </Link>
-                </>
-              )}
-            </EmptyState>
+                }
+              >
+                {form.status === "Closed" ? t("It was closed before anyone answered.") : t("Publish the form to start taking responses.")}
+              </StatePanel>
+            )
           ) : (
             <>
-              <div className="fm-tiles">
-                <Tile label={s.responses === 1 ? t("response") : t("responses")} value={s.responses} />
-                <Tile label={t("opened it")} value={s.views} hint={t("people who opened the link")} />
-                <Tile label="finished" value={percent(s.completion_rate)} hint={t("of those who opened it")} />
-                <Tile label={t("typical time")} value={duration(s.completion_time.median_seconds)} />
-                {s.quiz && <Tile label={t("average score")} value={percent(s.quiz.average_percent)} hint={t("{graded} marked", { graded: s.quiz.graded })} />}
-                {s.quiz && s.quiz.passed + s.quiz.failed > 0 && <Tile label="passed" value={percent(s.quiz.pass_rate)} hint={t("{passed} of {value}", { passed: s.quiz.passed, value: s.quiz.passed + s.quiz.failed })} />}
-                {s.spam > 0 && <Tile label={t("kept as spam")} value={s.spam} to={`?view=responses&status=Spam`} />}
-              </div>
+              <StatGrid>
+                <Stat label={s.responses === 1 ? t("Response") : t("Responses")} value={s.responses} />
+                <Stat label={t("Opened it")} value={s.views} hint={t("people who opened the link")} />
+                <Stat label={t("Finished")} value={percent(s.completion_rate)} hint={t("of those who opened it")} />
+                <Stat label={t("Typical time")} value={duration(s.completion_time.median_seconds)} />
+                {s.quiz && <Stat label={t("Average score")} value={percent(s.quiz.average_percent)} hint={t("{graded} marked", { graded: s.quiz.graded })} />}
+                {s.quiz && s.quiz.passed + s.quiz.failed > 0 && <Stat label={t("Passed")} value={percent(s.quiz.pass_rate)} hint={t("{passed} of {value}", { passed: s.quiz.passed, value: s.quiz.passed + s.quiz.failed })} />}
+                {s.spam > 0 && <Stat label={t("Kept as spam")} value={s.spam} to="?view=responses&status=Spam" />}
+              </StatGrid>
               <Trend trend={s.trend} />
               <div className="fm-qcards">
                 {s.questions.map((q, i) => (
@@ -236,7 +221,7 @@ export function ResultsRoute() {
 export function ResponseRoute() {
   const { id = "" } = useParams();
   const q = useQuery({ queryKey: ["forms", "response-form", id], queryFn: ({ signal }) => api.get<{ form?: string }>(docPath("FormResponse", id), { fields: "form" }, signal) });
-  if (q.error) return <ErrorState error={q.error} onRetry={() => void q.refetch()} title={t("Could not open this response")} />;
-  if (!q.data) return <PageLoading />;
+  if (q.error) return <StatePanel kind="failed" error={q.error} onRetry={() => void q.refetch()} title={t("Could not open this response")} />;
+  if (!q.data) return <TableSkeleton columns={4} rows={2} />;
   return <Navigate to={q.data.form ? `/b/${q.data.form}/results?view=responses&open=${id}` : "/"} replace />;
 }

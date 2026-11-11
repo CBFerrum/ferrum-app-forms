@@ -9,7 +9,7 @@ import { CalendarClock, Lock, SearchX } from "lucide-react";
 import { type CSSProperties, type ReactNode, useEffect, useMemo, useRef } from "react";
 import { useParams, useSearchParams } from "react-router";
 import { api, ApiError, bootstrap, shell, t as tr, isolate } from "@ferrum/client";
-import { Button, Spinner, placed } from "@ferrum/kit";
+import { Button, FormSkeleton, placed } from "@ferrum/kit";
 import { accentVars } from "./accent";
 import { Notice, QuizResultView } from "./Done";
 import type { Opened, QuizResult, Receipt } from "./model";
@@ -60,10 +60,7 @@ function Plain({ children, accent }: { children: ReactNode; accent?: string | nu
 function Loading() {
   return (
     <Plain>
-      <div className="fr-loading" role="status">
-        <Spinner />
-        <span className="muted">{tr("Opening the form…")}</span>
-      </div>
+      <FormSkeleton />
     </Plain>
   );
 }

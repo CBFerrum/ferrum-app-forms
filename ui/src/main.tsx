@@ -9,7 +9,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { createBrowserRouter, Link, RouterProvider, useRouteError } from "react-router";
 import { addCatalogs, routeBase, t, wordsReady } from "@ferrum/client";
-import { ConfirmHost, EmptyState, ErrorState, Spinner, Toaster } from "@ferrum/kit";
+import { ConfirmHost, EmptyState, ErrorState, FormSkeleton, Toaster } from "@ferrum/kit";
 import "./styles.css";
 
 // Its own words in the page's language (src/locales), fetched as the page starts; it is drawn once they are in.
@@ -36,12 +36,7 @@ function NotFound() {
 }
 
 /** What a page shows while its code loads for the first time. */
-const opening = (
-  <div className="fr-loading" role="status">
-    <Spinner />
-    <span className="muted">{t("Opening…")}</span>
-  </div>
-);
+const opening = <FormSkeleton />;
 
 const router = createBrowserRouter(
   [

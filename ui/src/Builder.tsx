@@ -8,7 +8,7 @@ import { ArrowLeft, BarChart3, Copy, Ellipsis, Eye, ExternalLink, Lock, RotateCc
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { api, ApiError, bootstrap, docPath, errorMessage, t as tr, isolate } from "@ferrum/client";
-import { Alert, Badge, Button, confirmDialog, ErrorState, PageLoading, TabPanel, Tabs, toast, useDebounced, useLiveEntity, useShellTitle, useUnsavedGuard } from "@ferrum/kit";
+import { Alert, Badge, Button, confirmDialog, FormSkeleton, SaveStatus, StatePanel, TabPanel, Tabs, toast, useDebounced, useLiveEntity, useShellTitle, useUnsavedGuard } from "@ferrum/kit";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@ferrum/kit/primitives";
 import { type Basics, problems, type QRow, toPublic } from "./rows";
 import { Questions } from "./Cards";
@@ -277,9 +277,7 @@ function BuilderPage({ doc }: { doc: FormDoc }) {
             <ArrowLeft size={16} aria-hidden="true" /> {tr("Forms")}
           </Link>
           <span className="spacer" />
-          <p className="fm-saved" role="status" aria-live="polite">
-            {busy === "save" ? tr("Saving…") : isDirty ? tr("Unsaved changes") : tr("All changes saved")}
-          </p>
+          <SaveStatus state={busy === "save" ? "saving" : isDirty ? "draft" : "saved"} />
         </div>
         <div className="fm-head-main">
           <div className="fm-title-wrap">
@@ -428,7 +426,7 @@ function BuilderPage({ doc }: { doc: FormDoc }) {
 export function BuilderRoute() {
   const { id = "" } = useParams();
   const q = useQuery({ queryKey: key(id), queryFn: ({ signal }) => api.get<FormDoc>(docPath("Form", id), undefined, signal), staleTime: 0 });
-  if (q.error) return <ErrorState error={q.error} onRetry={() => void q.refetch()} title={tr("Could not open this form")} />;
-  if (!q.data) return <PageLoading label={tr("Opening the form…")} />;
+  if (q.error) return <StatePanel kind={q.error instanceof ApiError && q.error.status === 403 ? "denied" : "failed"} error={q.error} onRetry={() => void q.refetch()} title={tr("Could not open this form")} />;
+  if (!q.data) return <FormSkeleton />;
   return <BuilderPage key={id} doc={q.data} />;
 }
