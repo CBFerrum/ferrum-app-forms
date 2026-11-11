@@ -1,0 +1,1 @@
+import{c as e}from"./index-JSHXAMNe.js";const o={name:"arrow-left",size:24,node:[["path",{d:"m12 19-7-7 7-7",key:"1l729n"}],["path",{d:"M19 12H5",key:"x3x0zl"}]]};o.node;const n=e(o);const t={name:"x",size:24,node:[["path",{d:"M18 6 6 18",key:"1bl5f8"}],["path",{d:"m6 6 12 12",key:"d8bk6v"}]]};t.node;const c=e(t);export{n as A,c as X};

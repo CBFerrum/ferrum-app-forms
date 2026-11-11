@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.17
+
+The interface follows the upgraded design system, rebuilt with Ferrum-Frontend 0a47157. Text uses the kit's type roles (nothing under 12px) and controls its height tokens; loading shows skeletons shaped like what is coming; empty, no matches, denied, offline and failed are told apart; status colours come from stored state ids. The interface check now runs the UI lint against an empty baseline. The builder shows the kit's save status; filter pills have their own class. The results figures use the kit's Stat, and two words that were fixed in English are now translated.
+
 ## 0.2.16
 
 The reports it defines in code (their titles and parameters) have names in Arabic and Hindi too, with its models' and manifest's (196 each in ui/src/locales/names). Translated by the model, to be reviewed by native speakers.

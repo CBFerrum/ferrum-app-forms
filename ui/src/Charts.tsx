@@ -7,7 +7,7 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import { ChevronDown } from "lucide-react";
 import { type ReactNode, useId, useState } from "react";
 import { api, formatDateTime, t as tr, isolate } from "@ferrum/client";
-import { Button, ErrorState, Spinner } from "@ferrum/kit";
+import { Button, Spinner, StatePanel } from "@ferrum/kit";
 import { kindLabel } from "./model";
 import { type AnswersPage, npsGroup, num, percent, type QSummary, type Summary, trendLine } from "./stats";
 
@@ -136,7 +136,7 @@ function Words({ formId, q }: { formId: string; q: QSummary }) {
           <ChevronDown size={16} aria-hidden="true" /> {tr("Read the answers")}
         </Button>
       ) : pages.error ? (
-        <ErrorState error={pages.error} onRetry={() => void pages.refetch()} />
+        <StatePanel kind="failed" error={pages.error} onRetry={() => void pages.refetch()} />
       ) : !pages.data ? (
         <Spinner label={tr("Loading the answers")} />
       ) : (
