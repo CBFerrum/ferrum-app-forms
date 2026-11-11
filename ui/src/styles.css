@@ -1831,44 +1831,6 @@ a.fm-stat {
   width: 10.5rem;
 }
 
-.fm-tiles {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 9.5rem), 1fr));
-  gap: 0.625rem;
-}
-
-.fm-tile {
-  display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
-  padding: 0.75rem 0.875rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface);
-  color: var(--text);
-}
-
-a.fm-tile:hover {
-  border-color: var(--primary);
-  text-decoration: none;
-}
-
-.fm-tile-n {
-  font-size: var(--text-2xl);
-  font-variant-numeric: tabular-nums;
-  font-weight: 700;
-  line-height: 1.15;
-}
-
-.fm-tile-l {
-  color: var(--muted-foreground);
-  font-size: var(--text-sm);
-}
-
-.fm-tile-h {
-  font-size: var(--text-xs);
-}
-
 .fm-trend {
   margin: 0;
   padding: 0.875rem 1rem 0.625rem;

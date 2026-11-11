@@ -501,7 +501,6 @@
   "all of these": "كل هذه",
   "any of these": "أي من هذه",
   "average place": "متوسط الترتيب",
-  "average score": "متوسط الدرجة",
   "bad escape": "تهريب غير صالح",
   "cannot index this value": "لا يمكن فهرسة هذه القيمة",
   "cannot negate this value": "لا يمكن نفي هذه القيمة",
@@ -520,7 +519,6 @@
   "index out of range": "الفهرس خارج النطاق",
   "int() cannot read this value": "لا يمكن لـ int()‎ قراءة هذه القيمة",
   "is not answered": "لم يُجب عنه",
-  "kept as spam": "محفوظ كبريد مزعج",
   "matches() needs text": "تحتاج matches()‎ إلى نص",
   "modulus by zero": "باقي قسمة على صفر",
   "needs an answer": "يحتاج إلى إجابة",
@@ -530,7 +528,6 @@
   "no such key '{field}'": "لا يوجد مفتاح '{field}'",
   "not comparable": "غير قابل للمقارنة",
   "of those who opened it": "ممن فتحوه",
-  "opened it": "فتحوه",
   "or drop it here": "أو أفلته هنا",
   "or drop them here": "أو أفلتها هنا",
   "out of range": "خارج النطاق",
@@ -547,7 +544,6 @@
   "this page break": "فاصل الصفحة هذا",
   "this question": "هذا السؤال",
   "this workspace": "مساحة العمل هذه",
-  "typical time": "الوقت المعتاد",
   "undeclared reference to '{name}'": "إشارة غير معرّفة إلى '{name}'",
   "up to {max} files": "حتى {max} ملفات",
   "up to {mb} MB": "حتى {mb} ميغابايت",
@@ -582,5 +578,10 @@
   "{value} in {a}": "{value} في {a}",
   "{value} · {answered} answered": "{value} · أجاب {answered}",
   "{value} · {answered} answered, {skipped} skipped": "{value} · أجاب {answered}، وتخطّى {skipped}",
-  "· first for {first_place}": "· الأول لـ {first_place}"
+  "· first for {first_place}": "· الأول لـ {first_place}",
+  "Opened it": "فتحوه",
+  "Finished": "أنهوه",
+  "Typical time": "الوقت المعتاد",
+  "Average score": "متوسط الدرجة",
+  "Kept as spam": "محفوظ كبريد مزعج"
 }
