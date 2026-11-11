@@ -7,7 +7,7 @@ import { ArrowLeft, Copy, Download, Pencil } from "lucide-react";
 import { useCallback, useEffect, useRef } from "react";
 import { Link, Navigate, useParams, useSearchParams } from "react-router";
 import { api, bootstrap, docPath, download, errorMessage, t, isolate } from "@ferrum/client";
-import { Badge, Button, StatePanel, TableSkeleton, TabPanel, Tabs, toast, useLiveEntity, useShellTitle } from "@ferrum/kit";
+import { Badge, Button, Stat, StatGrid, StatePanel, TableSkeleton, TabPanel, Tabs, toast, useLiveEntity, useShellTitle } from "@ferrum/kit";
 import { can, useEntityMeta } from "@ferrum/records";
 import { QuestionCard, Trend } from "./Charts";
 import { zonedNow } from "./flow";
@@ -17,23 +17,6 @@ import { duration, percent, presets, presetOf, presetRange, type Summary } from 
 import { copy, linkOf } from "./Share";
 
 const day = (v: string | null) => (v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null);
-
-function Tile({ label, value, hint, to }: { label: string; value: string | number; hint?: string; to?: string }) {
-  const inner = (
-    <>
-      <span className="fm-tile-n">{value}</span>
-      <span className="fm-tile-l">{isolate(label)}</span>
-      {hint && <span className="faint fm-tile-h">{isolate(hint)}</span>}
-    </>
-  );
-  return to ? (
-    <Link className="fm-tile" to={to}>
-      {inner}
-    </Link>
-  ) : (
-    <div className="fm-tile">{inner}</div>
-  );
-}
 
 export function ResultsRoute() {
   const { id = "" } = useParams();
@@ -196,15 +179,15 @@ export function ResultsRoute() {
             )
           ) : (
             <>
-              <div className="fm-tiles">
-                <Tile label={s.responses === 1 ? t("response") : t("responses")} value={s.responses} />
-                <Tile label={t("opened it")} value={s.views} hint={t("people who opened the link")} />
-                <Tile label="finished" value={percent(s.completion_rate)} hint={t("of those who opened it")} />
-                <Tile label={t("typical time")} value={duration(s.completion_time.median_seconds)} />
-                {s.quiz && <Tile label={t("average score")} value={percent(s.quiz.average_percent)} hint={t("{graded} marked", { graded: s.quiz.graded })} />}
-                {s.quiz && s.quiz.passed + s.quiz.failed > 0 && <Tile label="passed" value={percent(s.quiz.pass_rate)} hint={t("{passed} of {value}", { passed: s.quiz.passed, value: s.quiz.passed + s.quiz.failed })} />}
-                {s.spam > 0 && <Tile label={t("kept as spam")} value={s.spam} to={`?view=responses&status=Spam`} />}
-              </div>
+              <StatGrid>
+                <Stat label={s.responses === 1 ? t("Response") : t("Responses")} value={s.responses} />
+                <Stat label={t("Opened it")} value={s.views} hint={t("people who opened the link")} />
+                <Stat label={t("Finished")} value={percent(s.completion_rate)} hint={t("of those who opened it")} />
+                <Stat label={t("Typical time")} value={duration(s.completion_time.median_seconds)} />
+                {s.quiz && <Stat label={t("Average score")} value={percent(s.quiz.average_percent)} hint={t("{graded} marked", { graded: s.quiz.graded })} />}
+                {s.quiz && s.quiz.passed + s.quiz.failed > 0 && <Stat label={t("Passed")} value={percent(s.quiz.pass_rate)} hint={t("{passed} of {value}", { passed: s.quiz.passed, value: s.quiz.passed + s.quiz.failed })} />}
+                {s.spam > 0 && <Stat label={t("Kept as spam")} value={s.spam} to="?view=responses&status=Spam" />}
+              </StatGrid>
               <Trend trend={s.trend} />
               <div className="fm-qcards">
                 {s.questions.map((q, i) => (
