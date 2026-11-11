@@ -872,16 +872,6 @@ legend.fr-label + *,
   font-variant-numeric: tabular-nums;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .fr *,
-  .fr *::before,
-  .fr *::after {
-    scroll-behavior: auto !important;
-    transition: none !important;
-    animation: none !important;
-  }
-}
-
 /* ═══════════════ for the people who build forms (fm-) ═══════════════ */
 
 .fm-page {
