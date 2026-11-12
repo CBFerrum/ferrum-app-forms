@@ -53,6 +53,8 @@ pub struct Incoming<'a> {
     pub session: Option<Session>,
     pub honeypot: bool,
     pub client_ip: Option<&'a str>,
+    /// The form's hidden fields as the link passed them (already filtered to the form's keys).
+    pub hidden: Map<String, Value>,
 }
 
 /// A checked response, ready to write.
@@ -108,6 +110,7 @@ fn prepare(form: &FormView, inc: &Incoming<'_>, sub: Submission, key: &Key, now:
         "respondent_name": if keep { inc.respondent.name.clone() } else { None },
         "respondent_user": if keep { inc.respondent.user.map(|u| u.to_string()) } else { None },
         "answers": Value::Object(sub.answers),
+        "hidden": if inc.hidden.is_empty() { Value::Null } else { Value::Object(inc.hidden.clone()) },
         "completion_seconds": inc.session.map(|sess| (now.timestamp() - sess.issued).max(0)),
         "ip_hash": inc.client_ip.filter(|_| keep).map(|ip| token::ip_hash(key, ip)),
         "spam_reason": spam_reason,
@@ -355,7 +358,15 @@ pub async fn enter(
     sys.request_id = engine_of(ctx).request_id;
     let key = token::key(tx, ctx.tenant).await?;
     let sub = evaluate(&form.def, answers, &answers::Env::new(zone(&ctx.schema.timezone))).map_err(Error::Validation)?;
-    let inc = Incoming { source: Source::Manual, answers, respondent: Respondent { user: None, email, name }, session: None, honeypot: false, client_ip: None };
+    let inc = Incoming {
+        source: Source::Manual,
+        answers,
+        respondent: Respondent { user: None, email, name },
+        session: None,
+        honeypot: false,
+        client_ip: None,
+        hidden: Map::new(),
+    };
     let p = prepare(form, &inc, sub, &key, Utc::now())?;
     let files = store_files(k, &sys, &p.uploads).await?;
     match write(k, &sys, tx, form, &p, &files).await {
@@ -514,7 +525,8 @@ async fn create_record(k: &Kernel, sys: &Ctx, tx: &mut Tx, form: &FormView, resp
     let target = form.text("target_entity").unwrap_or_default();
     let Some(ent) = sys.schema.entity(target).cloned() else { return Ok(Err(format!("{target} is not installed in this workspace"))) };
     let answers = resp.get("answers").and_then(Value::as_object).cloned().unwrap_or_default();
-    let input = mapping::input(&form.def, &ent, &mapping::rows(&form.doc), &answers);
+    let hidden = resp.get("hidden").and_then(Value::as_object).cloned().unwrap_or_default();
+    let input = mapping::input(&form.def, &ent, &mapping::rows(&form.doc), &answers, &hidden);
     sqlx::query("savepoint forms_record").execute(&mut **tx).await?;
     match k.insert_tx(sys, tx, target, input).await {
         Ok(doc) => {

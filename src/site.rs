@@ -86,6 +86,11 @@ async fn definition(k: &Kernel, sys: &Ctx, req: &SiteRequest, slug: &str) -> Res
         }
     }
     let tz = zone(&sys.schema.timezone);
+    let key = token::key(&mut tx, sys.tenant).await?;
+    // Hidden fields from the link's query (only the form's own), then a signed link's values over them.
+    let hidden_keys = form.hidden_keys();
+    let mut hidden = crate::form::hidden_values(&hidden_keys, &req.query);
+    let signed = query(req, "prefill").and_then(|t| token::read_prefill(&key, form.id, t, now.timestamp()));
     let mut prefill = Map::new();
     for q in form.def.questions.iter().filter(|q| q.allow_prefill) {
         let Some(raw) = query(req, &q.key) else { continue };
@@ -97,7 +102,16 @@ async fn definition(k: &Kernel, sys: &Ctx, req: &SiteRequest, slug: &str) -> Res
             prefill.insert(q.key.clone(), v);
         }
     }
-    let key = token::key(&mut tx, sys.tenant).await?;
+    if let Some(p) = &signed {
+        for (k, v) in &p.answers {
+            if let Some(q) = form.def.question(k)
+                && let Ok(Some((v, _))) = answers::normalize(q, v, tz)
+            {
+                prefill.insert(k.clone(), v);
+            }
+        }
+        hidden.extend(crate::form::hidden_values(&hidden_keys, &p.hidden));
+    }
     let session = Session { issued: now.timestamp(), nonce: token::nonce() };
     sqlx::query(
         "insert into forms_view (tenant_id, form_id, day, views) values ($1, $2, $3, 1) \
@@ -108,8 +122,10 @@ async fn definition(k: &Kernel, sys: &Ctx, req: &SiteRequest, slug: &str) -> Res
     .bind(sys.today())
     .execute(&mut *tx)
     .await?;
+    let work = if form.flag("proof_of_work") { Some(json!({"bits": settings_int(&mut tx, sys, "proof_of_work_bits", 18).await?})) } else { None };
     tx.commit().await?;
-    Ok(json!({"form": form.public(), "token": token::session_token(&key, form.id, session), "prefill": prefill}))
+    Ok(json!({"form": form.public(), "token": token::session_token(&key, form.id, session), "prefill": prefill, "hidden": hidden,
+              "prefill_token": signed.as_ref().and(query(req, "prefill")), "proof_of_work": work}))
 }
 
 /// `POST /f/{slug}/responses` `{token, answers, honeypot?}`.
@@ -138,6 +154,18 @@ async fn submit(k: &Kernel, sys: &Ctx, req: &SiteRequest, slug: &str) -> Result<
         return Err(Error::field("answers", "too many answers"));
     }
     let honeypot = b.get("honeypot").is_some_and(|v| !answers_blank(v));
+    // The form's hidden fields as the page sent them, a signed link's over them.
+    let hidden_keys = form.hidden_keys();
+    let mut hidden = match b.get("hidden") {
+        Some(Value::Object(m)) => crate::form::hidden_values(&hidden_keys, m),
+        _ => Map::new(),
+    };
+    if let Some(p) = b.get("prefill_token").and_then(Value::as_str).and_then(|t| token::read_prefill(&key, form.id, t, Utc::now().timestamp())) {
+        hidden.extend(crate::form::hidden_values(&hidden_keys, &p.hidden));
+    }
+    if req.user.is_none() {
+        guard(k, sys, &form, &key, req, &b, raw_token).await?;
+    }
     let respondent = match &req.user {
         Some(u) => Respondent { user: Some(u.user), email: Some(u.email.to_lowercase()), name: Some(u.full_name.clone()).filter(|n| !n.is_empty()) },
         None => Respondent::default(),
@@ -149,9 +177,56 @@ async fn submit(k: &Kernel, sys: &Ctx, req: &SiteRequest, slug: &str) -> Result<
         session: Some(session),
         honeypot,
         client_ip: Some(req.client_ip.as_str()),
+        hidden,
     };
     let (resp, replayed) = response::submit(k, sys, &form, inc).await?;
     Ok((if replayed { 200 } else { 201 }, response::receipt(&form, resp.as_ref(), replayed, &key)))
+}
+
+/// A whole-number setting of Forms Settings, its default until the record is saved.
+async fn settings_int(tx: &mut Tx, sys: &Ctx, field: &str, default: i64) -> Result<i64> {
+    let sql = format!("select {field}::bigint from e_forms_settings where tenant_id = $1 limit 1");
+    Ok(sqlx::query_scalar::<_, Option<i64>>(sqlx::AssertSqlSafe(sql)).bind(sys.tenant).fetch_optional(&mut **tx).await?.flatten().unwrap_or(default))
+}
+
+/// What a public response passes before it is read: the proof of work the form asks for, the check it names, and at
+/// most Forms Settings' responses per address and hour to this form (counted in `forms_rate` by an upsert, so
+/// concurrent sends from one address are all counted and none gets past the limit).
+async fn guard(k: &Kernel, sys: &Ctx, form: &FormView, key: &token::Key, req: &SiteRequest, b: &Map<String, Value>, raw_token: &str) -> Result<()> {
+    let mut tx = k.db.tenant_tx(sys.tenant).await?;
+    if form.flag("proof_of_work") {
+        let bits = settings_int(&mut tx, sys, "proof_of_work_bits", 18).await?.clamp(8, 26) as u32;
+        let work = b.get("work").and_then(Value::as_str).unwrap_or_default();
+        if !token::work_done(raw_token, work, bits) {
+            return Err(Error::field("work", "your browser did not finish the check that keeps robots out: reload the form and send again"));
+        }
+    }
+    if let Some(name) = form.text("extra_check") {
+        let check =
+            crate::guard::find(name).ok_or_else(|| Error::Unavailable(format!("this form asks for the check {name}, which this server does not have")))?;
+        let p = crate::guard::Presented { tenant: sys.tenant, form: form.id, proof: b.get("check").and_then(Value::as_str), client_ip: &req.client_ip };
+        if !check.verify(k, &p).await? {
+            return Err(Error::field("check", "the check that keeps robots out failed: try again"));
+        }
+    }
+    let limit = settings_int(&mut tx, sys, "responses_per_hour", 30).await?;
+    if limit > 0 {
+        let sent: i32 = sqlx::query_scalar(
+            "insert into forms_rate (tenant_id, form_id, ip_hash, hour, sent) values ($1, $2, $3, date_trunc('hour', now()), 1) \
+             on conflict (tenant_id, form_id, ip_hash, hour) do update set sent = forms_rate.sent + 1 returning sent",
+        )
+        .bind(sys.tenant)
+        .bind(form.id)
+        .bind(token::ip_hash(key, &req.client_ip))
+        .fetch_one(&mut *tx)
+        .await?;
+        if i64::from(sent) > limit {
+            tx.commit().await?;
+            return Err(Error::TooManyRequests("too many responses to this form from your network: try again in an hour".into()));
+        }
+    }
+    tx.commit().await?;
+    Ok(())
 }
 
 fn answers_blank(v: &Value) -> bool {

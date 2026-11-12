@@ -132,9 +132,79 @@ pub fn address_hash(key: &Key, form: Uuid, email: &str) -> String {
     hex::encode(&mac(key, b"ferrum-forms-address:", &[form.as_bytes(), email.trim().to_lowercase().as_bytes()]).finalize().into_bytes()[..16])
 }
 
+/// What a signed prefill link carries: answers to show filled and hidden values to keep, for one form, until it expires.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct Prefill {
+    /// Unix seconds after which the link no longer fills anything.
+    pub expires: i64,
+    #[serde(default)]
+    pub answers: serde_json::Map<String, serde_json::Value>,
+    #[serde(default)]
+    pub hidden: serde_json::Map<String, serde_json::Value>,
+}
+
+/// A signed prefill token for `form`: its JSON, then its HMAC, base64url, joined by a dot.
+pub fn prefill_token(key: &Key, form: Uuid, p: &Prefill) -> String {
+    let body = serde_json::to_vec(p).unwrap_or_default();
+    let tag = mac(key, b"ferrum-forms-prefill:", &[form.as_bytes(), &body]).finalize().into_bytes();
+    format!("{}.{}", URL_SAFE_NO_PAD.encode(&body), URL_SAFE_NO_PAD.encode(tag))
+}
+
+/// What a prefill token of `form` carries, when it is genuine and has not expired; `now` in Unix seconds.
+pub fn read_prefill(key: &Key, form: Uuid, token: &str, now: i64) -> Option<Prefill> {
+    let (body, tag) = token.trim().split_once('.')?;
+    let body = URL_SAFE_NO_PAD.decode(body).ok()?;
+    let tag = URL_SAFE_NO_PAD.decode(tag).ok()?;
+    mac(key, b"ferrum-forms-prefill:", &[form.as_bytes(), &body]).verify_slice(&tag).ok()?;
+    let p: Prefill = serde_json::from_slice(&body).ok()?;
+    (now <= p.expires).then_some(p)
+}
+
+/// Whether `nonce` solves the proof-of-work of a session `token`: SHA-256 of `token:nonce` starts with `bits` zero bits.
+pub fn work_done(token: &str, nonce: &str, bits: u32) -> bool {
+    use sha2::Digest;
+    if nonce.len() > 64 {
+        return false;
+    }
+    let digest = Sha256::digest(format!("{token}:{nonce}").as_bytes());
+    let mut left = bits;
+    for byte in digest {
+        if left == 0 {
+            return true;
+        }
+        let take = left.min(8);
+        if byte >> (8 - take) != 0 {
+            return false;
+        }
+        left -= take;
+    }
+    left == 0
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn prefill_links_are_signed_per_form_and_expire() {
+        let key = [3u8; 32];
+        let form = Uuid::now_v7();
+        let p = Prefill { expires: 1_000, answers: serde_json::json!({"name": "Asha"}).as_object().cloned().unwrap(), hidden: Default::default() };
+        let t = prefill_token(&key, form, &p);
+        assert_eq!(read_prefill(&key, form, &t, 999), Some(p.clone()));
+        assert_eq!(read_prefill(&key, form, &t, 1_001), None, "expired");
+        assert_eq!(read_prefill(&key, Uuid::now_v7(), &t, 999), None, "another form's");
+        let forged = format!("{}.{}", URL_SAFE_NO_PAD.encode(br#"{"expires":1000,"answers":{"name":"Eve"}}"#), t.split_once('.').unwrap().1);
+        assert_eq!(read_prefill(&key, form, &forged, 999), None, "changed values");
+    }
+
+    #[test]
+    fn proof_of_work_counts_leading_zero_bits() {
+        let found = (0..200_000u32).map(|n| n.to_string()).find(|n| work_done("tok", n, 12)).expect("a solution");
+        assert!(work_done("tok", &found, 12) && work_done("tok", &found, 0));
+        assert!(!work_done("other", &found, 12) || work_done("other", &found, 12), "deterministic");
+        assert!(!work_done("tok", &"x".repeat(65), 0), "a nonce is short");
+    }
 
     #[test]
     fn sessions_bind_key_form_and_time() {

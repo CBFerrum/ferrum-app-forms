@@ -85,6 +85,25 @@ Distributions, NPS, Likert and matrix breakdowns, trends and CSV exports.
 </tr>
 </table>
 
+### Since 0.3.0
+
+- **Hidden fields.** A form lists the keys its links may pass that respondents do not see (`hidden_fields`:
+  `utm_source, utm_campaign, record_id`): `?utm_source=mail` is kept with the response (Hidden Values) and maps like
+  an answer, into a text field, a choice or a link by the record's id. Other keys are dropped.
+- **Signed prefill.** Make a Prefilled Link (`prefill_link`, `{values, days}`) gives `f/<slug>?prefill=<token>`: a
+  token signed with the workspace's forms key, for this form only, until it expires (30 days by default), filling
+  any question and hidden field. Changed, it fills nothing; its hidden values win over what the page sends back.
+- **Abuse protection without an outside service.** Besides the honeypot, the minimum fill time and the signed session
+  token that expires after a day: at most Forms Settings' `responses_per_hour` public responses from one network
+  address to one form an hour (30; counted in the database by an upsert, so concurrent sends never get past it), and
+  an optional proof of work (`proof_of_work`, `proof_of_work_bits` 18: the page finds `work` such that SHA-256 of
+  `token:work` starts with that many zero bits). A captcha provider is added later as a check the server registers
+  (`ferrum_app_forms::guard::Check`, through a connection to the provider) and a form names (`extra_check`); the
+  page sends its answer as `check`. No outside service is called unless a form names one.
+- **Records by configuration.** Finding a customer by e-mail or making it, then a contact linked to it, is an
+  automation on Form Response `created` with `find` effects reading `doc.answers.<key>` (see
+  `tests/forms_it.rs`, `mapping_by_configuration`); the built-in mapping still makes one record.
+
 ## Screenshots
 
 <picture>
@@ -255,6 +274,7 @@ CHANGELOG.md  what changed in each version
 
 | Version | Highlights |
 |---|---|
+| **0.3.0** | Hidden fields kept and mapped; signed prefill links; a rate per address, an optional proof of work and a place for a captcha check; records found or made by configuration. |
 | **0.2.18** | Rebuilt on the tuned design system: better menu icons, a lighter first page, a visible scroll cue, cleaner print. |
 | **0.2.17** | The redesigned interface: the upgraded design system, shaped loading, told-apart states. |
 | **0.2.16** | Its reports' names in Arabic and Hindi. |

@@ -77,6 +77,10 @@
        description: "Email: one response per respondent email (the signed-in user's, or the answer to the email question). User: one per signed-in user (Internal forms; anonymous forms keep only who took part, apart from the answers)"}
     - {name: email_question, type: data, max_length: 40, description: "Key of a required email question holding the respondent's address (for one response per email and the autoresponse)"}
     - {name: min_fill_seconds, type: int, default: 3, min: 0, max: 3600, description: "Responses sent sooner after the form was opened are kept as spam (0 = off)"}
+    - {name: proof_of_work, type: check, description: "The respondent's browser does a small proof of work before sending (Forms Settings sets how much); no outside service is called"}
+    - {name: extra_check, type: data, max_length: 60, description: "The name of a check this server has (a captcha provider added later) that each public response must pass; empty = none"}
+    - {name: hidden_fields, type: data, max_length: 500,
+       description: "Keys a link may pass that respondents do not see (utm_source, utm_campaign, record_id), comma-separated: ?utm_source=mail. Kept with the response and mappable like an answer"}
     - {name: confirmation_message, type: text, max_length: 2000, description: Shown after a response is sent}
     - {name: redirect_url, type: url, max_length: 2000, description: "Where respondents go after sending (http or https)"}
     - {name: closed_message, type: text, max_length: 2000, description: Shown when the form is not accepting responses}
@@ -101,10 +105,17 @@
     - {name: close, label: Close, permission: write, condition: "doc.status == 'Published'"}
     - {name: duplicate, label: Duplicate, permission: create}
     - {name: record_response, label: Enter a Response, permission: write, condition: "doc.status == 'Published'"}
+    - name: prefill_link
+      label: Make a Prefilled Link
+      permission: write
+      params:
+        - {name: values, type: text, label: Values, required: true, description: "A JSON object of question or hidden keys and their values, e.g. {\"name\": \"Asha\", \"record_id\": \"...\"}"}
+        - {name: days, type: int, label: Valid For (Days), description: "How long the link fills the form (default 30)"}
   form:
     - {label: Form, fields: [title, kind, status, slug, owner, description], tab: Form}
     - {label: Questions, fields: [questions], tab: Questions}
-    - {label: Responses, fields: [access, anonymous, opens_at, closes_at, response_limit, one_response_per, email_question, min_fill_seconds], tab: Settings}
+    - {label: Responses, fields: [access, anonymous, opens_at, closes_at, response_limit, one_response_per, email_question, hidden_fields], tab: Settings}
+    - {label: Spam Protection, collapsible: true, fields: [min_fill_seconds, proof_of_work, extra_check], tab: Settings}
     - {label: After Responding, fields: [confirmation_message, redirect_url, closed_message, notify_on_response, notify_users], tab: Settings}
     - {label: Autoresponse, collapsible: true, fields: [autoresponder, autoresponder_subject, autoresponder_message], tab: Settings}
     - {label: Quiz, fields: [passing_score, reveal_answers], tab: Settings, visible_if: "doc.kind == 'Quiz'"}
@@ -134,6 +145,7 @@
     - {name: respondent_name, type: data, read_only: true, max_length: 200}
     - {name: respondent_user, type: data, read_only: true, max_length: 36, description: Id of the signed-in user who responded}
     - {name: answers, type: json, read_only: true, description: "Question key → answer, normalized; hidden and unanswered questions are absent"}
+    - {name: hidden, type: json, read_only: true, label: Hidden Values, description: "The form's hidden fields as the link passed them (campaign and source marks, a record id)"}
     - {name: score, type: decimal, read_only: true}
     - {name: max_score, type: decimal, read_only: true}
     - {name: quiz_result, type: select, options: [Passed, Failed], read_only: true, in_filter: true}
@@ -155,7 +167,7 @@
     - {name: create_record, label: Create Record, permission: write, condition: "doc.status != 'Spam' && doc.record_id == null"}
   form:
     - {label: Response, fields: [form, status, source, submitted_at, completion_seconds, respondent_email, respondent_name]}
-    - {label: Answers, fields: [answers]}
+    - {label: Answers, fields: [answers, hidden]}
     - {label: Quiz, fields: [score, max_score, quiz_result], visible_if: "doc.max_score > 0.0"}
     - {label: Follow-up, collapsible: true, fields: [record_entity, record_id, record_error, spam_reason]}
   list: {columns: [number, form, status, respondent_email, submitted_at], sort: submitted_at desc}
@@ -166,3 +178,5 @@
   module: forms
   fields:
     - {name: spam_retention_days, type: int, default: 30, min: 1, max: 3650, description: Responses marked as spam are deleted after this many days}
+    - {name: responses_per_hour, type: int, default: 30, min: 0, max: 100000, description: "Public responses one network address may send to one form in an hour (0 = no limit)"}
+    - {name: proof_of_work_bits, type: int, default: 18, min: 8, max: 26, description: "How much work a form asking for proof of work wants: each bit doubles it (18 is about a quarter of a second in a browser)"}

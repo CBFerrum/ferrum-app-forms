@@ -1,5 +1,5 @@
 package: forms
-version: 0.1.0
+version: 0.2.0
 label: Forms and Surveys
 description: Form and survey builder with public links, conditional logic, validations, file uploads, record creation from responses, quizzes, NPS and analytics
 depends: [core]
@@ -14,7 +14,7 @@ modules:
 # What a personal-data request exports and erases for a respondent (their email): who answered and
 # their answers.
 personal_data:
-  - {entity: FormResponse, match: respondent_email, erase: [respondent_email, respondent_name, respondent_user, answers, quiz_detail, ip_hash]}
+  - {entity: FormResponse, match: respondent_email, erase: [respondent_email, respondent_name, respondent_user, answers, hidden, quiz_detail, ip_hash]}
 roles:
   - name: Forms Manager
     description: Every form and every response, form ownership and the Forms settings.

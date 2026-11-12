@@ -88,6 +88,11 @@ impl FormView {
         s(&self.doc, k)
     }
 
+    /// The hidden fields a link may pass (`hidden_fields`, comma-separated keys).
+    pub fn hidden_keys(&self) -> Vec<String> {
+        hidden_keys(&self.doc)
+    }
+
     pub fn flag(&self, k: &str) -> bool {
         b(&self.doc, k)
     }
@@ -125,6 +130,25 @@ impl FormView {
             "questions": self.def.questions.iter().map(|q| q.public()).collect::<Vec<_>>(),
         })
     }
+}
+
+/// The hidden fields a form's links may pass.
+pub fn hidden_keys(doc: &Doc) -> Vec<String> {
+    s(doc, "hidden_fields").unwrap_or_default().split(',').map(str::trim).filter(|k| !k.is_empty()).map(str::to_string).collect()
+}
+
+/// Hidden values a link passed: only the form's hidden fields, as text of at most 500 characters.
+pub fn hidden_values(keys: &[String], given: &serde_json::Map<String, Value>) -> serde_json::Map<String, Value> {
+    keys.iter()
+        .filter_map(|k| {
+            let v = match given.get(k)? {
+                Value::String(t) => t.trim().to_string(),
+                Value::Number(n) => n.to_string(),
+                _ => return None,
+            };
+            (!v.is_empty()).then(|| (k.clone(), json!(v.chars().filter(|c| !c.is_control()).take(500).collect::<String>())))
+        })
+        .collect()
 }
 
 /// Whether question `key` is shown to everyone: no condition of its own or on its page.
@@ -293,7 +317,19 @@ impl DocHook for FormHook {
         let view = FormView::from_doc(doc.clone(), zone(&hc.ctx.schema.timezone))?;
         let mut errors = view.def_errors.clone();
         errors.extend(settings_errors(&view));
-        errors.extend(mapping::check(&hc.ctx.schema, &view.def, s(doc, "target_entity"), &mapping::rows(doc)));
+        for k in view.hidden_keys() {
+            if !valid_key(&k) {
+                errors.push(FieldError::new("hidden_fields", format!("'{k}' is not a key: a-z, 0-9 and _, starting with a letter")));
+            } else if view.def.question(&k).is_some() {
+                errors.push(FieldError::new("hidden_fields", format!("'{k}' is a question's key already")));
+            }
+        }
+        if let Some(check) = s(doc, "extra_check")
+            && crate::guard::find(check).is_none()
+        {
+            errors.push(FieldError::new("extra_check", format!("this server has no check named {check}")));
+        }
+        errors.extend(mapping::check(&hc.ctx.schema, &view.def, &view.hidden_keys(), s(doc, "target_entity"), &mapping::rows(doc)));
         if let Some(slug) = s(doc, "slug") {
             // The unique index decides under concurrency; this names the field for the editor.
             let taken: bool = sqlx::query_scalar("select exists (select 1 from e_form where tenant_id = $1 and slug = $2 and id is distinct from $3)")
@@ -474,6 +510,35 @@ impl DocHook for FormHook {
                 copy.insert("title".into(), json!(title));
                 let created = hc.kernel.insert_tx(hc.ctx, hc.tx, "Form", copy).await?;
                 Ok(Some(json!({"entity": "Form", "id": created.get("id"), "slug": created.get("slug")})))
+            }
+            "prefill_link" => {
+                let values: serde_json::Map<String, Value> = match params.get("values") {
+                    Some(Value::Object(m)) => m.clone(),
+                    Some(Value::String(t)) => serde_json::from_str(t).map_err(|_| Error::field("values", "a JSON object of keys and values"))?,
+                    _ => return Err(Error::field("values", "a JSON object of keys and values")),
+                };
+                let view = FormView::from_doc(doc.clone(), zone(&hc.ctx.schema.timezone))?;
+                let hidden_keys = view.hidden_keys();
+                let mut p = crate::token::Prefill { expires: 0, answers: Default::default(), hidden: hidden_values(&hidden_keys, &values) };
+                for (k, v) in &values {
+                    match view.def.question(k) {
+                        Some(q) => match answers::normalize(q, v, zone(&hc.ctx.schema.timezone)) {
+                            Ok(Some((v, _))) => {
+                                p.answers.insert(k.clone(), v);
+                            }
+                            Ok(None) => {}
+                            Err(m) => return Err(Error::field("values", format!("{k}: {m}"))),
+                        },
+                        None if hidden_keys.contains(k) => {}
+                        None => return Err(Error::field("values", format!("{k} is neither a question nor a hidden field of this form"))),
+                    }
+                }
+                let days = params.get("days").and_then(Value::as_i64).unwrap_or(30).clamp(1, 365);
+                p.expires = Utc::now().timestamp() + days * 86_400;
+                let key = crate::token::key(hc.tx, hc.ctx.tenant).await?;
+                let token = crate::token::prefill_token(&key, form, &p);
+                let slug = s(doc, "slug").unwrap_or_default();
+                Ok(Some(json!({"prefill": token, "link": format!("f/{slug}?prefill={token}"), "expires_in_days": days})))
             }
             "record_response" => {
                 let p = params.as_object().ok_or_else(|| Error::field("answers", "send {\"answers\": {question key: answer}}"))?;
