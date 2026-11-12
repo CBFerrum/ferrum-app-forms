@@ -278,7 +278,188 @@ async fn scenario() {
     analytics_and_exports(&t).await;
     permissions(&t, &every).await;
     manual_entry_and_edits(&t, &every).await;
+    hidden_fields_and_signed_prefill(&t).await;
+    mapping_by_configuration(&t).await;
+    abuse_guards(&t).await;
     maintenance(&t).await;
+}
+
+// ───────────────────────────── hidden fields and signed prefill (DC-1) ─────────────────────────────
+
+async fn hidden_fields_and_signed_prefill(t: &T) {
+    let commercial = t.find_one("CustomerGroup", json!({"group_name": "Commercial"})).await;
+    let clash =
+        t.k.insert(
+            &t.owner,
+            "Form",
+            obj(json!({"title": "Clash", "hidden_fields": "name, Bad Key",
+        "questions": [{"key": "name", "label": "Name", "question_type": "short_text"}]})),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(fields(&clash), ["hidden_fields", "hidden_fields"], "{clash:?}");
+    let form = t
+        .published(
+            &t.owner,
+            json!({"title": "Callback", "min_fill_seconds": 0, "hidden_fields": "utm_source, utm_campaign, group_id", "target_entity": "Customer",
+                   "questions": [{"key": "name", "label": "Name", "question_type": "short_text", "required": true}],
+                   "field_map": [{"target_field": "customer_name", "question": "name"}, {"target_field": "tax_id", "question": "utm_campaign"},
+                                 {"target_field": "customer_group", "question": "group_id"}]}),
+        )
+        .await;
+    let fid = uid(&form);
+    let (_, v) = t.call(None, "GET", "/f/callback?utm_source=newsletter&utm_campaign=spring&evil=1", None).await.unwrap();
+    assert_eq!(v["hidden"], json!({"utm_source": "newsletter", "utm_campaign": "spring"}), "only the form's own hidden fields");
+    let link = t.action(&t.owner, "Form", fid, "prefill_link", json!({"values": json!({"name": "Asha", "group_id": commercial["id"]}).to_string()})).await;
+    let signed = link["prefill"].as_str().unwrap().to_string();
+    assert!(link["link"].as_str().unwrap().starts_with("f/callback?prefill="));
+    let (_, v) = t.call(None, "GET", &format!("/f/callback?prefill={signed}&utm_source=web&utm_campaign=spring"), None).await.unwrap();
+    assert_eq!(
+        (v["prefill"]["name"].clone(), v["hidden"]["group_id"].clone(), v["hidden"]["utm_source"].clone()),
+        (json!("Asha"), commercial["id"].clone(), json!("web"))
+    );
+    let forged = format!("{}x", &signed[..signed.len() - 1]);
+    let (_, bad) = t.call(None, "GET", &format!("/f/callback?prefill={forged}"), None).await.unwrap();
+    assert!(bad["prefill"].as_object().unwrap().is_empty() && bad["hidden"].as_object().unwrap().is_empty(), "a changed link fills nothing");
+    // The page may send other hidden values back; the signed link's win, and unknown keys are dropped.
+    let other_group = Uuid::now_v7().to_string();
+    let (status, receipt) = t
+        .call(
+            None,
+            "POST",
+            "/f/callback/responses",
+            Some(json!({"token": v["token"], "answers": {"name": "Asha"}, "prefill_token": signed,
+            "hidden": {"utm_source": "web", "utm_campaign": "spring", "group_id": other_group, "evil": "x"}})),
+        )
+        .await
+        .unwrap();
+    assert_eq!(status, 201, "{receipt}");
+    let resp = t.response(&receipt).await;
+    assert_eq!(resp["hidden"], json!({"utm_source": "web", "utm_campaign": "spring", "group_id": commercial["id"]}));
+    t.drain().await;
+    let resp = t.response(&receipt).await;
+    let customer = t.get("Customer", resp["record_id"].as_str().unwrap_or_else(|| panic!("{resp:?}")).parse().unwrap()).await;
+    assert_eq!(
+        (customer["tax_id"].clone(), customer["customer_group"].clone()),
+        (json!("spring"), commercial["id"].clone()),
+        "hidden values mapped like answers"
+    );
+}
+
+// ───────────────────────────── find-or-create and links by configuration (DC-25) ─────────────────────────────
+
+async fn mapping_by_configuration(t: &T) {
+    let form = t
+        .published(
+            &t.owner,
+            json!({"title": "Trade account", "min_fill_seconds": 0, "questions": [
+                {"key": "company", "label": "Company", "question_type": "short_text", "required": true},
+                {"key": "mail", "label": "Email", "question_type": "email", "required": true},
+                {"key": "person", "label": "Your name", "question_type": "short_text", "required": true}]}),
+        )
+        .await;
+    // No code: an automation on the response finds the customer by e-mail or makes it, then the contact linked to it.
+    ferrum_kernel::automation::save(
+        &t.k,
+        &t.admin,
+        &obj(json!({"name": "Trade accounts", "entity": "FormResponse", "event": "created",
+            "condition": format!("doc.form == '{}' && doc.status == 'New'", uid(&form)),
+            "actions": [
+                {"type": "find", "entity": "Customer", "by": {"email": "doc.answers.mail"}, "create": {"customer_name": "doc.answers.company"}},
+                {"type": "find", "entity": "Contact", "by": {"first_name": "doc.answers.person", "customer": "results[0].id"}, "create": {}}]})),
+    )
+    .await
+    .expect("a mapping by configuration");
+    t.respond(None, "trade-account", json!({"company": "Hooli", "mail": "buy@hooli.test", "person": "Gavin"})).await;
+    t.respond(None, "trade-account", json!({"company": "Hooli Inc", "mail": "buy@hooli.test", "person": "Jared"})).await;
+    t.drain().await;
+    let customers = t.list(&t.admin, "Customer", json!({"email": "buy@hooli.test"})).await;
+    assert_eq!(customers.len(), 1, "found the second time, not made again");
+    assert_eq!(customers[0]["customer_name"], json!("Hooli"));
+    let contacts = t.list(&t.admin, "Contact", json!({"customer": customers[0]["id"]})).await;
+    let mut names: Vec<&str> = contacts.iter().map(|c| c["first_name"].as_str().unwrap()).collect();
+    names.sort();
+    assert_eq!(names, ["Gavin", "Jared"], "each linked to the customer");
+}
+
+// ───────────────────────────── abuse protection without an outside service (DC-17) ─────────────────────────────
+
+struct Says(&'static str);
+
+#[async_trait::async_trait]
+impl ferrum_app_forms::guard::Check for Says {
+    fn name(&self) -> &str {
+        "says-ok"
+    }
+    async fn verify(&self, _k: &Kernel, p: &ferrum_app_forms::guard::Presented<'_>) -> ferrum_kernel::Result<bool> {
+        Ok(p.proof == Some(self.0))
+    }
+}
+
+fn work(token: &str, bits: u32) -> String {
+    use sha2::Digest;
+    (0u64..)
+        .map(|n| n.to_string())
+        .find(|n| {
+            let d = sha2::Sha256::digest(format!("{token}:{n}").as_bytes());
+            let zeros = d.iter().take_while(|b| **b == 0).count() as u32 * 8 + d.iter().find(|b| **b != 0).map_or(0, |b| b.leading_zeros());
+            zeros >= bits
+        })
+        .unwrap()
+}
+
+async fn abuse_guards(t: &T) {
+    let settings = t.list(&t.admin, "FormsSettings", json!({})).await;
+    let values = json!({"proof_of_work_bits": 8, "responses_per_hour": 3});
+    match settings.first() {
+        Some(s) => {
+            t.k.update(&t.admin, "FormsSettings", uid(s), obj(values), None).await.unwrap();
+        }
+        None => {
+            t.insert(&t.admin, "FormsSettings", values).await;
+        }
+    }
+    t.published(
+        &t.owner,
+        json!({"title": "Guarded", "min_fill_seconds": 0, "proof_of_work": true,
+        "questions": [{"key": "name", "label": "Name", "question_type": "short_text", "required": true}]}),
+    )
+    .await;
+    let (v, token) = t.open(None, "guarded").await;
+    assert_eq!(v["proof_of_work"], json!({"bits": 8}));
+    let e = t.send(None, "guarded", &token, json!({"name": "Bot"})).await.unwrap_err();
+    assert_eq!(fields(&e), ["work"], "no work, no response");
+    // Five at once from one address, three an hour: three are kept, two refused, none counted twice.
+    let mut opened = Vec::new();
+    for _ in 0..5 {
+        let (_, token) = t.open(None, "guarded").await;
+        let w = work(&token, 8);
+        opened.push((token, w));
+    }
+    let send = |i: usize| t.call(None, "POST", "/f/guarded/responses", Some(json!({"token": opened[i].0, "work": opened[i].1, "answers": {"name": "Person"}})));
+    let (a, b, c, d, e) = tokio::join!(send(0), send(1), send(2), send(3), send(4));
+    let results = [a, b, c, d, e];
+    let kept = results.iter().filter(|r| matches!(r, Ok((201, _)))).count();
+    let refused = results.iter().filter(|r| matches!(r, Err(Error::TooManyRequests(_)))).count();
+    assert_eq!((kept, refused), (3, 2), "{results:?}");
+    // A check the server has, named by a form: a captcha provider's place.
+    ferrum_app_forms::guard::register(Arc::new(Says("human")));
+    let e = t.k.insert(&t.owner, "Form", obj(json!({"title": "Nope", "extra_check": "nope"}))).await.unwrap_err();
+    assert_eq!(fields(&e), ["extra_check"]);
+    t.published(
+        &t.owner,
+        json!({"title": "Checked", "min_fill_seconds": 0, "extra_check": "says-ok",
+        "questions": [{"key": "name", "label": "Name", "question_type": "short_text"}]}),
+    )
+    .await;
+    let (_, token) = t.open(None, "checked").await;
+    let e = t.call(None, "POST", "/f/checked/responses", Some(json!({"token": token, "answers": {"name": "x"}, "check": "robot"}))).await.unwrap_err();
+    assert_eq!(fields(&e), ["check"]);
+    let (status, _) = t.call(None, "POST", "/f/checked/responses", Some(json!({"token": token, "answers": {"name": "x"}, "check": "human"}))).await.unwrap();
+    assert_eq!(status, 201);
+    // Signed-in respondents and later forms are not held to these; the workspace's limit goes back.
+    let settings = t.list(&t.admin, "FormsSettings", json!({})).await;
+    t.k.update(&t.admin, "FormsSettings", uid(&settings[0]), obj(json!({"responses_per_hour": 30})), None).await.unwrap();
 }
 
 // ───────────────────────────── definitions ─────────────────────────────

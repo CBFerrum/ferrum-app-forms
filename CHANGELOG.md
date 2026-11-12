@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.3.0
+
+Closes the documents audit's tier-1 rows DC-1, DC-17 and DC-25 for Forms (DC-11, embedding, is not done: see the
+README's platform note).
+
+* **Hidden fields**: Form `hidden_fields` (keys a link may pass), Form Response `hidden`, the public definition's
+  `hidden`, the submit body's `hidden`; mappable in the field mapping (text, choice, link by id); erased with the
+  respondent's personal data.
+* **Signed prefill**: the Form action `prefill_link` (`values`, `days`), the definition's `?prefill=` and the submit
+  body's `prefill_token`.
+* **Abuse protection**: Forms Settings `responses_per_hour` (30) and `proof_of_work_bits` (18); Form `proof_of_work`
+  and `extra_check`; the table `forms_rate` (`sql/002_rate.sql`), cleared by upkeep after two hours; the trait
+  `guard::Check` and `guard::register`.
+* Finding or making a record and linking another to it is configuration (an automation on Form Response), tested.
+* The mapping unit test builds an entity with the platform's `document_approvals`.
+
 ## 0.2.18
 
 Rebuilt with Ferrum-Frontend 45dad7f, the design system as tuned after the landed build was reviewed. The left menu's icons are chosen so that none repeats on more than three rows and each fits its row; their drawings load beside the first page instead of inside it, so the page starts lighter; a row that scrolls sideways fades at the edge where there is more, in every browser and with reduced motion; a printed record leaves out empty fields and keeps its totals with the table; menus and popovers sit inside the page's landmarks for assistive technology; a selection bar folds what does not fit into More on a narrow screen. Nothing else changes.
