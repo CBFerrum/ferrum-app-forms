@@ -1,5 +1,6 @@
 //! Every-minute upkeep, per workspace with Forms: close forms whose closing time passed, delete
-//! spam older than the retention, forget autoresponse throttles older than two days. Each step
+//! spam older than the retention, forget autoresponse throttles older than two days and response counts per
+//! address of past hours. Each step
 //! is bounded and idempotent; a failing workspace or step does not stop the others.
 
 use crate::engine;
@@ -26,7 +27,12 @@ pub async fn run(k: &Kernel) -> Result<()> {
             }
         };
         let sys = engine(tenant, schema);
-        let steps = [("closing", close_due(k, &sys).await), ("spam", purge_spam(k, &sys).await), ("autoresponses", forget_throttles(k, &sys).await)];
+        let steps = [
+            ("closing", close_due(k, &sys).await),
+            ("spam", purge_spam(k, &sys).await),
+            ("autoresponses", forget_throttles(k, &sys).await),
+            ("rates", forget_rates(k, &sys).await),
+        ];
         for (step, outcome) in steps {
             match outcome {
                 Ok(n) if n > 0 => tracing::info!(%tenant, step, n, "forms maintenance"),
@@ -91,6 +97,18 @@ async fn purge_spam(k: &Kernel, sys: &Ctx) -> Result<u64> {
 async fn forget_throttles(k: &Kernel, sys: &Ctx) -> Result<u64> {
     let mut tx = k.db.tenant_tx(sys.tenant).await?;
     let n = sqlx::query("delete from forms_autoresponse where tenant_id = $1 and sent_at < now() - interval '2 days'")
+        .bind(sys.tenant)
+        .execute(&mut *tx)
+        .await?
+        .rows_affected();
+    tx.commit().await?;
+    Ok(n)
+}
+
+/// Counts of responses per address of hours gone by: only the current hour limits anything.
+async fn forget_rates(k: &Kernel, sys: &Ctx) -> Result<u64> {
+    let mut tx = k.db.tenant_tx(sys.tenant).await?;
+    let n = sqlx::query("delete from forms_rate where tenant_id = $1 and hour < now() - interval '2 hours'")
         .bind(sys.tenant)
         .execute(&mut *tx)
         .await?

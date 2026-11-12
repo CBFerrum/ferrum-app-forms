@@ -85,7 +85,7 @@ fn writable(f: &FieldDef) -> Result<(), &'static str> {
 }
 
 /// Checks a form's mapping against the schema. Errors name `target_entity` or rows of `field_map`.
-pub fn check(schema: &Schema, def: &Definition, target: Option<&str>, rows: &[MapRow]) -> Vec<FieldError> {
+pub fn check(schema: &Schema, def: &Definition, hidden: &[String], target: Option<&str>, rows: &[MapRow]) -> Vec<FieldError> {
     let mut errors = Vec::new();
     let Some(target) = target else {
         if !rows.is_empty() {
@@ -119,8 +119,14 @@ pub fn check(schema: &Schema, def: &Definition, target: Option<&str>, rows: &[Ma
         seen.push(&r.field);
         match (&r.question, &r.value) {
             (Some(_), Some(_)) | (None, None) => err("question", "map a question or a fixed value (one of them)".into()),
+            // A hidden field is text: it fills a text field, a choice the kernel checks, or a link by the record's id.
+            (Some(key), None) if def.question(key).is_none() && hidden.contains(key) => {
+                if !matches!(f.ftype, FieldType::Data | FieldType::Text | FieldType::Select | FieldType::Link | FieldType::Email | FieldType::Url) {
+                    err("question", format!("the hidden field {key} is text: it cannot fill this field"));
+                }
+            }
             (Some(key), None) => match def.question(key) {
-                None => err("question", format!("there is no question '{key}'")),
+                None => err("question", format!("there is no question or hidden field '{key}'")),
                 Some(q) => {
                     if let Err(m) = compatible(q, f) {
                         err("question", m);
@@ -154,12 +160,13 @@ pub fn fixed_links(ent: &EffEntity, rows: &[MapRow]) -> Vec<(String, uuid::Uuid)
         .collect()
 }
 
-/// The new record's input: mapped fields that have a value in this response.
-pub fn input(def: &Definition, ent: &EffEntity, rows: &[MapRow], answers: &Map<String, Value>) -> Doc {
+/// The new record's input: mapped fields that have a value in this response (an answer, or a hidden value).
+pub fn input(def: &Definition, ent: &EffEntity, rows: &[MapRow], answers: &Map<String, Value>, hidden: &Map<String, Value>) -> Doc {
     let mut out = Doc::new();
     for r in rows {
         let Some(f) = ent.field(&r.field) else { continue };
         let v = match (&r.question, &r.value) {
+            (Some(key), _) if def.question(key).is_none() => hidden.get(key).cloned().unwrap_or(Value::Null),
             (Some(key), _) => {
                 let (Some(q), Some(a)) = (def.question(key), answers.get(key)) else { continue };
                 convert(q, a, f)
@@ -253,6 +260,7 @@ mod tests {
             exprs: Default::default(),
             workflow: None,
             print_template: None,
+            document_approvals: Default::default(),
         };
         let map = vec![
             MapRow { field: "title".into(), question: Some("name".into()), value: None },
@@ -262,9 +270,9 @@ mod tests {
             MapRow { field: "source".into(), question: None, value: Some("Web form".into()) },
         ];
         let answers = json!({"name": "Asha", "days": 30, "tags": ["A", "B"], "cv": [{"id": "x", "url": "/files/x", "file_name": "cv.pdf"}]});
-        let input = input(&d, &ent, &map, answers.as_object().unwrap());
+        let input = input(&d, &ent, &map, answers.as_object().unwrap(), &Map::new());
         assert_eq!(Value::Object(input), json!({"title": "Asha", "days": 30, "tags": "A, B", "cv": "/files/x", "source": "Web form"}));
-        let partial = super::input(&d, &ent, &map, json!({"name": "Ravi"}).as_object().unwrap());
+        let partial = super::input(&d, &ent, &map, json!({"name": "Ravi"}).as_object().unwrap(), &Map::new());
         assert_eq!(Value::Object(partial), json!({"title": "Ravi", "source": "Web form"}), "unanswered questions set nothing");
     }
 }
