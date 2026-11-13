@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="360" viewBox="0 0 1280 360" role="img" aria-label="Ferrum Forms and Surveys: Forms, surveys and quizzes with conditional logic, exact analytics, and a record made from every response.">
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="360" viewBox="0 0 1280 360" role="img" aria-label="Ferrum Forms: Forms, surveys and quizzes whose answers become records in your business.">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0d1117"/><stop offset="1" stop-color="#142f2b"/></linearGradient>
     <linearGradient id="sheen" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset="0.5" stop-color="#fff" stop-opacity="0.07"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
@@ -25,10 +25,10 @@
   <rect x="0.5" y="0.5" width="1279" height="359" rx="28" fill="none" stroke="#30363d"/>
   <g class="tile"><g transform="translate(72 102)" filter="url(#shadow)"><rect width="144" height="144" rx="36" fill="url(#tile)"/><g transform="translate(36 36) scale(3)" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></g></g></g>
   <text x="264" y="138" font-size="17" font-weight="700" fill="#83cab1" letter-spacing="2.4">FERRUM APP</text>
-  <text x="262" y="198" font-size="58" font-weight="750" fill="#e6edf3" letter-spacing="-1">Ferrum Forms and Surveys</text>
-  <text x="264" y="244" font-size="23" fill="#9da7b3">Forms, surveys and quizzes with conditional logic,</text>
-  <text x="264" y="278" font-size="23" fill="#9da7b3">exact analytics, and a record made from every response.</text>
-  <g><rect x="264" y="310" width="70" height="30" rx="15" fill="#173b34"/><text x="298.8" y="330" font-size="14.5" font-weight="600" fill="#8dceb8" text-anchor="middle">v0.1.0</text></g>
-  <g><rect x="343.6" y="310" width="147" height="30" rx="15" fill="#173b34"/><text x="417.1" y="330" font-size="14.5" font-weight="600" fill="#8dceb8" text-anchor="middle">Records screens</text></g>
-  <g><rect x="500.6" y="310" width="87" height="30" rx="15" fill="#173b34"/><text x="544.0" y="330" font-size="14.5" font-weight="600" fill="#8dceb8" text-anchor="middle">AGPL-3.0</text></g>
+  <text x="262" y="198" font-size="58" font-weight="750" fill="#e6edf3" letter-spacing="-1">Ferrum Forms</text>
+  <text x="264" y="244" font-size="23" fill="#9da7b3">Forms, surveys and quizzes whose answers</text>
+  <text x="264" y="278" font-size="23" fill="#9da7b3">become records in your business.</text>
+  <g><rect x="264" y="310" width="70" height="30" rx="15" fill="#173b34"/><text x="298.8" y="330" font-size="14.5" font-weight="600" fill="#8dceb8" text-anchor="middle">v0.3.0</text></g>
+  <g><rect x="343.6" y="310" width="130" height="30" rx="15" fill="#173b34"/><text x="408.5" y="330" font-size="14.5" font-weight="600" fill="#8dceb8" text-anchor="middle">Own interface</text></g>
+  <g><rect x="483.40000000000003" y="310" width="87" height="30" rx="15" fill="#173b34"/><text x="526.8" y="330" font-size="14.5" font-weight="600" fill="#8dceb8" text-anchor="middle">AGPL-3.0</text></g>
 </svg>
