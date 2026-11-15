@@ -5,14 +5,16 @@
 
 use crate::answers::{self, Submission, Upload, display, evaluate, grade, instant_value, zone};
 use crate::form::{FormView, OnePer};
+use crate::keys;
 use crate::mapping;
-use crate::token::{self, Key, Session};
+use crate::token::{self, Session};
 use crate::{can_email, engine, engine_of, mail_installed};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use ferrum_domain::util::{elevated, id, rows, s};
 use ferrum_kernel::outbox::Event;
 use ferrum_kernel::value::decimal_value;
+use ferrum_kernel::vault::Derived;
 use ferrum_kernel::{Ctx, Doc, DocHook, Error, EventSink, HookCtx, Kernel, Result, Tx, notify, with_retry};
 use rust_decimal::Decimal;
 use serde_json::{Map, Value, json};
@@ -55,6 +57,8 @@ pub struct Incoming<'a> {
     pub client_ip: Option<&'a str>,
     /// The form's hidden fields as the link passed them (already filtered to the form's keys).
     pub hidden: Map<String, Value>,
+    /// The key of the senders' address hashes (`keys::HASHES`), where there is an address to hash.
+    pub hashes: Option<&'a [u8]>,
 }
 
 /// A checked response, ready to write.
@@ -71,7 +75,7 @@ enum Written {
     DroppedSpam,
 }
 
-fn prepare(form: &FormView, inc: &Incoming<'_>, sub: Submission, key: &Key, now: DateTime<Utc>) -> Result<Prepared> {
+fn prepare(form: &FormView, inc: &Incoming<'_>, sub: Submission, now: DateTime<Utc>) -> Result<Prepared> {
     let answer_email = form.email_question.as_ref().and_then(|k| sub.answers.get(k)).and_then(Value::as_str).map(str::to_lowercase);
     let email = inc.respondent.email.clone().map(|e| e.to_lowercase()).or(answer_email);
     let spam_reason = match (inc.source, inc.session) {
@@ -112,7 +116,7 @@ fn prepare(form: &FormView, inc: &Incoming<'_>, sub: Submission, key: &Key, now:
         "answers": Value::Object(sub.answers),
         "hidden": if inc.hidden.is_empty() { Value::Null } else { Value::Object(inc.hidden.clone()) },
         "completion_seconds": inc.session.map(|sess| (now.timestamp() - sess.issued).max(0)),
-        "ip_hash": inc.client_ip.filter(|_| keep).map(|ip| token::ip_hash(key, ip)),
+        "ip_hash": inc.client_ip.filter(|_| keep).zip(inc.hashes).map(|(ip, key)| token::ip_hash(key, ip)),
         "spam_reason": spam_reason,
         "session": inc.session.map(|sess| sess.id()),
     });
@@ -287,9 +291,8 @@ pub async fn submit(k: &Kernel, sys: &Ctx, form: &FormView, inc: Incoming<'_>) -
     }
     let tenant = sys.tenant;
     let now = Utc::now();
-    let key = {
+    {
         let mut tx = k.db.tenant_tx(tenant).await?;
-        let key = token::key(&mut tx, tenant).await?;
         // A retried submit gets what the first one got, even if the form has closed since.
         if let Some(sess) = inc.session
             && let Some(existing) = by_session(&mut tx, tenant, form.id, &sess.id()).await?
@@ -299,12 +302,11 @@ pub async fn submit(k: &Kernel, sys: &Ctx, form: &FormView, inc: Incoming<'_>) -
             return Ok((Some(doc), true));
         }
         tx.commit().await?;
-        key
-    };
+    }
     form.accepting(now)?;
     let session = inc.session;
     let sub = evaluate(&form.def, inc.answers, &answers::Env::new(zone(&sys.schema.timezone))).map_err(Error::Validation)?;
-    let p = prepare(form, &inc, sub, &key, now)?;
+    let p = prepare(form, &inc, sub, now)?;
     precheck(k, tenant, form, &p).await?;
     let files = if p.spam { vec![] } else { store_files(k, sys, &p.uploads).await? };
     let written = with_retry(|| async {
@@ -356,7 +358,6 @@ pub async fn enter(
     }
     let mut sys = elevated(ctx);
     sys.request_id = engine_of(ctx).request_id;
-    let key = token::key(tx, ctx.tenant).await?;
     let sub = evaluate(&form.def, answers, &answers::Env::new(zone(&ctx.schema.timezone))).map_err(Error::Validation)?;
     let inc = Incoming {
         source: Source::Manual,
@@ -366,8 +367,9 @@ pub async fn enter(
         honeypot: false,
         client_ip: None,
         hidden: Map::new(),
+        hashes: None,
     };
-    let p = prepare(form, &inc, sub, &key, Utc::now())?;
+    let p = prepare(form, &inc, sub, Utc::now())?;
     let files = store_files(k, &sys, &p.uploads).await?;
     match write(k, &sys, tx, form, &p, &files).await {
         Ok(Written::Saved(doc) | Written::Replay(doc)) => Ok(doc),
@@ -417,7 +419,7 @@ pub fn result_view(form: &FormView, resp: &Doc) -> Value {
 }
 
 /// What a respondent gets after sending: the same for kept spam, so bots learn nothing.
-pub fn receipt(form: &FormView, resp: Option<&Doc>, replayed: bool, key: &Key) -> Value {
+pub fn receipt(form: &FormView, resp: Option<&Doc>, replayed: bool, results: Option<&Derived>) -> Value {
     let mut out = json!({
         "status": "received",
         "message": form.text("confirmation_message").unwrap_or("Thank you! Your response was recorded."),
@@ -430,7 +432,7 @@ pub fn receipt(form: &FormView, resp: Option<&Doc>, replayed: bool, key: &Key) -
             && let Some(rid) = id(r, "id")
         {
             out["result"] = result_view(form, r);
-            out["result_token"] = json!(token::result_token(key, rid, Utc::now().timestamp()));
+            out["result_token"] = json!(results.map(|key| token::result_token(key.bytes(), key.version(), rid, Utc::now().timestamp())));
         }
     }
     out
@@ -662,7 +664,8 @@ async fn autorespond(k: &Kernel, sys: &Ctx, tx: &mut Tx, form: &FormView, resp: 
     let answers = resp.get("answers").and_then(Value::as_object);
     let Some(address) = form.email_question.as_ref().and_then(|q| answers?.get(q)).and_then(Value::as_str).map(str::to_string) else { return Ok(()) };
     let rid = id(resp, "id").ok_or_else(|| Error::internal("response without id"))?;
-    let key = token::key(tx, sys.tenant).await?;
+    // (In the follow-up's transaction: the vault answers on a second connection, once per response at most.)
+    let key = keys::current(k, sys.tenant, keys::HASHES).await?;
     sqlx::query("savepoint forms_autoresponse").execute(&mut **tx).await?;
     let fresh = sqlx::query(
         "insert into forms_autoresponse (tenant_id, form_id, address_hash) values ($1, $2, $3) \
@@ -671,7 +674,7 @@ async fn autorespond(k: &Kernel, sys: &Ctx, tx: &mut Tx, form: &FormView, resp: 
     )
     .bind(sys.tenant)
     .bind(form.id)
-    .bind(token::address_hash(&key, form.id, &address))
+    .bind(token::address_hash(key.bytes(), form.id, &address))
     .execute(&mut **tx)
     .await?
     .rows_affected();
