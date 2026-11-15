@@ -1,5 +1,52 @@
 # Changelog
 
+## 0.4.0
+
+Needs a platform with the vault (Ferrum `8e6b1f0` or later). A database change (`forms/003_old_key.sql`: the column
+`forms_secret.retired_at`) is applied at startup; nothing existing moves. No interface change.
+
+**What Forms signs, it signs with keys from the vault.** A form's session, a quiz-result link and a signed prefill link
+were signed, and senders' addresses hashed, with one key per workspace kept unsealed in `forms_secret`: whoever could
+read the database, or a dump of it, could forge prefill links (with hidden values a form trusts), result links and
+sessions. Each is now signed with a key derived from Forms' own key in the vault for its purpose (`form-sessions`,
+`result-links`, `prefill-links`; the hashes with `address-hashes`), made when needed and kept nowhere. What is signed
+names the version of Forms' key it came from: a session and a result link carry it in four more bytes (60 instead of
+56), a prefill link as `{body}.v1.{mac}`. A new version of the key (`ferrum task vault_rotate level:owner … owner:forms`)
+leaves what was signed before working until it expires.
+
+**What was signed before keeps working.** A session lives a day, a result link 30 days, a prefill link up to a year. The
+old key moves into the vault, sealed, as Forms' secret `old-signing-key`, and checks what it signed until a year and a
+day after it stopped signing (`forms_secret.retired_at`; the day covers replicas of the previous build still signing with
+it while an upgrade rolls out, or after a rollback), and nothing after. It moves the first time something it signed is
+checked, or at Forms' next upkeep, a minute after the first start at most: once, even with replicas starting together
+(its row is locked without waiting; a replica that finds it locked waits without holding a connection). From then on
+this build never reads `forms_secret`. The build before still does, so its rows stay until the release after this one
+deletes them. The keyed hashes have no old form: the hourly count of responses per address and the daily limit of
+autoresponses per address start again once, at the upgrade.
+
+**When the vault is closed** (an installation with nothing to open its root with), opening a form, sending a response,
+opening a result link and making a prefill link are refused with "Forms cannot sign or check its links right now: its
+keys are unavailable". Nothing is signed another way.
+
+**A sandbox** never takes the old key, and its own keys are not the live workspace's: no session, result link or prefill
+link of the live workspace opens the copy.
+
+**A workspace moved to another installation**: the platform's move copies the workspace's tables, not its keys in the
+vault, so sessions, result links and prefill links made before the move do not work after it. The old key travels in
+`forms_secret`, keeps its moment, and moves into the new installation's vault.
+
+**For other apps' tests**: Forms takes its vault handle as it registers, so register it as the server does,
+`hooks.app("forms", &[], ferrum_app_forms::register)`; called outside that, the kernel refuses to boot. The suite
+registers ERP and Mail the same way.
+
+Tests: the end-to-end suite opens the vault as a server does. It honours a prefill link, a session and a result link the
+previous build made with its key in `forms_secret` (eight opened at once move the key once), signs and checks with that
+table out of reach (nothing new matches the old key), refuses the old key's links past its time, never moves the old
+key in a sandbox, lets upkeep move what is left, and refuses plainly on a replica whose vault is closed.
+
+Not in this release: the rows of `forms_secret` (the release after this one); links that survive a move to another
+installation (the platform's move would have to carry the workspace's keys in the vault).
+
 ## 0.3.0
 
 Closes the documents audit's tier-1 rows DC-1, DC-17 and DC-25 for Forms (DC-11, embedding, is not done: see the

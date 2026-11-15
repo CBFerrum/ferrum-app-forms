@@ -9,6 +9,7 @@ use crate::analytics::{self, Span};
 use crate::answers::{self, zone};
 use crate::engine;
 use crate::form::FormView;
+use crate::keys;
 use crate::model::Kind;
 use crate::response::{self, Incoming, Respondent, Source};
 use crate::token::{self, Session, SessionError};
@@ -71,10 +72,21 @@ async fn by_slug(k: &Kernel, sys: &Ctx, tx: &mut Tx, slug: &str, signed_in: bool
 
 /// `GET /f/{slug}`: the form to fill, a session token, prefilled answers.
 async fn definition(k: &Kernel, sys: &Ctx, req: &SiteRequest, slug: &str) -> Result<Value> {
-    let mut tx = k.db.tenant_tx(sys.tenant).await?;
-    let form = by_slug(k, sys, &mut tx, slug, req.user.is_some()).await?;
+    let form = {
+        let mut tx = k.db.tenant_tx(sys.tenant).await?;
+        let form = by_slug(k, sys, &mut tx, slug, req.user.is_some()).await?;
+        tx.commit().await?;
+        form
+    };
     let now = Utc::now();
     form.accepting(now)?;
+    // Forms' keys, outside any transaction: the vault answers on a connection of its own.
+    let sessions = keys::current(k, sys.tenant, keys::SESSIONS).await?;
+    let signed = match query(req, "prefill") {
+        Some(t) => token::checked_prefill(k, sys.tenant, form.id, t, now.timestamp()).await?,
+        None => None,
+    };
+    let mut tx = k.db.tenant_tx(sys.tenant).await?;
     if let Some(limit) = form.response_limit {
         let n: i64 = sqlx::query_scalar("select count(*) from e_form_response where tenant_id = $1 and form = $2 and status <> 'Spam'")
             .bind(sys.tenant)
@@ -86,11 +98,9 @@ async fn definition(k: &Kernel, sys: &Ctx, req: &SiteRequest, slug: &str) -> Res
         }
     }
     let tz = zone(&sys.schema.timezone);
-    let key = token::key(&mut tx, sys.tenant).await?;
     // Hidden fields from the link's query (only the form's own), then a signed link's values over them.
     let hidden_keys = form.hidden_keys();
     let mut hidden = crate::form::hidden_values(&hidden_keys, &req.query);
-    let signed = query(req, "prefill").and_then(|t| token::read_prefill(&key, form.id, t, now.timestamp()));
     let mut prefill = Map::new();
     for q in form.def.questions.iter().filter(|q| q.allow_prefill) {
         let Some(raw) = query(req, &q.key) else { continue };
@@ -124,27 +134,30 @@ async fn definition(k: &Kernel, sys: &Ctx, req: &SiteRequest, slug: &str) -> Res
     .await?;
     let work = if form.flag("proof_of_work") { Some(json!({"bits": settings_int(&mut tx, sys, "proof_of_work_bits", 18).await?})) } else { None };
     tx.commit().await?;
-    Ok(json!({"form": form.public(), "token": token::session_token(&key, form.id, session), "prefill": prefill, "hidden": hidden,
-              "prefill_token": signed.as_ref().and(query(req, "prefill")), "proof_of_work": work}))
+    Ok(
+        json!({"form": form.public(), "token": token::session_token(sessions.bytes(), sessions.version(), form.id, session), "prefill": prefill, "hidden": hidden,
+              "prefill_token": signed.as_ref().and(query(req, "prefill")), "proof_of_work": work}),
+    )
 }
 
 /// `POST /f/{slug}/responses` `{token, answers, honeypot?}`.
 async fn submit(k: &Kernel, sys: &Ctx, req: &SiteRequest, slug: &str) -> Result<(u16, Value)> {
-    let (form, key) = {
+    let form = {
         let mut tx = k.db.tenant_tx(sys.tenant).await?;
         let form = by_slug(k, sys, &mut tx, slug, req.user.is_some()).await?;
-        let key = token::key(&mut tx, sys.tenant).await?;
         tx.commit().await?;
-        (form, key)
+        form
     };
     let has_files = form.def.questions.iter().any(|q| q.kind == Kind::File);
     let b = body(req, if has_files { MAX_WITH_FILES } else { MAX_JSON })?;
     let raw_token = b.get("token").and_then(Value::as_str).unwrap_or_default();
-    let session = match token::read_session(&key, form.id, raw_token, Utc::now().timestamp()) {
-        Ok(s) => s,
+    let invalid = || Error::field("token", "reload the form: send the token you received with it");
+    let session = token::checked_session(k, sys.tenant, form.id, raw_token).await?.ok_or_else(invalid)?;
+    match token::session_age(&session, Utc::now().timestamp()) {
+        Ok(()) => {}
         Err(SessionError::Expired) => return Err(Error::field("token", "this page was open too long: reload the form (your answers stay) and send again")),
-        Err(SessionError::Invalid) => return Err(Error::field("token", "reload the form: send the token you received with it")),
-    };
+        Err(SessionError::Invalid) => return Err(invalid()),
+    }
     let answers = match b.get("answers") {
         Some(Value::Object(m)) => m.clone(),
         None | Some(Value::Null) => Map::new(),
@@ -160,11 +173,15 @@ async fn submit(k: &Kernel, sys: &Ctx, req: &SiteRequest, slug: &str) -> Result<
         Some(Value::Object(m)) => crate::form::hidden_values(&hidden_keys, m),
         _ => Map::new(),
     };
-    if let Some(p) = b.get("prefill_token").and_then(Value::as_str).and_then(|t| token::read_prefill(&key, form.id, t, Utc::now().timestamp())) {
+    if let Some(t) = b.get("prefill_token").and_then(Value::as_str)
+        && let Some(p) = token::checked_prefill(k, sys.tenant, form.id, t, Utc::now().timestamp()).await?
+    {
         hidden.extend(crate::form::hidden_values(&hidden_keys, &p.hidden));
     }
+    // The key of the senders' address hashes, taken before any transaction.
+    let hashes = keys::current(k, sys.tenant, keys::HASHES).await?;
     if req.user.is_none() {
-        guard(k, sys, &form, &key, req, &b, raw_token).await?;
+        guard(k, sys, &form, hashes.bytes(), req, &b, raw_token).await?;
     }
     let respondent = match &req.user {
         Some(u) => Respondent { user: Some(u.user), email: Some(u.email.to_lowercase()), name: Some(u.full_name.clone()).filter(|n| !n.is_empty()) },
@@ -178,9 +195,12 @@ async fn submit(k: &Kernel, sys: &Ctx, req: &SiteRequest, slug: &str) -> Result<
         honeypot,
         client_ip: Some(req.client_ip.as_str()),
         hidden,
+        hashes: Some(hashes.bytes()),
     };
     let (resp, replayed) = response::submit(k, sys, &form, inc).await?;
-    Ok((if replayed { 200 } else { 201 }, response::receipt(&form, resp.as_ref(), replayed, &key)))
+    // A quiz's result link, signed outside any transaction.
+    let results = if form.quiz { Some(keys::current(k, sys.tenant, keys::RESULTS).await?) } else { None };
+    Ok((if replayed { 200 } else { 201 }, response::receipt(&form, resp.as_ref(), replayed, results.as_ref())))
 }
 
 /// A whole-number setting of Forms Settings, its default until the record is saved.
@@ -192,7 +212,7 @@ async fn settings_int(tx: &mut Tx, sys: &Ctx, field: &str, default: i64) -> Resu
 /// What a public response passes before it is read: the proof of work the form asks for, the check it names, and at
 /// most Forms Settings' responses per address and hour to this form (counted in `forms_rate` by an upsert, so
 /// concurrent sends from one address are all counted and none gets past the limit).
-async fn guard(k: &Kernel, sys: &Ctx, form: &FormView, key: &token::Key, req: &SiteRequest, b: &Map<String, Value>, raw_token: &str) -> Result<()> {
+async fn guard(k: &Kernel, sys: &Ctx, form: &FormView, key: &[u8], req: &SiteRequest, b: &Map<String, Value>, raw_token: &str) -> Result<()> {
     let mut tx = k.db.tenant_tx(sys.tenant).await?;
     if form.flag("proof_of_work") {
         let bits = settings_int(&mut tx, sys, "proof_of_work_bits", 18).await?.clamp(8, 26) as u32;
@@ -241,9 +261,8 @@ fn answers_blank(v: &Value) -> bool {
 /// `GET /results/{token}`: a quiz response's result, while its link is valid.
 async fn result(k: &Kernel, sys: &Ctx, raw: &str) -> Result<Value> {
     let not_found = || Error::NotFound("result".into());
+    let rid = token::checked_result(k, sys.tenant, raw, Utc::now().timestamp()).await?.ok_or_else(not_found)?;
     let mut tx = k.db.tenant_tx(sys.tenant).await?;
-    let key = token::key(&mut tx, sys.tenant).await?;
-    let rid = token::read_result(&key, raw, Utc::now().timestamp()).ok_or_else(not_found)?;
     let resp = k.get_tx(sys, &mut tx, "FormResponse", rid, false).await.map_err(|_| not_found())?;
     let form_id = ferrum_domain::util::id(&resp, "form").ok_or_else(not_found)?;
     let form = FormView::from_doc(k.get_tx(sys, &mut tx, "Form", form_id, false).await?, zone(&sys.schema.timezone))?;

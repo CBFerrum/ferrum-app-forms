@@ -16,6 +16,7 @@ mod answers;
 mod files;
 mod form;
 pub mod guard;
+mod keys;
 mod logic;
 mod mapping;
 mod model;
@@ -70,8 +71,10 @@ pub fn packages() -> std::result::Result<Vec<ferrum_meta::Package>, ferrum_meta:
     ferrum_meta::catalog::load_embedded(EMBEDDED)
 }
 
-/// Registers this app's document hooks, its outbox sink and its web endpoints.
+/// Registers this app's document hooks, its outbox sink and its web endpoints. Call it inside the platform's
+/// registration of the app, `hooks.app("forms", …)`: Forms takes its own vault handle there (its keys, `keys.rs`).
 pub fn register(hooks: &mut HookRegistry) {
+    keys::remember(hooks.vault());
     hooks
         .register("Form", Arc::new(form::FormHook))
         .register("FormResponse", Arc::new(response::ResponseHook))

@@ -535,8 +535,9 @@ impl DocHook for FormHook {
                 }
                 let days = params.get("days").and_then(Value::as_i64).unwrap_or(30).clamp(1, 365);
                 p.expires = Utc::now().timestamp() + days * 86_400;
-                let key = crate::token::key(hc.tx, hc.ctx.tenant).await?;
-                let token = crate::token::prefill_token(&key, form, &p);
+                // (In the action's transaction: the vault answers on a second connection.)
+                let key = crate::keys::current(hc.kernel, hc.ctx.tenant, crate::keys::PREFILL).await?;
+                let token = crate::token::prefill_token(key.bytes(), key.version(), form, &p);
                 let slug = s(doc, "slug").unwrap_or_default();
                 Ok(Some(json!({"prefill": token, "link": format!("f/{slug}?prefill={token}"), "expires_in_days": days})))
             }

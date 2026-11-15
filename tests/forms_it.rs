@@ -10,7 +10,7 @@
 
 use async_trait::async_trait;
 use base64::Engine as _;
-use base64::engine::general_purpose::STANDARD;
+use base64::engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD as B64URL_ENGINE};
 use ferrum_kernel::outbox::Event;
 use ferrum_kernel::tenant::NewTenant;
 use ferrum_kernel::{Ctx, Db, DbConfig, Doc, Error, HookRegistry, Kernel, KernelSettings, ListQuery, Site, SiteRequest, SiteResponse};
@@ -83,6 +83,9 @@ struct T {
     staff: Ctx,
     staff2: Ctx,
     mail: Arc<TestMailer>,
+    /// Forms' own handle on the vault, as the server's registration gives it, to look at what Forms keeps there.
+    vault: ferrum_kernel::vault::Vault,
+    db_url: String,
 }
 
 type Res = ferrum_kernel::Result<(u16, Value)>;
@@ -207,28 +210,15 @@ async fn user(k: &Kernel, admin: &Ctx, tenant: Uuid, email: &str, name: &str, ro
 }
 
 async fn setup() -> T {
-    let url = std::env::var("FERRUM_FORMS_TEST_DATABASE_URL").unwrap_or_else(|_| "postgres://ferrum:ferrum@localhost:5432/ferrum_forms_test".into());
-    let db = Db::connect(DbConfig { url, max_connections: 20, ..Default::default() }).await.expect("connect");
-    sqlx::raw_sql("drop schema if exists public cascade; create schema public;").execute(&db.pool).await.expect("reset");
-    let mut packages = ferrum_domain::packages().expect("platform packages");
-    packages.extend(ferrum_app_erp::packages().expect("ERP's packages"));
-    packages.extend(ferrum_app_forms::packages().expect("app packages"));
-    packages.extend(ferrum_app_comms::packages().expect("mail packages"));
-    let catalog = Catalog::from_packages(packages).expect("catalog");
-    let mut hooks = HookRegistry::default();
-    ferrum_domain::register(&mut hooks);
-    ferrum_app_erp::register(&mut hooks);
-    for source in ferrum_app_erp::reports() {
-        ferrum_domain::reports::add_source(source);
-    }
-    ferrum_app_forms::register(&mut hooks);
-    ferrum_app_comms::register(&mut hooks);
-    for source in ferrum_app_forms::reports() {
-        ferrum_domain::reports::add_source(source);
-    }
+    let db_url = std::env::var("FERRUM_FORMS_TEST_DATABASE_URL").unwrap_or_else(|_| "postgres://ferrum:ferrum@localhost:5432/ferrum_forms_test".into());
+    let db = Db::connect(DbConfig { url: db_url.clone(), max_connections: 20, ..Default::default() }).await.expect("connect");
+    sqlx::raw_sql("drop schema if exists vault cascade; drop schema if exists public cascade; create schema public;").execute(&db.pool).await.expect("reset");
+    // The vault, opened as a server opens it (its credential slot, from the address's password), once migrated.
+    ferrum_kernel::vault::open(&db, opener(&db_url), false).await.expect("the vault");
+    let (hooks, vault) = hooks();
     let mail = Arc::new(TestMailer::default());
     let settings = KernelSettings { secret_key: Some(ferrum_kernel::secret::SecretKey::new([7u8; 32])), ..Default::default() };
-    let k = Kernel::boot(db, catalog, hooks, settings, Some(mail.clone())).await.expect("boot");
+    let k = Kernel::boot(db, catalog(), hooks, settings, Some(mail.clone())).await.expect("boot");
     k.set_file_store(Arc::new(MemStore::default()));
     ferrum_domain::maintenance(&k).await.expect("partitions");
     ferrum_app_erp::maintenance(&k).await.expect("partitions");
@@ -254,7 +244,56 @@ async fn setup() -> T {
     let staff = user(&k, &admin, tenant, "staff@acme.test", "Staff Member", &[]).await;
     let staff2 = user(&k, &admin, tenant, "staff2@acme.test", "Second Staff", &[]).await;
     let site = k.hooks.site("forms").expect("the forms site").clone();
-    T { k, site, tenant, admin, owner, other, manager, staff, staff2, mail }
+    T { k, site, tenant, admin, owner, other, manager, staff, staff2, mail, vault, db_url }
+}
+
+fn catalog() -> Catalog {
+    let mut packages = ferrum_domain::packages().expect("platform packages");
+    packages.extend(ferrum_app_erp::packages().expect("ERP's packages"));
+    packages.extend(ferrum_app_forms::packages().expect("app packages"));
+    packages.extend(ferrum_app_comms::packages().expect("mail packages"));
+    Catalog::from_packages(packages).expect("catalog")
+}
+
+/// The apps registered as the server registers them (each as itself, so that it takes its own vault handle), and Forms'
+/// handle.
+fn hooks() -> (HookRegistry, ferrum_kernel::vault::Vault) {
+    let mut hooks = HookRegistry::default();
+    ferrum_domain::register(&mut hooks);
+    hooks.app("erp", &[], ferrum_app_erp::register);
+    for source in ferrum_app_erp::reports() {
+        ferrum_domain::reports::add_source(source);
+    }
+    let mut vault = None;
+    hooks.app("forms", &[], |h| {
+        ferrum_app_forms::register(h);
+        vault = Some(h.vault());
+    });
+    hooks.app("comms", &[], ferrum_app_comms::register);
+    for source in ferrum_app_forms::reports() {
+        ferrum_domain::reports::add_source(source);
+    }
+    (hooks, vault.expect("Forms' handle"))
+}
+
+/// What opens the test's vault: the database password of `url`, with Argon2id kept cheap for tests.
+fn opener(url: &str) -> ferrum_kernel::vault::Opener {
+    ferrum_kernel::vault::Opener {
+        database_url: url.to_string(),
+        file: "/nonexistent/root.key".into(),
+        kdf: ferrum_kernel::vault::Kdf { m_kib: 64, t: 1, p: 1 },
+        ..Default::default()
+    }
+}
+
+/// HMAC-SHA256 of the parts, one after another, under `key`.
+fn mac(key: &[u8], parts: &[&[u8]]) -> Vec<u8> {
+    use hmac::Mac;
+    let mut m = hmac::Hmac::<sha2::Sha256>::new_from_slice(key).unwrap();
+    for p in parts {
+        m.update(p);
+    }
+    m.finalize().into_bytes().to_vec()
 }
 
 #[test]
@@ -279,9 +318,163 @@ async fn scenario() {
     permissions(&t, &every).await;
     manual_entry_and_edits(&t, &every).await;
     hidden_fields_and_signed_prefill(&t).await;
+    keys_in_the_vault(&t).await;
     mapping_by_configuration(&t).await;
     abuse_guards(&t).await;
     maintenance(&t).await;
+    // Last: registering Forms again gives the process that kernel's handle.
+    a_closed_vault(&t).await;
+}
+
+// ───────────────────────────── keys in the vault (src/keys.rs) ─────────────────────────────
+
+async fn keys_in_the_vault(t: &T) {
+    use base64::engine::general_purpose::URL_SAFE_NO_PAD as B64URL;
+    let scope = ferrum_kernel::vault::Scope::Workspace(t.tenant);
+    let callback = t.find_one("Form", json!({"slug": "callback"})).await;
+    let fid = uid(&callback);
+    // What Forms signs names the version of its key: a session is 60 bytes, a prefill link `{body}.v1.{mac}`.
+    let (_, session) = t.open(None, "callback").await;
+    assert_eq!(B64URL.decode(&session).unwrap().len(), 60);
+    let link = t.action(&t.owner, "Form", fid, "prefill_link", json!({"values": json!({"name": "Asha"}).to_string()})).await;
+    assert_eq!(link["prefill"].as_str().unwrap().split('.').nth(1), Some("v1"));
+    assert!(t.vault.describe(&t.k, scope, "old-signing-key").await.unwrap().is_none(), "nothing to move: no key of the old kind here");
+    assert_eq!(t.count("select count(*) from forms_secret where tenant_id = $1 and $2::uuid is not null", fid).await, 0, "and none is made");
+    // A workspace upgraded from 0.3: the key the build before kept unsealed, and what it signed with it.
+    let old_key = [9u8; 32];
+    let unsealed = |sql: &'static str| async move {
+        let mut tx = t.k.db.tenant_tx(t.tenant).await.unwrap();
+        sqlx::query(sql).bind(t.tenant).bind(&old_key[..]).execute(&mut *tx).await.unwrap();
+        tx.commit().await.unwrap();
+    };
+    unsealed("insert into forms_secret (tenant_id, secret) values ($1, $2)").await;
+    let now = chrono::Utc::now().timestamp();
+    let body = serde_json::to_vec(&json!({"expires": now + 86_400, "answers": {"name": "Old Link"}, "hidden": {}})).unwrap();
+    let old_prefill = format!("{}.{}", B64URL.encode(&body), B64URL.encode(mac(&old_key, &[b"ferrum-forms-prefill:", fid.as_bytes(), &body])));
+    let old_session = |issued: i64| {
+        let (issued, nonce) = (issued.to_be_bytes(), rand::random::<[u8; 16]>());
+        B64URL.encode([&issued[..], &nonce, &mac(&old_key, &[b"ferrum-forms-session:", fid.as_bytes(), &issued, &nonce])].concat())
+    };
+    let quiz = t.find_one("Form", json!({"slug": "geography-quiz"})).await;
+    let graded = t.list(&t.admin, "FormResponse", json!({"form": quiz["id"]})).await;
+    let rid = uid(&graded[0]);
+    let issued = now.to_be_bytes();
+    let old_result = B64URL.encode([rid.as_bytes().as_slice(), &issued, &mac(&old_key, &[b"ferrum-forms-result:", rid.as_bytes(), &issued])].concat());
+    // Opened at once, as replicas would, they move the old key into the vault once, and each is honoured.
+    let mut opened = Vec::new();
+    for _ in 0..8 {
+        let (t, path) = (t.clone(), format!("/f/callback?prefill={old_prefill}"));
+        opened.push(tokio::spawn(async move { t.call(None, "GET", &path, None).await }));
+    }
+    for o in opened {
+        assert_eq!(o.await.unwrap().unwrap().1["prefill"]["name"], json!("Old Link"), "an old prefill link still fills");
+    }
+    let moved = t.vault.describe(&t.k, scope, "old-signing-key").await.unwrap().expect("moved");
+    assert_eq!((moved.version, moved.rule.reveal), (1, false), "moved once, and never revealed");
+    let retired = t.count("select floor(extract(epoch from retired_at))::bigint from forms_secret where tenant_id = $1 and $2::uuid is not null", fid).await;
+    assert_eq!(moved.rule.expires_at.unwrap().timestamp() - retired, 366 * 86_400, "a year and a day after it stopped signing");
+    let (status, v) =
+        t.call(None, "POST", "/f/callback/responses", Some(json!({"token": old_session(now), "answers": {"name": "Old Session"}}))).await.unwrap();
+    assert_eq!(status, 201, "a page opened before the upgrade still sends: {v}");
+    let (_, shown) = t.call(None, "GET", &format!("/results/{old_result}"), None).await.expect("an old result link still opens");
+    assert_eq!(shown["form"]["slug"], json!("geography-quiz"));
+    let forged = format!("{}.{}", B64URL.encode(&body), B64URL.encode(mac(&[1u8; 32], &[b"ferrum-forms-prefill:", fid.as_bytes(), &body])));
+    let (_, v) = t.call(None, "GET", &format!("/f/callback?prefill={forged}"), None).await.unwrap();
+    assert!(v["prefill"].as_object().unwrap().is_empty(), "another key's fills nothing");
+    // From now on nothing reads the unsealed table: with it out of reach, Forms signs and checks as before, the old
+    // links included, and what it signs does not check with the old key.
+    unsealed("alter table forms_secret rename to forms_secret_parked").await;
+    let (_, fresh) = t.open(None, "callback").await;
+    let raw = B64URL.decode(&fresh).unwrap();
+    assert_ne!(raw[28..].to_vec(), mac(&old_key, &[b"ferrum-forms-session:", fid.as_bytes(), &raw[..8], &raw[8..24]]), "not the old key's");
+    let (status, _) = t.send(None, "callback", &fresh, json!({"name": "New Session"})).await.unwrap();
+    assert_eq!(status, 201);
+    let r = t.respond(None, "geography-quiz", json!({"capital": "Paris", "sum": 4, "primes": ["2", "3"]})).await;
+    t.call(None, "GET", &format!("/results/{}", r["result_token"].as_str().unwrap()), None).await.expect("a new result link opens");
+    t.action(&t.owner, "Form", fid, "prefill_link", json!({"values": json!({"name": "Asha"}).to_string()})).await;
+    let (_, v) = t.call(None, "GET", &format!("/f/callback?prefill={old_prefill}"), None).await.unwrap();
+    assert_eq!(v["prefill"]["name"], json!("Old Link"), "the old key checks from the vault");
+    unsealed("alter table forms_secret_parked rename to forms_secret").await;
+    // Past what it still checks (a year and a day after it stopped signing), the old key opens nothing.
+    assert!(t.vault.remove(&t.k, scope, "old-signing-key").await.unwrap());
+    unsealed("update forms_secret set retired_at = now() - interval '367 days' where tenant_id = $1 and secret = $2").await;
+    let (_, v) = t.call(None, "GET", &format!("/f/callback?prefill={old_prefill}"), None).await.unwrap();
+    assert!(v["prefill"].as_object().unwrap().is_empty(), "too late");
+    assert!(matches!(t.call(None, "GET", &format!("/results/{old_result}"), None).await, Err(Error::NotFound(_))));
+    assert!(t.vault.describe(&t.k, scope, "old-signing-key").await.unwrap().is_none(), "and nothing moved");
+    // A sandbox of this workspace (a copy under another id, marked as the platform marks one) never takes the old key.
+    let copy =
+        t.k.create_tenant(NewTenant {
+            slug: "acme-try".into(),
+            name: "Acme (sandbox)".into(),
+            admin_email: "admin@acme.test".into(),
+            admin_password: "Correct-Horse-9".into(),
+            admin_name: None,
+            packages: vec!["forms".into(), "comms".into(), "selling".into()],
+            settings: None,
+        })
+        .await
+        .expect("a workspace for the copy");
+    {
+        let mut tx = t.k.db.system_tx().await.unwrap();
+        for sql in [
+            "alter table tenant disable trigger tenant_sandbox_kept",
+            "update tenant set sandbox_of = $1, sandbox_from = 'here', sandbox_until = current_date + 30 where id = $2",
+            "alter table tenant enable trigger tenant_sandbox_kept",
+            "insert into forms_secret (tenant_id, secret) select $2, secret from forms_secret where tenant_id = $1",
+        ] {
+            sqlx::query(sql).bind(t.tenant).bind(copy).execute(&mut *tx).await.unwrap();
+        }
+        tx.commit().await.unwrap();
+    }
+    let in_copy = SiteRequest {
+        tenant: copy,
+        user: None,
+        method: "GET".into(),
+        path: format!("/results/{old_result}"),
+        query: Map::new(),
+        headers: Map::new(),
+        body: vec![],
+        client_ip: "203.0.113.7".into(),
+    };
+    assert!(matches!(t.site.handle(&t.k, in_copy).await, Err(Error::NotFound(_))));
+    assert!(t.vault.describe(&t.k, ferrum_kernel::vault::Scope::Workspace(copy), "old-signing-key").await.unwrap().is_none(), "never in a sandbox");
+    let dealt: i64 = {
+        let mut tx = t.k.db.system_tx().await.unwrap();
+        let n = sqlx::query_scalar("select count(*) from forms_secret where tenant_id = $1 and retired_at is not null")
+            .bind(copy)
+            .fetch_one(&mut *tx)
+            .await
+            .unwrap();
+        tx.commit().await.unwrap();
+        n
+    };
+    assert_eq!(dealt, 1, "the copy's key stopped signing there too, and moved nowhere");
+    // Upkeep moves what is left, once.
+    unsealed("update forms_secret set retired_at = null where tenant_id = $1 and secret = $2").await;
+    ferrum_app_forms::maintenance(&t.k).await.expect("upkeep");
+    assert_eq!(t.vault.describe(&t.k, scope, "old-signing-key").await.unwrap().map(|d| d.version), Some(1), "moved by upkeep");
+}
+
+/// A replica whose vault is closed: Forms refuses to sign or check, plainly, and signs nothing another way.
+async fn a_closed_vault(t: &T) {
+    let db = Db::connect(DbConfig { url: t.db_url.clone(), max_connections: 8, ..Default::default() }).await.expect("connect");
+    let (hooks, _) = hooks();
+    let closed = Kernel::boot(db, catalog(), hooks, KernelSettings::default(), None).await.expect("it starts with the vault closed");
+    let t = T { k: closed.clone(), site: closed.hooks.site("forms").unwrap().clone(), ..t.clone() };
+    // Shaped as version 1 of Forms' key signs them (a wrong MAC: never looked at without a key).
+    let now = chrono::Utc::now().timestamp().to_be_bytes();
+    let session = B64URL_ENGINE.encode([&now[..], &[0u8; 16], &1i32.to_be_bytes(), &[0u8; 32]].concat());
+    let result = B64URL_ENGINE.encode([Uuid::now_v7().as_bytes().as_slice(), &now, &1i32.to_be_bytes(), &[0u8; 32]].concat());
+    let refusals = [
+        t.call(None, "GET", "/f/callback", None).await.expect_err("no session"),
+        t.call(None, "POST", "/f/callback/responses", Some(json!({"token": session, "answers": {"name": "x"}}))).await.expect_err("no check"),
+        t.call(None, "GET", &format!("/results/{result}"), None).await.expect_err("no result link"),
+    ];
+    for e in refusals {
+        assert_eq!(e.code(), "unavailable", "{e}");
+        assert_eq!(e.to_string(), "Forms cannot sign or check its links right now: its keys are unavailable", "plain, and nothing of how it is set up");
+    }
 }
 
 // ───────────────────────────── hidden fields and signed prefill (DC-1) ─────────────────────────────

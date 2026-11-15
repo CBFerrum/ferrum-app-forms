@@ -1,6 +1,7 @@
 //! Every-minute upkeep, per workspace with Forms: close forms whose closing time passed, delete
 //! spam older than the retention, forget autoresponse throttles older than two days and response counts per
-//! address of past hours. Each step
+//! address of past hours. First, the old signing key of a workspace whose key has not moved into the vault yet
+//! moves (`keys.rs`). Each step
 //! is bounded and idempotent; a failing workspace or step does not stop the others.
 
 use crate::engine;
@@ -13,6 +14,9 @@ const SPAM_BATCH: i64 = 200;
 const DEFAULT_SPAM_DAYS: i64 = 30;
 
 pub async fn run(k: &Kernel) -> Result<()> {
+    if let Err(e) = crate::keys::move_waiting(k).await {
+        tracing::warn!("forms maintenance: moving old keys into the vault: {e}");
+    }
     let mut tx = k.db.system_tx().await?;
     let tenants: Vec<Uuid> = sqlx::query_scalar("select id from tenant where status = 'active' order by id").fetch_all(&mut *tx).await?;
     tx.commit().await?;
