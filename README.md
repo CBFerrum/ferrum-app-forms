@@ -7,7 +7,7 @@
 
 <br>
 
-[![Version](https://img.shields.io/badge/version-0.4.0-30a67d?style=flat-square)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.5.0-30a67d?style=flat-square)](CHANGELOG.md)
 [![Licence: AGPL-3.0](https://img.shields.io/badge/licence-AGPL--3.0-blue?style=flat-square)](LICENSE)
 [![Ferrum platform](https://img.shields.io/badge/runs%20on-Ferrum-2f5bea?style=flat-square)](https://github.com/CBFerrum/Ferrum)
 [![CI](https://github.com/CBFerrum/ferrum-app-forms/actions/workflows/ci.yml/badge.svg)](https://github.com/CBFerrum/ferrum-app-forms/actions/workflows/ci.yml)
@@ -38,7 +38,7 @@ Ferrum Forms is for teams that collect information from customers, applicants, m
 
 | | |
 |---|---|
-| 📦 **Version** | 0.4.0 |
+| 📦 **Version** | 0.5.0 |
 | 🖥️ **Kind** | Its own interface at `/forms/` (builder, results) and a respondent page at `/forms/f/{workspace}/{form}`, with Ferrum's records screens for the rest |
 | ➕ **What it adds** | 6 entities in one package (Form, Form Question, Form Field Map, Form Notify User, Form Response, Forms Settings), 2 roles, 3 reports, a launcher app, a Create menu entry, an assistant |
 | 🧱 **Depends on** | The platform's `core` package. Nothing else is required |
@@ -320,6 +320,7 @@ Forms is compared with Google Forms, Microsoft Forms, Typeform, Jotform, SurveyM
 
 ### ✅ Recently shipped
 
+- [x] **0.5.0**: Sessions, result links and prefill links name the version of Forms' key, or are refused; the key kept unsealed before 0.4 is gone; the hourly response counts enforce row-level security.
 - [x] **0.4.0**: Sessions, result links and prefill links are signed with keys from the platform's vault; the key kept unsealed before only checks what it signed.
 - [x] **0.3.0**: Hidden fields, signed prefill links, and abuse protection (a rate limit, an optional proof of work and a plug-in point for extra checks).
 - [x] **0.2.18 and 0.2.17**: The upgraded design system and a lighter first page.
@@ -438,7 +439,7 @@ CHANGELOG.md          what changed in each version
 
 ## 📜 Changelog
 
-Every release is described in [CHANGELOG.md](CHANGELOG.md). The latest is **0.4.0**, which signs sessions, result links and prefill links with keys from the platform's vault.
+Every release is described in [CHANGELOG.md](CHANGELOG.md). The latest is **0.5.0**, which keeps one way to sign and check sessions, result links and prefill links (with the version of Forms' key in the vault), and puts the hourly response counts under row-level security.
 
 ## 🤝 Contributing
 

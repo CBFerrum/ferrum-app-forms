@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.5.0
+
+Needs the same platform as 0.4.0. No interface change. The package's SQL reads as its final schema: `forms_secret` and
+`003_old_key.sql` are gone, and `forms_rate` enforces row-level security like Forms' other tables. No installation was
+ever made from them, so a database is made afresh.
+
+**One way to sign and check sessions, result links and prefill links.** Before the vault, one key per workspace did all
+of it, unsealed in `forms_secret`; 0.4.0 kept it to check what it had signed, moved into the vault as `old-signing-key`
+at the first check or by upkeep (under its row's lock, taken without waiting and retried), for a year and a day. No such
+key ever signed anything someone outside holds, so it goes with its table, its move, its expiry and its upkeep step. A
+session and a result link name the version of Forms' key in four bytes before the MAC (60 bytes), a prefill link as
+`{body}.v{n}.{mac}`; one that names none (a 56-byte session or result link, a prefill link of two parts) is refused like
+any other malformed one.
+
+**`forms_rate` enforces row-level security.** The hourly count of responses per address (0.3.0) was the one table of
+Forms' without it, which the platform's doctor reports as a blocker (`isolation.row_security`). Forms' own queries always
+named the workspace, so nothing was read across workspaces through them.
+
+Tests: the end-to-end suite checks first that every table of Forms' enforces row-level security, refuses a session, a
+result link and a prefill link without their version, makes a new version of Forms' key (what the version before signed
+still works, what is signed after names version 2), and keeps the sandbox check (the live workspace's result link does
+not open the copy). The checks of the old key went with it.
+
 ## 0.4.0
 
 Needs a platform with the vault (Ferrum `8e6b1f0` or later). A database change (`forms/003_old_key.sql`: the column
