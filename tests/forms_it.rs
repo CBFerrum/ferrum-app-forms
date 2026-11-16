@@ -215,8 +215,7 @@ async fn setup() -> T {
     ferrum_kernel::vault::open(&db, opener(&db_url), false).await.expect("the vault");
     let hooks = hooks();
     let mail = Arc::new(TestMailer::default());
-    let settings = KernelSettings { secret_key: Some(ferrum_kernel::secret::SecretKey::new([7u8; 32])), ..Default::default() };
-    let k = Kernel::boot(db, catalog(), hooks, settings, Some(mail.clone())).await.expect("boot");
+    let k = Kernel::boot(db, catalog(), hooks, KernelSettings::default(), Some(mail.clone())).await.expect("boot");
     k.set_file_store(Arc::new(MemStore::default()));
     ferrum_domain::maintenance(&k).await.expect("partitions");
     ferrum_app_erp::maintenance(&k).await.expect("partitions");
