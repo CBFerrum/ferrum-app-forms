@@ -194,9 +194,10 @@ pub async fn checked_prefill(k: &Kernel, tenant: Uuid, form: Uuid, token: &str, 
 }
 
 /// Whether `nonce` solves the proof-of-work of a session `token`: SHA-256 of `token:nonce` starts with `bits` zero bits.
+/// No nonce is no work, whatever the token alone hashes to.
 pub fn work_done(token: &str, nonce: &str, bits: u32) -> bool {
     use sha2::Digest;
-    if nonce.len() > 64 {
+    if nonce.is_empty() || nonce.len() > 64 {
         return false;
     }
     let digest = Sha256::digest(format!("{token}:{nonce}").as_bytes());
@@ -247,6 +248,7 @@ mod tests {
         assert!(work_done("tok", &found, 12) && work_done("tok", &found, 0));
         assert!(!work_done("other", &found, 12) || work_done("other", &found, 12), "deterministic");
         assert!(!work_done("tok", &"x".repeat(65), 0), "a nonce is short");
+        assert!((0..5000u32).all(|i| !work_done(&format!("t{i}"), "", 8)), "no work is no work, whatever the token hashes to");
     }
 
     #[test]
