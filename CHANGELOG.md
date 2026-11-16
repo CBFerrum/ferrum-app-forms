@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.2
+
+Needs the same platform as 0.5.1. Interface unchanged. Database change: the package's SQL is one file, `001_forms.sql`
+(`forms_rate` is made with Forms' other tables; no more `002_rate.sql`). No installation was ever made from it: a
+development database that applied the old files needs resetting. The suites run on today's platform, ERP and Comms.
+
 ## 0.5.1
 
 Needs the same platform as 0.5.0. No database change. Interface only, `ui/dist` rebuilt with Ferrum-Frontend `06bd1a2`.
