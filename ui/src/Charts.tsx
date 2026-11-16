@@ -6,7 +6,7 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { ChevronDown } from "lucide-react";
 import { type ReactNode, useId, useState } from "react";
-import { api, formatDateTime, t as tr, isolate } from "@ferrum/client";
+import { api, formatDate, formatDateTime, t as tr, isolate } from "@ferrum/client";
 import { Button, Spinner, StatePanel } from "@ferrum/kit";
 import { kindLabel } from "./model";
 import { type AnswersPage, npsGroup, num, percent, type QSummary, type Summary, trendLine } from "./stats";
@@ -21,7 +21,6 @@ export function Trend({ trend }: { trend: Summary["trend"] }) {
   const t = trendLine(trend, W, H, 10);
   const total = trend.reduce((n, d) => n + d.responses, 0);
   const best = trend.reduce((b, d) => (d.responses > b.responses ? d : b), trend[0] ?? { date: "", responses: 0 });
-  const day = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short" });
   const id = useId();
   if (!trend.length) return null;
   return (
@@ -29,20 +28,20 @@ export function Trend({ trend }: { trend: Summary["trend"] }) {
       <figcaption className="fm-trend-head">
         <strong>{tr("Responses a day")}</strong>
         <span className="faint">
-          {(best.responses > 0 ? tr("{total} in {length} days, most on {value} ({responses})", { total, length: trend.length, value: day(best.date), responses: best.responses }) : tr("{total} in {length} days", { total, length: trend.length }))}
+          {(best.responses > 0 ? tr("{total} in {length} days, most on {value} ({responses})", { total, length: trend.length, value: formatDate(best.date), responses: best.responses }) : tr("{total} in {length} days", { total, length: trend.length }))}
         </span>
       </figcaption>
       <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-labelledby={id} className="fm-trend-svg">
-        <title id={id}>{tr("{total} responses in {length} days, from {value} to {value2}", { total, length: trend.length, value: day(trend[0].date), value2: day(trend[trend.length - 1].date) })}</title>
+        <title id={id}>{tr("{total} responses in {length} days, from {value} to {value2}", { total, length: trend.length, value: formatDate(trend[0].date), value2: formatDate(trend[trend.length - 1].date) })}</title>
         <line x1="10" x2={W - 10} y1={H - 10} y2={H - 10} className="fm-axis" />
         <path d={t.area} className="fm-area" />
         <path d={t.line} className="fm-line" vectorEffect="non-scaling-stroke" />
         {trend.length <= 31 && t.dots.filter((d) => d.responses > 0).map((d) => <circle key={d.date} cx={d.x} cy={d.y} r="3" className="fm-dot-mark" vectorEffect="non-scaling-stroke" />)}
       </svg>
       <div className="fm-trend-axis faint" aria-hidden="true">
-        <span>{isolate(day(trend[0].date))}</span>
+        <span>{isolate(formatDate(trend[0].date))}</span>
         <span>{tr("{max} a day at most", { max: t.max })}</span>
-        <span>{isolate(day(trend[trend.length - 1].date))}</span>
+        <span>{isolate(formatDate(trend[trend.length - 1].date))}</span>
       </div>
     </figure>
   );

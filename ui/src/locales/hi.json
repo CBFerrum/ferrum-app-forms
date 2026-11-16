@@ -440,7 +440,6 @@
   "Through": "के ज़रिए",
   "Time": "समय",
   "Times are in": "समय इसमें हैं:",
-  "Times are in your time zone ({zone}).": "समय आपके समय क्षेत्र ({zone}) में हैं।",
   "Title of page {pageNo}": "पेज {pageNo} का शीर्षक",
   "Title of the form": "फ़ॉर्म का शीर्षक",
   "Too many tries just now. Wait a moment, then press Send again.": "अभी बहुत अधिक प्रयास। एक क्षण रुकें, फिर भेजें दबाएँ।",
@@ -548,7 +547,6 @@
   "up to {max} files": "{max} फ़ाइलों तक",
   "up to {mb} MB": "{mb} MB तक",
   "up to {mb} MB each": "हर एक {mb} MB तक",
-  "your time zone": "आपका समय क्षेत्र",
   "{count} of {answered}": "{answered} में से {count}",
   "{fn}() needs a list or a map": "{fn}() को एक सूची या मैप चाहिए",
   "{fn}() needs text": "{fn}() को पाठ चाहिए",
@@ -583,5 +581,6 @@
   "Finished": "पूरा किया",
   "Typical time": "सामान्य समय",
   "Average score": "औसत अंक",
-  "Kept as spam": "स्पैम के रूप में रखा गया"
+  "Kept as spam": "स्पैम के रूप में रखा गया",
+  "Times are in {zone}.": "समय {zone} के अनुसार हैं।"
 }

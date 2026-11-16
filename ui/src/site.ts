@@ -2,7 +2,7 @@
 // (`/api/site/{workspace}/forms`), the signed-in ones for forms the workspace's people answer
 // (`/api/app/forms`), a closed form's reasons, and the addresses that lead to a form.
 
-import { routeBase, t } from "@ferrum/client";
+import { formatMoment, routeBase, t } from "@ferrum/client";
 
 export const siteBase = (tenant: string) => `/api/site/${encodeURIComponent(tenant)}/forms`;
 export const APP_BASE = "/api/app/forms";
@@ -47,7 +47,7 @@ export function closedState(message: string): Closed {
   const opens = /^This form opens at (\S+?)\.?$/.exec(m);
   if (opens) {
     const at = new Date(opens[1]);
-    if (!Number.isNaN(at.getTime())) return { title: t("This form is not open yet"), body: t("It opens on {at}.", { at: at.toLocaleString(undefined, { dateStyle: "full", timeStyle: "short" }) }), opensAt: at };
+    if (!Number.isNaN(at.getTime())) return { title: t("This form is not open yet"), body: t("It opens on {at}.", { at: formatMoment(at, { dateStyle: "full", timeStyle: "short" }) }), opensAt: at };
   }
   if (m === DEFAULT_FULL) return { title: t("This form is full"), body: t("It has all the responses it was set up to take."), opensAt: null };
   if (!m || m === DEFAULT_CLOSED) return { title: t("This form is closed"), body: t("It is not taking responses any more."), opensAt: null };
