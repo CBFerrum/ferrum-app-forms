@@ -261,8 +261,7 @@ are the Mail app's; a mail the Mail app refuses is logged and does not undo the 
 
 ## Background work
 
-Every minute (`maintenance`, one replica at a time): move the old keys that have not moved into the vault (see Keys);
-then, per workspace with Forms, mark Published
+Every minute (`maintenance`, one replica at a time), per workspace with Forms: mark Published
 forms past `closes_at` Closed (500 per round), delete spam older than `spam_retention_days` (200
 per round), forget autoresponse limits older than two days. Each step is idempotent; a failing
 workspace or step does not stop the others.
@@ -271,13 +270,11 @@ workspace or step does not stop the others.
 
 Sessions, result links and prefill links are HMAC-SHA256 under keys derived from Forms' own key in the platform's
 vault for their purpose (`form-sessions`, `result-links`, `prefill-links`), the address hashes under `address-hashes`;
-each is made when needed and kept nowhere (`src/keys.rs`). What is signed names the version of Forms' key it came from.
-While the vault is closed, Forms neither signs nor checks them (`503`, "its keys are unavailable"). Until 0.4 one key
-per workspace did all of it, unsealed in `forms_secret`; it signs nothing now. It moves into the vault, sealed, as Forms'
-secret `old-signing-key`, and checks what it signed until a year and a day after it stopped signing
-(`forms_secret.retired_at`), never in a sandbox. The rows of `forms_secret` go in the release after 0.4.
+each is made when needed and kept nowhere (`src/keys.rs`). What is signed names the version of Forms' key it came from;
+what names none is refused like any other malformed token. While the vault is closed, Forms neither signs nor checks
+them (`503`, "its keys are unavailable").
 
 ## Storage outside entities
 
-`forms_secret` (until 0.4 the workspace's key; see Keys), `forms_claim` (one-response claims), `forms_view` (views per
-form and day), `forms_autoresponse` (autoresponse limits), all under row-level tenant isolation.
+`forms_claim` (one-response claims), `forms_view` (views per form and day), `forms_autoresponse` (autoresponse limits),
+all under row-level tenant isolation.
