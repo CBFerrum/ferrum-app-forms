@@ -277,4 +277,4 @@ them (`503`, "its keys are unavailable").
 ## Storage outside entities
 
 `forms_claim` (one-response claims), `forms_view` (views per form and day), `forms_autoresponse` (autoresponse limits),
-all under row-level tenant isolation.
+`forms_rate` (responses per address and hour), all under row-level tenant isolation.

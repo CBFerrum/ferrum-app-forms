@@ -288,6 +288,7 @@ fn forms_end_to_end() {
 
 async fn scenario() {
     let t = setup().await;
+    tables_enforce_row_security(&t).await;
     definitions_are_checked(&t).await;
     let every = every_question_type(&t).await;
     conditional_logic(&t).await;
@@ -307,6 +308,21 @@ async fn scenario() {
     maintenance(&t).await;
     // Last: registering Forms again gives the process that kernel's handle.
     a_closed_vault(&t).await;
+}
+
+/// Every table Forms' SQL makes holds workspaces' rows, so each enforces row-level security, as the platform's doctor
+/// requires of every such table.
+async fn tables_enforce_row_security(t: &T) {
+    let mut tx = t.k.db.system_tx().await.unwrap();
+    let exposed: Vec<String> = sqlx::query_scalar(
+        "select relname::text from pg_class where relnamespace = 'public'::regnamespace and relkind = 'r' and relname like 'forms\\_%' \
+         and not (relrowsecurity and relforcerowsecurity) order by 1",
+    )
+    .fetch_all(&mut *tx)
+    .await
+    .unwrap();
+    tx.commit().await.unwrap();
+    assert!(exposed.is_empty(), "without row-level security: {exposed:?}");
 }
 
 // ───────────────────────────── keys in the vault (src/keys.rs) ─────────────────────────────
