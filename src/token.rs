@@ -1,7 +1,7 @@
 //! What Forms signs and hashes. A form session, a quiz-result link and a signed prefill link are HMAC-SHA256 under keys
 //! derived from Forms' own key in the vault for their purpose (`keys.rs`, which checks them, in constant time), and name
-//! the version of that key; before 0.4 they named none, and the old key checks them. The hashes of IP addresses and of
-//! autoresponse addresses are keyed too, so that they cannot be reversed by trying every address without the key.
+//! the version of that key: one that names none is refused like anything else malformed. The hashes of IP addresses and
+//! of autoresponse addresses are keyed too, so that they cannot be reversed by trying every address without the key.
 
 use crate::keys;
 use base64::Engine as _;
@@ -38,11 +38,11 @@ impl Session {
     }
 }
 
-/// Something Forms signed, as it reads before its MAC is checked: what it carries, the version of Forms' key it names
-/// (none: from before 0.4, the old key's), what was signed, and the MAC.
+/// Something Forms signed, as it reads before its MAC is checked: what it carries, the version of Forms' key it names,
+/// what was signed, and the MAC.
 pub struct Signed<T> {
     pub value: T,
-    version: Option<i32>,
+    version: i32,
     message: Vec<u8>,
     tag: Vec<u8>,
 }
@@ -54,13 +54,12 @@ impl<T> Signed<T> {
     }
 }
 
-/// The version 0.4 and later add before the MAC (four bytes), when there is one; none at 56 bytes (before 0.4).
-fn version_at(raw: &[u8], at: usize) -> Option<Option<i32>> {
-    match raw.len() {
-        56 => Some(None),
-        60 => Some(Some(Some(i32::from_be_bytes(raw[at..at + 4].try_into().ok()?)).filter(|v| *v > 0)?)),
-        _ => None,
+/// The version of Forms' key named in the four bytes before the MAC: none unless the token is 60 bytes long and names one.
+fn version_at(raw: &[u8], at: usize) -> Option<i32> {
+    if raw.len() != 60 {
+        return None;
     }
+    Some(i32::from_be_bytes(raw[at..at + 4].try_into().ok()?)).filter(|v| *v > 0)
 }
 
 fn session_message(form: Uuid, issued: &[u8; 8], nonce: &[u8; 16]) -> Vec<u8> {
@@ -170,8 +169,7 @@ fn prefill_message(form: Uuid, body: &[u8]) -> Vec<u8> {
     [b"ferrum-forms-prefill:".as_slice(), form.as_bytes(), body].concat()
 }
 
-/// A signed prefill token for `form`: its JSON, the version of Forms' key and its MAC, base64url, joined by dots
-/// (before 0.4, its JSON and the old key's MAC).
+/// A signed prefill token for `form`: its JSON, the version of Forms' key and its MAC, base64url, joined by dots.
 pub fn prefill_token(key: &[u8], version: i32, form: Uuid, p: &Prefill) -> String {
     let body = serde_json::to_vec(p).unwrap_or_default();
     format!("{}.{}", URL_SAFE_NO_PAD.encode(&body), keys::signed(key, version, &prefill_message(form, &body)))
@@ -180,11 +178,8 @@ pub fn prefill_token(key: &[u8], version: i32, form: Uuid, p: &Prefill) -> Strin
 /// A prefill token of `form`, as it reads.
 fn read_prefill(form: Uuid, token: &str) -> Option<Signed<Prefill>> {
     let parts: Vec<&str> = token.trim().split('.').collect();
-    let (body, version, tag) = match parts.as_slice() {
-        [body, tag] => (body, None, tag),
-        [body, v, tag] => (body, Some(keys::version(v)?), tag),
-        _ => return None,
-    };
+    let [body, v, tag] = parts.as_slice() else { return None };
+    let version = keys::version(v)?;
     let body = URL_SAFE_NO_PAD.decode(body).ok()?;
     let value: Prefill = serde_json::from_slice(&body).ok()?;
     Some(Signed { value, version, message: prefill_message(form, &body), tag: URL_SAFE_NO_PAD.decode(tag).ok()? })
@@ -225,7 +220,7 @@ mod tests {
 
     /// What a signed token carries, when its MAC is `key`'s and it names version 1.
     fn ours<T>(key: &[u8], signed: Option<Signed<T>>) -> Option<T> {
-        signed.filter(|s| s.version == Some(1) && keys::mac_ok(key, &s.message, &s.tag)).map(|s| s.value)
+        signed.filter(|s| s.version == 1 && keys::mac_ok(key, &s.message, &s.tag)).map(|s| s.value)
     }
 
     #[test]
@@ -240,11 +235,10 @@ mod tests {
         assert_eq!(ours(&key, read_prefill(Uuid::now_v7(), &t)), None, "another form's");
         let forged = format!("{}.{}", URL_SAFE_NO_PAD.encode(br#"{"expires":1000,"answers":{"name":"Eve"}}"#), t.split_once('.').unwrap().1);
         assert_eq!(ours(&key, read_prefill(form, &forged)), None, "changed values");
-        // One from before 0.4 names no version: the old key checks it.
+        // One that names no version is refused, however it was signed.
         let body = serde_json::to_vec(&p).unwrap();
-        let old = format!("{}.{}", URL_SAFE_NO_PAD.encode(&body), URL_SAFE_NO_PAD.encode(keys::mac(&key, &prefill_message(form, &body))));
-        let read = read_prefill(form, &old).unwrap();
-        assert!(read.version.is_none() && keys::mac_ok(&key, &read.message, &read.tag));
+        let unversioned = format!("{}.{}", URL_SAFE_NO_PAD.encode(&body), URL_SAFE_NO_PAD.encode(keys::mac(&key, &prefill_message(form, &body))));
+        assert!(read_prefill(form, &unversioned).is_none());
     }
 
     #[test]
@@ -274,11 +268,10 @@ mod tests {
         tampered[27] = 0;
         assert!(read_session(f1, &URL_SAFE_NO_PAD.encode(&tampered)).is_none(), "no version 0");
         assert!(read_session(f1, "short").is_none());
-        // One from before 0.4 (56 bytes) names no version: the old key checks it.
+        // One that names no version (56 bytes) is refused, however it was signed.
         let issued = s.issued.to_be_bytes();
-        let old = URL_SAFE_NO_PAD.encode([&issued[..], &s.nonce, &keys::mac(&k1, &session_message(f1, &issued, &s.nonce))].concat());
-        let read = read_session(f1, &old).unwrap();
-        assert!(read.version.is_none() && read.value == s && keys::mac_ok(&k1, &read.message, &read.tag));
+        let unversioned = URL_SAFE_NO_PAD.encode([&issued[..], &s.nonce, &keys::mac(&k1, &session_message(f1, &issued, &s.nonce))].concat());
+        assert!(read_session(f1, &unversioned).is_none());
         assert_ne!(nonce(), nonce());
     }
 
@@ -293,9 +286,8 @@ mod tests {
         other[..16].copy_from_slice(Uuid::now_v7().as_bytes());
         assert_eq!(ours(&k, read_result(&URL_SAFE_NO_PAD.encode(other))), None, "pointing a link at another response");
         let issued = 5_000i64.to_be_bytes();
-        let old = URL_SAFE_NO_PAD.encode([r.as_bytes().as_slice(), &issued, &keys::mac(&k, &result_message(r, &issued))].concat());
-        let read = read_result(&old).unwrap();
-        assert!(read.version.is_none() && read.value == (r, 5_000) && keys::mac_ok(&k, &read.message, &read.tag), "one from before 0.4");
+        let unversioned = URL_SAFE_NO_PAD.encode([r.as_bytes().as_slice(), &issued, &keys::mac(&k, &result_message(r, &issued))].concat());
+        assert!(read_result(&unversioned).is_none(), "one that names no version");
     }
 
     #[test]

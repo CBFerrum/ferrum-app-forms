@@ -1,13 +1,5 @@
 -- Forms: bookkeeping kept out of every entity, so no API, export or audit trail shows it.
 
--- The per-workspace key that signs form sessions and quiz result links and keys the IP and
--- address hashes. Created on first use.
-create table forms_secret (
-  tenant_id uuid primary key references tenant(id) on delete cascade,
-  secret bytea not null check (length(secret) = 32),
-  created_at timestamptz not null default now()
-);
-
 -- "One response per email / per user": the first response claims the key; a concurrent or later
 -- one finds it taken. Anonymous forms keep only that a user took part, never which answers were
 -- theirs (no response id, no time).
@@ -43,7 +35,7 @@ create table forms_autoresponse (
 do $$
 declare t text;
 begin
-  foreach t in array array['forms_secret', 'forms_claim', 'forms_view', 'forms_autoresponse'] loop
+  foreach t in array array['forms_claim', 'forms_view', 'forms_autoresponse'] loop
     execute format('alter table %I enable row level security', t);
     execute format('alter table %I force row level security', t);
     execute format(
