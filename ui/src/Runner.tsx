@@ -6,7 +6,7 @@
 
 import { ArrowLeft, ArrowRight, Lock, Send } from "lucide-react";
 import { type CSSProperties, type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ApiError, errorMessage, t as tr, isolate } from "@ferrum/client";
+import { ApiError, errorMessage, formatDateTime, t as tr, isolate } from "@ferrum/client";
 import { Spinner } from "@ferrum/kit";
 import { accentVars } from "./accent";
 import { Notice, Thanks } from "./Done";
@@ -260,7 +260,7 @@ export function Runner({ form, prefill, zone, workspace, send, keep, preview, re
                     <Lock size={13} aria-hidden="true" /> {tr("Your response is anonymous.")}
                   </span>
                 )}
-                {form.closes_at && <span>{tr("Open until")} {isolate(new Date(form.closes_at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }))}.</span>}
+                {form.closes_at && <span>{tr("Open until")} {isolate(formatDateTime(form.closes_at))}.</span>}
               </p>
             )}
           </header>

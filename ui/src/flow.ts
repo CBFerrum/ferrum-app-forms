@@ -5,7 +5,7 @@
 
 import { answerKeys, compile, Dbl, holds, toVal, type Val } from "./cel";
 import { answerable, type Layout, type PForm, type PQuestion } from "./model";
-import { t as tr } from "@ferrum/client";
+import { formatDate, t as tr } from "@ferrum/client";
 
 /** What the screen holds for a question: text for typed answers, a list for several choices and
  *  rankings, true or false for a checkbox, a number for ratings, a row → column map for a grid,
@@ -89,7 +89,7 @@ const realDate = (s: string): boolean => {
 
 /** A day for reading in a message: 2026-11-03 → 3 Nov 2026. */
 export function showDay(iso: string): string {
-  return realDate(iso) ? new Date(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10)).toLocaleDateString(undefined, { dateStyle: "medium" }) : iso;
+  return realDate(iso) ? formatDate(iso) : iso;
 }
 
 function bounded(n: number, lo: number | null, hi: number | null): Norm | null {

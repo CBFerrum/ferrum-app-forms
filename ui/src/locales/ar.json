@@ -440,7 +440,6 @@
   "Through": "عبر",
   "Time": "الوقت",
   "Times are in": "الأوقات بتوقيت",
-  "Times are in your time zone ({zone}).": "الأوقات بمنطقتك الزمنية ({zone}).",
   "Title of page {pageNo}": "عنوان الصفحة {pageNo}",
   "Title of the form": "عنوان النموذج",
   "Too many tries just now. Wait a moment, then press Send again.": "محاولات كثيرة جدًا الآن. انتظر لحظة، ثم اضغط «إرسال» مجددًا.",
@@ -548,7 +547,6 @@
   "up to {max} files": "حتى {max} ملفات",
   "up to {mb} MB": "حتى {mb} ميغابايت",
   "up to {mb} MB each": "حتى {mb} ميغابايت لكل منها",
-  "your time zone": "منطقتك الزمنية",
   "{count} of {answered}": "{count} من {answered}",
   "{fn}() needs a list or a map": "تحتاج {fn}() إلى قائمة أو خريطة",
   "{fn}() needs text": "تحتاج {fn}() إلى نص",
@@ -583,5 +581,6 @@
   "Finished": "أنهوه",
   "Typical time": "الوقت المعتاد",
   "Average score": "متوسط الدرجة",
-  "Kept as spam": "محفوظ كبريد مزعج"
+  "Kept as spam": "محفوظ كبريد مزعج",
+  "Times are in {zone}.": "الأوقات بتوقيت {zone}."
 }

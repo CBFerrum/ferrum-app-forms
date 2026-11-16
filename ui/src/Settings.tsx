@@ -4,33 +4,12 @@
 
 import { Plus, Trash2, Upload, X } from "lucide-react";
 import { type ReactNode, useId, useState } from "react";
-import { api, errorMessage, t as tr, isolate } from "@ferrum/client";
+import { api, errorMessage, fromZonedInput, shownTimeZone, t as tr, isolate, toZonedInput } from "@ferrum/client";
 import { Field, toast } from "@ferrum/kit";
 import { useEntityMeta, useMetaIndex } from "@ferrum/records";
 import { alwaysShown, fits, lines, type QRow } from "./rows";
 import type { Fields, MapRow } from "./formdoc";
 import { hexOf } from "./accent";
-
-const zone = (() => {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone;
-  } catch {
-    return tr("your time zone");
-  }
-})();
-
-/** An instant as the local value a date-time input holds, and back. */
-const toInput = (iso: string | null): string => {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  const p = (x: number) => String(x).padStart(2, "0");
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
-};
-const fromInput = (v: string): string | null => {
-  const d = v ? new Date(v) : null;
-  return d && !Number.isNaN(d.getTime()) ? d.toISOString() : null;
-};
 
 function Section({ title, hint, children }: { title: string; hint?: ReactNode; children: ReactNode }) {
   return (
@@ -247,13 +226,14 @@ export function Settings({ fields: f, set, rows, formId, errors }: SettingsProps
         )}
       </Section>
 
-      <Section title={tr("When")} hint={tr("Times are in your time zone ({zone}).", { zone: zone.replace(/_/g, " ") })}>
+      {/* Times are shown and taken on the page's clock: the person's own zone, else the workspace's (the browser's while neither is known). */}
+      <Section title={tr("When")} hint={tr("Times are in {zone}.", { zone: (shownTimeZone() ?? Intl.DateTimeFormat().resolvedOptions().timeZone).replace(/_/g, " ") })}>
         <div className="fm-grid">
           <Field label={tr("Opens")} htmlFor={`${id}-opens`} hint={tr("Blank: as soon as it is published.")} error={errors.opens_at}>
-            <input id={`${id}-opens`} className="input" type="datetime-local" value={toInput(f.opens_at)} onChange={(e) => set({ opens_at: fromInput(e.target.value) })} />
+            <input id={`${id}-opens`} className="input" type="datetime-local" value={toZonedInput(f.opens_at)} onChange={(e) => set({ opens_at: fromZonedInput(e.target.value) })} />
           </Field>
           <Field label={tr("Closes")} htmlFor={`${id}-closes`} hint={tr("Blank: it stays open.")} error={errors.closes_at}>
-            <input id={`${id}-closes`} className="input" type="datetime-local" value={toInput(f.closes_at)} onChange={(e) => set({ closes_at: fromInput(e.target.value) })} />
+            <input id={`${id}-closes`} className="input" type="datetime-local" value={toZonedInput(f.closes_at)} onChange={(e) => set({ closes_at: fromZonedInput(e.target.value) })} />
           </Field>
           <Field label={tr("Closes after")} htmlFor={`${id}-limit`} hint={tr("Responses. Blank: no limit.")} error={errors.response_limit}>
             <input id={`${id}-limit`} className="input num" type="number" min={1} inputMode="numeric" value={f.response_limit ?? ""} onChange={(e) => set({ response_limit: e.target.value === "" ? null : Number(e.target.value) })} />

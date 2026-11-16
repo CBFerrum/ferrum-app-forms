@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { setTimeZone } from "@ferrum/client";
 import { accentVars, contrast, hexOf } from "./accent";
 import { closedState, formPath, loginPath, resultPath, safeRedirect } from "./site";
 
@@ -28,6 +29,17 @@ describe("why a form is not open", () => {
     expect(soon.title).toBe("This form is not open yet");
     expect(soon.opensAt?.toISOString()).toBe("2026-11-02T09:00:00.000Z");
     expect(closedState("See you next year").body).toBe("See you next year");
+  });
+
+  it("says the day a form opens on the workspace's clock, not the browser's", () => {
+    // 11:00 UTC on 5 Nov is already 6 Nov in Kiritimati (UTC+14), and still 5 Nov in any browser west of UTC+13.
+    setTimeZone("Pacific/Kiritimati");
+    try {
+      const workspaceDay = new Intl.DateTimeFormat(undefined, { dateStyle: "full", timeZone: "Pacific/Kiritimati" }).format(new Date("2026-11-05T11:00:00Z"));
+      expect(closedState("This form opens at 2026-11-05T11:00:00Z.").body).toContain(workspaceDay);
+    } finally {
+      setTimeZone(undefined);
+    }
   });
 });
 

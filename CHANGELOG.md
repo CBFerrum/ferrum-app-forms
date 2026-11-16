@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.5.1
+
+Needs the same platform as 0.5.0. No database change. Interface only, `ui/dist` rebuilt with Ferrum-Frontend `06bd1a2`.
+
+- When a form opens ("It opens on …", on the page of a form not open yet) and until when it is open ("Open until …")
+  are written on the workspace's clock, its zone named when the browser's is another; they were the browser's, so near
+  midnight the day could be another. A form's settings take its opening and closing times on the same clock and name
+  the zone they are in (they said "your time zone", the browser's).
+- A day in a message or under the responses chart is written as the platform writes a day, in the chosen language's
+  format.
+- The two routes to the screens apps no longer have (`apps/:app/settings`, `x/:app/:page`) are gone; nothing linked to
+  them. The page starts through the frontend's `mountApp`; the interface lint has no baseline file any more.
+
 ## 0.5.0
 
 Needs the same platform as 0.4.0. No interface change. The package's SQL reads as its final schema: `forms_secret` and
