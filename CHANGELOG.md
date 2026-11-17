@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.3
+
+Needs the same platform as 0.5.2. No database change, interface unchanged.
+
+- **Only a response can be large.** Every route accepted a body of up to 28 MB, so each public request made the server
+  read that much. Now every route takes at most 256 KB, except `POST /f/{slug}/responses`, which keeps 28 MB because a
+  form with file questions sends its files in the body (the form is only known after the body is read; a form without
+  files still refuses more than 256 KB).
+
 ## 0.5.2
 
 Needs the same platform as 0.5.1. Interface unchanged. Database change: the package's SQL is one file, `001_forms.sql`
