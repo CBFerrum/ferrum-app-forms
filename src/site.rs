@@ -306,7 +306,16 @@ async fn owner(k: &Kernel, user: &Ctx, req: &SiteRequest, form: Uuid, rest: &[&s
 #[async_trait]
 impl Site for FormsSite {
     fn max_body(&self) -> usize {
-        MAX_WITH_FILES
+        MAX_JSON
+    }
+
+    /// A response may carry files, and only the form (read after the body) says whether it does.
+    fn max_body_for(&self, method: &str, path: &str) -> usize {
+        let p: Vec<&str> = path.split('/').filter(|s| !s.is_empty()).collect();
+        match (method, p.as_slice()) {
+            ("POST", ["f", _, "responses"]) => MAX_WITH_FILES,
+            _ => self.max_body(),
+        }
     }
 
     async fn handle(&self, k: &Kernel, req: SiteRequest) -> Result<SiteResponse> {
@@ -328,6 +337,23 @@ impl Site for FormsSite {
                 None => Err(Error::NotFound("endpoint".into())),
             },
             _ => Err(Error::NotFound("endpoint".into())),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_a_response_takes_files() {
+        for (method, path) in
+            [("GET", "f/abc"), ("GET", "results/tok"), ("GET", "forms/abc/export"), ("POST", "f/abc"), ("POST", "f/abc/responses/x"), ("POST", "results/tok")]
+        {
+            assert_eq!(FormsSite.max_body_for(method, path), MAX_JSON, "{method} {path}");
+        }
+        for path in ["f/abc/responses", "/f/abc/responses"] {
+            assert_eq!(FormsSite.max_body_for("POST", path), MAX_WITH_FILES, "POST {path}");
         }
     }
 }
