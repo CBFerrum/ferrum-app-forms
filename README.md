@@ -14,7 +14,7 @@
 ![Rust](https://img.shields.io/badge/Rust-server-b7410e?style=flat-square&logo=rust)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-data-336791?style=flat-square&logo=postgresql&logoColor=white)
 ![React](https://img.shields.io/badge/React%20%2B%20TypeScript-interface-0ea5e9?style=flat-square&logo=react&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-32%20Rust%20%C2%B7%2072%20interface-16a34a?style=flat-square)
+![Tests](https://img.shields.io/badge/tests-33%20Rust%20%C2%B7%2073%20interface-16a34a?style=flat-square)
 
 ### Build a form, survey or quiz, share a link, and turn every answer into a record.
 
@@ -38,13 +38,13 @@ Ferrum Forms is for teams that collect information from customers, applicants, m
 
 | | |
 |---|---|
-| 📦 **Version** | 0.5.0 |
+| 📦 **Version** | 0.5.2 |
 | 🖥️ **Kind** | Its own interface at `/forms/` (builder, results) and a respondent page at `/forms/f/{workspace}/{form}`, with Ferrum's records screens for the rest |
 | ➕ **What it adds** | 6 entities in one package (Form, Form Question, Form Field Map, Form Notify User, Form Response, Forms Settings), 2 roles, 3 reports, a launcher app, a Create menu entry, an assistant |
 | 🧱 **Depends on** | The platform's `core` package. Nothing else is required |
 | 🤝 **Works with** | Mail (owner emails and autoresponses) and any record type a response can create |
 | 🌍 **Languages** | English, Arabic, Hindi (the app's own screens; a form's questions have one language each) |
-| 🧪 **Tests** | 32 Rust test functions and 72 interface tests, counted from the source |
+| 🧪 **Tests** | 33 Rust test functions and 73 interface tests, counted from the source |
 | 📄 **Licence** | AGPL-3.0-only |
 
 ## 📸 Screenshots
@@ -320,10 +320,10 @@ Forms is compared with Google Forms, Microsoft Forms, Typeform, Jotform, SurveyM
 
 ### ✅ Recently shipped
 
-- [x] **0.5.2**: The package's SQL is one file.
+- [x] **0.5.2**: A response without the robot check's answer is always refused; the package's SQL is one file.
 - [x] **0.5.1**: When a form opens and closes is shown and set on the workspace's clock, not the browser's.
-- [x] **0.5.0**: Sessions, result links and prefill links name the version of Forms' key, or are refused; the key kept unsealed before 0.4 is gone; the hourly response counts enforce row-level security.
-- [x] **0.4.0**: Sessions, result links and prefill links are signed with keys from the platform's vault; the key kept unsealed before only checks what it signed.
+- [x] **0.5.0**: Sessions, result links and prefill links name the version of Forms' key, or are refused; the hourly response counts enforce row-level security.
+- [x] **0.4.0**: Sessions, result links and prefill links are signed with keys from the platform's vault.
 - [x] **0.3.0**: Hidden fields, signed prefill links, and abuse protection (a rate limit, an optional proof of work and a plug-in point for extra checks).
 - [x] **0.2.18 and 0.2.17**: The upgraded design system and a lighter first page.
 - [x] **0.2.16 to 0.2.9**: Names, words and reports in Arabic and Hindi, right to left, times on the workspace's and a person's own clock.
@@ -441,7 +441,7 @@ CHANGELOG.md          what changed in each version
 
 ## 📜 Changelog
 
-Every release is described in [CHANGELOG.md](CHANGELOG.md). The latest is **0.5.2**, which makes the package's SQL one file.
+Every release is described in [CHANGELOG.md](CHANGELOG.md). The latest is **0.5.2**.
 
 ## 🤝 Contributing
 
