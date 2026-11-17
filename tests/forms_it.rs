@@ -1186,7 +1186,8 @@ async fn notifications_and_mail(t: &T) {
         attempts: 1,
         ..Default::default()
     };
-    for sink in t.k.hooks.event_sinks() {
+    // The sinks of the apps this workspace has, as the dispatcher finds them.
+    for (_, sink) in t.k.hooks.event_sinks(&["forms".to_string(), "comms".to_string(), "selling".to_string()]) {
         sink.on_event(&t.k, &ev).await.expect("redelivery");
     }
     t.drain().await;
