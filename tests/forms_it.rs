@@ -218,7 +218,6 @@ async fn setup() -> T {
     let k = Kernel::boot(db, catalog(), hooks, KernelSettings::default(), Some(mail.clone())).await.expect("boot");
     k.set_file_store(Arc::new(MemStore::default()));
     ferrum_domain::maintenance(&k).await.expect("partitions");
-    ferrum_app_erp::maintenance(&k).await.expect("partitions");
     let tenant = k
         .create_tenant(NewTenant {
             slug: "acme".into(),
@@ -1395,8 +1394,8 @@ async fn maintenance(t: &T) {
     t.exec("update e_form_response set created_at = now() - interval '40 days' where tenant_id = $1 and status = 'Spam' and $2::uuid is not null", uid(&form))
         .await;
     t.exec("update forms_autoresponse set sent_at = now() - interval '3 days' where tenant_id = $1 and $2::uuid is not null", uid(&form)).await;
-    ferrum_app_forms::maintenance(&t.k).await.expect("maintenance");
-    ferrum_app_forms::maintenance(&t.k).await.expect("maintenance is idempotent");
+    ferrum_app_forms::maintenance(&t.k, t.tenant).await.expect("maintenance");
+    ferrum_app_forms::maintenance(&t.k, t.tenant).await.expect("maintenance is idempotent");
     assert_eq!(t.get("Form", uid(&form)).await["status"], json!("Closed"));
     assert_eq!(t.count("select count(*) from e_form_response where tenant_id = $1 and status = 'Spam' and $2::uuid is not null", uid(&form)).await, 0);
     assert_eq!(t.count("select count(*) from forms_autoresponse where tenant_id = $1 and $2::uuid is not null", uid(&form)).await, 0);

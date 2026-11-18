@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.0
+
+Needs Ferrum 0.4.0 (apps' upkeep runs one workspace at a time, on whichever replica is free). No database or interface change.
+
+**Upkeep is one workspace's.** `maintenance(k, tenant)` closes forms past their closing time, deletes old spam and forgets old throttles in the one workspace the platform hands it; the list of workspaces and the installation check are the platform's.
+
 ## 0.5.3
 
 Needs the same platform as 0.5.2. No database change, interface unchanged.

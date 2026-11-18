@@ -7,7 +7,7 @@
 
 <br>
 
-[![Version](https://img.shields.io/badge/version-0.5.3-30a67d?style=flat-square)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.6.0-30a67d?style=flat-square)](CHANGELOG.md)
 [![Licence: AGPL-3.0](https://img.shields.io/badge/licence-AGPL--3.0-blue?style=flat-square)](LICENSE)
 [![Ferrum platform](https://img.shields.io/badge/runs%20on-Ferrum-2f5bea?style=flat-square)](https://github.com/CBFerrum/Ferrum)
 [![CI](https://github.com/CBFerrum/ferrum-app-forms/actions/workflows/ci.yml/badge.svg)](https://github.com/CBFerrum/ferrum-app-forms/actions/workflows/ci.yml)
@@ -38,7 +38,7 @@ Ferrum Forms is for teams that collect information from customers, applicants, m
 
 | | |
 |---|---|
-| 📦 **Version** | 0.5.3 |
+| 📦 **Version** | 0.6.0 |
 | 🖥️ **Kind** | Its own interface at `/forms/` (builder, results) and a respondent page at `/forms/f/{workspace}/{form}`, with Ferrum's records screens for the rest |
 | ➕ **What it adds** | 6 entities in one package (Form, Form Question, Form Field Map, Form Notify User, Form Response, Forms Settings), 2 roles, 3 reports, a launcher app, a Create menu entry, an assistant |
 | 🧱 **Depends on** | The platform's `core` package. Nothing else is required |
@@ -320,6 +320,7 @@ Forms is compared with Google Forms, Microsoft Forms, Typeform, Jotform, SurveyM
 
 ### ✅ Recently shipped
 
+- [x] **0.6.0**: Upkeep runs one workspace at a time, on whichever replica is free; needs Ferrum 0.4.0.
 - [x] **0.5.3**: Only the route that takes a response reads a large body; every other route takes at most 256 KB.
 - [x] **0.5.2**: A response without the robot check's answer is always refused; the package's SQL is one file.
 - [x] **0.5.1**: When a form opens and closes is shown and set on the workspace's clock, not the browser's.
@@ -372,7 +373,7 @@ Forms is compared with Google Forms, Microsoft Forms, Typeform, Jotform, SurveyM
 
 ## 🚀 Install
 
-Forms is a native app compiled into the official Ferrum server image. A workspace administrator installs it from **Apps** (`/store/`). Self-hosters who build their own image enable the `forms` feature of the server. It needs Ferrum platform `>=0.3, <0.4`.
+Forms is a native app compiled into the official Ferrum server image. A workspace administrator installs it from **Apps** (`/store/`). Self-hosters who build their own image enable the `forms` feature of the server. It needs Ferrum platform `>=0.4.0, <0.5`.
 
 **First steps**
 
@@ -442,7 +443,7 @@ CHANGELOG.md          what changed in each version
 
 ## 📜 Changelog
 
-Every release is described in [CHANGELOG.md](CHANGELOG.md). The latest is **0.5.3**.
+Every release is described in [CHANGELOG.md](CHANGELOG.md). The latest is **0.6.0**.
 
 ## 🤝 Contributing
 
