@@ -1,4 +1,4 @@
-//! Every-minute upkeep, per workspace with Forms: close forms whose closing time passed, delete
+//! Upkeep of one workspace with Forms, about once a minute: close forms whose closing time passed, delete
 //! spam older than the retention, forget autoresponse throttles older than two days and response counts per
 //! address of past hours. Each step is bounded and idempotent; a failing workspace or step does not stop the others.
 
@@ -11,35 +11,23 @@ use uuid::Uuid;
 const SPAM_BATCH: i64 = 200;
 const DEFAULT_SPAM_DAYS: i64 = 30;
 
-pub async fn run(k: &Kernel) -> Result<()> {
-    let mut tx = k.db.system_tx().await?;
-    let tenants: Vec<Uuid> = sqlx::query_scalar("select id from tenant where status = 'active' order by id").fetch_all(&mut *tx).await?;
-    tx.commit().await?;
+/// One workspace's round.
+pub async fn run(k: &Kernel, tenant: Uuid) -> Result<()> {
+    let sys = engine(tenant, k.registry.schema(tenant).await?);
     let mut first_error: Option<Error> = None;
-    for tenant in tenants {
-        let schema = match k.registry.schema(tenant).await {
-            Ok(s) if s.packages.iter().any(|p| p == crate::PACKAGE) => s,
-            Ok(_) => continue,
+    let steps = [
+        ("closing", close_due(k, &sys).await),
+        ("spam", purge_spam(k, &sys).await),
+        ("autoresponses", forget_throttles(k, &sys).await),
+        ("rates", forget_rates(k, &sys).await),
+    ];
+    for (step, outcome) in steps {
+        match outcome {
+            Ok(n) if n > 0 => tracing::info!(%tenant, step, n, "forms maintenance"),
+            Ok(_) => {}
             Err(e) => {
+                tracing::warn!(%tenant, step, "forms maintenance failed: {e}");
                 first_error.get_or_insert(e);
-                continue;
-            }
-        };
-        let sys = engine(tenant, schema);
-        let steps = [
-            ("closing", close_due(k, &sys).await),
-            ("spam", purge_spam(k, &sys).await),
-            ("autoresponses", forget_throttles(k, &sys).await),
-            ("rates", forget_rates(k, &sys).await),
-        ];
-        for (step, outcome) in steps {
-            match outcome {
-                Ok(n) if n > 0 => tracing::info!(%tenant, step, n, "forms maintenance"),
-                Ok(_) => {}
-                Err(e) => {
-                    tracing::warn!(%tenant, step, "forms maintenance failed: {e}");
-                    first_error.get_or_insert(e);
-                }
             }
         }
     }

@@ -87,9 +87,10 @@ pub fn reports() -> Vec<Arc<dyn ReportSource>> {
     vec![Arc::new(reports::FormsReports)]
 }
 
-/// Periodic upkeep: every minute, on one replica at a time (advisory lock); must be idempotent and cheap.
-pub async fn maintenance(k: &Kernel) -> Result<()> {
-    upkeep::run(k).await
+/// One workspace's upkeep, which the platform runs about once a minute where Forms is installed, on whichever replica is
+/// free, and may run again.
+pub async fn maintenance(k: &Kernel, tenant: Uuid) -> Result<()> {
+    upkeep::run(k, tenant).await
 }
 
 #[cfg(test)]
