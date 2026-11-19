@@ -9,7 +9,7 @@ modules:
     label: Forms
     icon: clipboard-list
     order: 55
-    items: [Form, FormResponse, FormsSettings, report:forms_overview, report:form_question_summary, report:form_response_trend]
+    items: [Form, FormResponse, FormTemplate, FormsSettings, report:forms_overview, report:form_question_summary, report:form_response_trend]
 
 # What a personal-data request exports and erases for a respondent (their email): who answered and
 # their answers.
@@ -22,11 +22,57 @@ roles:
       - {entity: Form, read: true, write: true, create: true, delete: true, export: true, import: true, read_groups: [ownership], write_groups: [ownership]}
       - {entity: FormResponse, read: true, write: true, delete: true, export: true}
       - {entity: FormsSettings, read: true, write: true, create: true}
+      - {entity: FormTemplate, read: true, write: true, create: true, delete: true}
   - name: Forms User
     description: Builds forms, surveys and quizzes and works the responses of the forms they own (created, or named as owner).
     permissions:
       - {entity: Form, read: true, write: true, create: true, delete: true, export: true, if_owner: true, read_groups: [ownership]}
       - {entity: FormResponse, read: true, write: true, delete: true, export: true, if_owner: true}
+      - {entity: FormTemplate, read: true}
 handover:
   - {entity: Form, field: owner, where: {status: [Draft, Published]}}
   - {entity: FormResponse, field: form_owner, where: {status: New}}
+
+# Starting points every workspace gets; a workspace edits them or adds its own (FormTemplate).
+seed:
+  - entity: FormTemplate
+    key: [template_name]
+    records:
+      - template_name: Contact form
+        kind: Form
+        description: A name, an email and a message.
+        confirmation_message: Thanks for getting in touch. We will reply soon.
+        questions:
+          - {key: your_name, label: Your name, question_type: short_text, required: true}
+          - {key: your_email, label: Your email, question_type: email, required: true}
+          - {key: phone_number, label: Phone number, question_type: phone}
+          - {key: how_can_we_help, label: How can we help?, question_type: long_text, required: true}
+      - template_name: Event registration
+        kind: Form
+        description: Who is coming, with how many, and what they need.
+        confirmation_message: You are registered. We look forward to seeing you.
+        questions:
+          - {key: your_name, label: Your name, question_type: short_text, required: true}
+          - {key: your_email, label: Your email, question_type: email, required: true}
+          - {key: how_many, label: How many people are coming?, question_type: number, required: true, min_value: "1", max_value: "10"}
+          - {key: food, label: Anything we should know about food?, question_type: multi_select, options: [Vegetarian, Vegan, Gluten-free, Nut allergy], allow_other: true}
+          - {key: anything_else, label: Anything else?, question_type: long_text}
+      - template_name: Customer feedback
+        kind: Survey
+        description: A score, a rating and what to improve.
+        confirmation_message: Thank you for your feedback. It helps us a lot.
+        questions:
+          - {key: recommend, label: How likely are you to recommend us to a friend or colleague?, question_type: nps, required: true}
+          - {key: experience, label: How would you rate your last experience?, question_type: rating, required: true, max_value: "5"}
+          - {key: improve, label: What is one thing we could do better?, question_type: long_text}
+          - {key: may_contact, label: You may contact me about my feedback, question_type: checkbox}
+      - template_name: Short quiz
+        kind: Quiz
+        description: Questions with right answers, marked for you.
+        layout: One question at a time
+        passing_score: "60"
+        reveal_answers: true
+        questions:
+          - {key: capital, label: What is the capital of France?, question_type: select, required: true, options: [Paris, Lyon, Marseille], correct_answer: Paris, points: "1"}
+          - {key: primes, label: Which of these are prime numbers?, question_type: multi_select, required: true, options: ["2", "3", "4", "9"], correct_answer: ["2", "3"], points: "2"}
+          - {key: six_times_seven, label: What is 6 times 7?, question_type: short_text, required: true, correct_answer: ["42", "forty-two"], points: "1"}

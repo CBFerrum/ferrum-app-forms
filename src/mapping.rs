@@ -11,7 +11,7 @@ use ferrum_meta::{EffEntity, EntityKind, FieldDef, FieldType, Schema};
 use serde_json::{Map, Value, json};
 
 /// Entities a form may not create (its own records).
-const OWN: &[&str] = &["Form", "FormResponse", "FormsSettings"];
+const OWN: &[&str] = &["Form", "FormResponse", "FormsSettings", "FormTemplate"];
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct MapRow {

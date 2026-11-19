@@ -306,6 +306,7 @@ async fn scenario() {
     a_portal_person_is_the_public(&t).await;
     actions_through_the_gate(&t).await;
     embedding_and_brand(&t).await;
+    templates_make_forms(&t).await;
     maintenance(&t).await;
     // Last: registering Forms again gives the process that kernel's handle.
     a_closed_vault(&t).await;
@@ -678,6 +679,35 @@ async fn embedding_and_brand(t: &T) {
     let (opened, _) = t.open(None, "embedded-two").await;
     assert_eq!(opened["brand"]["name"], json!("Partner look"));
     assert!(opened["brand"]["css"].as_str().unwrap().starts_with("/_brand/acme/"), "{}", opened["brand"]);
+}
+
+/// The starting points every workspace gets are records anyone building forms can list; using one makes a Draft the
+/// caller owns, with the template's questions; it needs the right to make forms; a template is checked like a form.
+async fn templates_make_forms(t: &T) {
+    let names: Vec<String> = t.list(&t.owner, "FormTemplate", json!({})).await.iter().map(|r| r["template_name"].as_str().unwrap().to_string()).collect();
+    for name in ["Contact form", "Event registration", "Customer feedback", "Short quiz"] {
+        assert!(names.contains(&name.to_string()), "{names:?}");
+    }
+    let quiz = t.find_one("FormTemplate", json!({"template_name": "Short quiz"})).await;
+    let made = t.action(&t.owner, "FormTemplate", uid(&quiz), "use_template", json!({"title": "Friday quiz"})).await;
+    let form = t.get("Form", made["id"].as_str().unwrap().parse().unwrap()).await;
+    assert_eq!(
+        (form["title"].clone(), form["kind"].clone(), form["status"].clone(), form["owner"].clone()),
+        (json!("Friday quiz"), json!("Quiz"), json!("Draft"), json!("owner@acme.test"))
+    );
+    assert_eq!(form["questions"].as_array().unwrap().len(), 3);
+    assert_eq!(form["passing_score"], quiz["passing_score"]);
+    let staff = t.k.run_action(&t.staff, "FormTemplate", uid(&quiz), "use_template", json!({})).await;
+    assert!(staff.is_err(), "without the right to make forms: {staff:?}");
+    let e =
+        t.k.insert(
+            &t.manager,
+            "FormTemplate",
+            obj(json!({"template_name": "Broken", "questions": [{"key": "a", "label": "A", "question_type": "select", "options": []}]})),
+        )
+        .await
+        .unwrap_err();
+    assert!(fields(&e).contains(&"questions[0].options".to_string()), "{e:?}");
 }
 
 // ───────────────────────────── definitions ─────────────────────────────

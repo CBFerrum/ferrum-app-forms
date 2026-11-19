@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.8.0
+
+Needs the same platform as 0.7.0. Database change: the `FormTemplate` entity (seeded with four templates). Interface
+changed; `ui/dist` rebuilt, carrying 0.6.1 to 0.8.0.
+
+**Templates are records.** The starting points of a new form were written into the interface: nobody could add one,
+and an agent could not list or use them. They are now Form Template records, which anyone building forms may read
+and a Forms Manager keeps; Use This Template makes a Draft form from one, owned by whoever asks.
+
 ## 0.7.0
 
 Needs Ferrum with S4's Brand and Embedding (0.4.x at `b029f83a` or later). Database change: `Form.brand`. Interface

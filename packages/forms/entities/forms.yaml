@@ -252,6 +252,35 @@
     - {label: Follow-up, collapsible: true, fields: [record_entity, record_id, record_error, spam_reason]}
   list: {columns: [number, form, status, respondent_email, submitted_at], sort: submitted_at desc}
 
+- name: FormTemplate
+  label: Form Template
+  label_plural: Form Templates
+  kind: master
+  module: forms
+  icon: layout-template
+  title_field: template_name
+  description: "A starting point for a new form: its questions and a few settings. Use a Template makes a Draft form from it, owned by whoever makes it; changing the template later changes no form made from it."
+  fields:
+    - {name: template_name, type: data, required: true, unique: true, max_length: 200, in_list: true}
+    - {name: kind, type: select, options: [Form, Survey, Quiz], default: Form, required: true, in_list: true, in_filter: true}
+    - {name: description, type: text, max_length: 2000, in_list: true, description: "What it is for, shown where a template is chosen"}
+    - {name: questions, type: table, of: FormQuestion}
+    - {name: layout, type: select, options: [Pages, One question at a time], default: Pages}
+    - {name: confirmation_message, type: text, max_length: 2000}
+    - {name: passing_score, type: percent, min: "0", max: "100"}
+    - {name: reveal_answers, type: check}
+  actions:
+    - name: use_template
+      label: Use This Template
+      permission: read
+      params:
+        - {name: title, type: data, label: Title, description: "The new form's title (default: the template's name)"}
+      contract:
+        effect: transactional_action
+        returns: {type: object, properties: {entity: {type: string, const: Form}, id: {type: string, format: uuid, x-ferrum-link: Form}, slug: {type: string}}}
+        completion: "A Draft form with the template's questions exists, owned by the caller"
+  list: {columns: [template_name, kind, description], sort: template_name asc}
+
 - name: FormsSettings
   label: Forms Settings
   kind: settings

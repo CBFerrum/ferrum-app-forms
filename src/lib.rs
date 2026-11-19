@@ -23,6 +23,7 @@ mod model;
 mod reports;
 mod response;
 mod site;
+mod template;
 mod token;
 mod upkeep;
 
@@ -78,6 +79,7 @@ pub fn register(hooks: &mut HookRegistry) {
     hooks
         .register("Form", Arc::new(form::FormHook))
         .register("FormResponse", Arc::new(response::ResponseHook))
+        .register("FormTemplate", Arc::new(template::TemplateHook))
         .add_event_sink(Arc::new(response::FormsSink))
         .add_site(PACKAGE, Arc::new(site::FormsSite));
 }
