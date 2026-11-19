@@ -7,7 +7,7 @@
 
 <br>
 
-[![Version](https://img.shields.io/badge/version-0.6.0-30a67d?style=flat-square)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.8.0-30a67d?style=flat-square)](CHANGELOG.md)
 [![Licence: AGPL-3.0](https://img.shields.io/badge/licence-AGPL--3.0-blue?style=flat-square)](LICENSE)
 [![Ferrum platform](https://img.shields.io/badge/runs%20on-Ferrum-2f5bea?style=flat-square)](https://github.com/CBFerrum/Ferrum)
 [![CI](https://github.com/CBFerrum/ferrum-app-forms/actions/workflows/ci.yml/badge.svg)](https://github.com/CBFerrum/ferrum-app-forms/actions/workflows/ci.yml)
@@ -38,7 +38,7 @@ Ferrum Forms is for teams that collect information from customers, applicants, m
 
 | | |
 |---|---|
-| 📦 **Version** | 0.6.0 |
+| 📦 **Version** | 0.8.0 |
 | 🖥️ **Kind** | Its own interface at `/forms/` (builder, results) and a respondent page at `/forms/f/{workspace}/{form}`, with Ferrum's records screens for the rest |
 | ➕ **What it adds** | 6 entities in one package (Form, Form Question, Form Field Map, Form Notify User, Form Response, Forms Settings), 2 roles, 3 reports, a launcher app, a Create menu entry, an assistant |
 | 🧱 **Depends on** | The platform's `core` package. Nothing else is required |
@@ -105,7 +105,8 @@ Ferrum Forms is for teams that collect information from customers, applicants, m
 - **Who can answer.** Public (anyone with the link) or Internal (signed-in users only, at the same link).
 - **When and how often.** An opening and closing time, a response limit that holds exactly under concurrency, and one response per email or one per signed-in user.
 - **The respondent's page.** Pages or one question at a time, an accent colour and a logo, a thank-you message, an address to send people to next, and a message for a closed form.
-- **Anonymous mode.** No respondent email, name, user id or address is kept, and the audit trail and events never name the respondent. On an anonymous form only "one response per user" is allowed, which records that someone took part but never which response is theirs.
+- **Anonymous mode.** A response to an anonymous form keeps no respondent email, name, user id or network address, no session, no time taken and no values from the link (an anonymous form takes no hidden fields and no prefilled answers), and it keeps only the day it came, not the moment; nobody is notified per response, since the moment would say who answered. The audit trail and events never name the respondent. On an anonymous form only "one response per user" is allowed, which records that someone took part but never which response is theirs.
+  What it does not cover, plainly: the platform stamps every record with the exact moment it was made (its `created_at`, its audit entry and its event), and those stamps can be read by someone with the right to read responses through the API, and by anyone with access to the database or the server's logs. Forms never shows or exports those moments for an anonymous form, but it cannot remove them. Free-text answers can also give away who wrote them.
 - **Who is told.** The owner and a list of workspace users are notified of each response, in the app and, when email is set up, by email. Users who may not read the response are skipped.
 - **An email to the respondent.** A fixed plain-text autoresponse to the address in a chosen email question, at most one per address and form a day, never for spam or anonymous forms.
 - **Quiz settings.** A pass mark (checked exactly) and whether the result reveals the correct answers.
@@ -320,6 +321,11 @@ Forms is compared with Google Forms, Microsoft Forms, Typeform, Jotform, SurveyM
 
 ### ✅ Recently shipped
 
+- [x] **0.8.0**: Form templates are records anyone building forms may list and use; four ship with every workspace.
+- [x] **0.7.0**: A form wears the workspace's brand, and other sites may show it once allowed.
+- [x] **0.6.3**: Every action a person can press says what it promises; Enter a Response declares its parameters.
+- [x] **0.6.2**: Portal people are the public to Forms; the respondent's page sends the link's values and the proof of work.
+- [x] **0.6.1**: An anonymous form keeps nothing that singles its respondent out: no session, time taken or link values, the day only.
 - [x] **0.6.0**: Upkeep runs one workspace at a time, on whichever replica is free; needs Ferrum 0.4.0.
 - [x] **0.5.3**: Only the route that takes a response reads a large body; every other route takes at most 256 KB.
 - [x] **0.5.2**: A response without the robot check's answer is always refused; the package's SQL is one file.
@@ -443,7 +449,7 @@ CHANGELOG.md          what changed in each version
 
 ## 📜 Changelog
 
-Every release is described in [CHANGELOG.md](CHANGELOG.md). The latest is **0.6.0**.
+Every release is described in [CHANGELOG.md](CHANGELOG.md). The latest is **0.8.0**.
 
 ## 🤝 Contributing
 

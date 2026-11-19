@@ -92,6 +92,7 @@
     - {name: autoresponder_message, type: text, max_length: 5000, description: Plain text}
     - {name: layout, type: select, options: [Pages, One question at a time], default: Pages,
        description: "How respondents go through it. Pages: page breaks end a page (a form with none is a single page). One question at a time: each question fills the screen"}
+    - {name: brand, type: link, to: Brand, description: "The workspace's brand the form's page wears (its logo, typeface and colours); empty: the one its address gives. The colour and logo below, when set, are this form's own over it"}
     - {name: accent_color, type: color}
     - {name: logo, type: attach, max_length: 1000, description: "A public image (/files/public/<id>, uploaded with public=true) or an https URL"}
     - {name: passing_score, type: percent, min: "0", max: "100", description: "Quiz: share of the points needed to pass"}
@@ -101,16 +102,64 @@
     - {name: field_map, type: table, of: FormFieldMap, label: Field Mapping}
     - {name: published_at, type: datetime, read_only: true, no_copy: true}
   actions:
-    - {name: publish, label: Publish, permission: write, condition: "doc.status != 'Published'"}
-    - {name: close, label: Close, permission: write, condition: "doc.status == 'Published'"}
-    - {name: duplicate, label: Duplicate, permission: create}
-    - {name: record_response, label: Enter a Response, permission: write, condition: "doc.status == 'Published'"}
+    - name: publish
+      label: Publish
+      permission: write
+      condition: "doc.status != 'Published'"
+      contract:
+        effect: transactional_action
+        returns: {type: object, properties: {status: {type: string}, slug: {type: string}}}
+        completion: "The form is Published and its link takes responses"
+        compensate_with: close
+    - name: close
+      label: Close
+      permission: write
+      condition: "doc.status == 'Published'"
+      contract:
+        effect: transactional_action
+        returns: {type: object, properties: {status: {type: string}, slug: {type: string}}}
+        completion: "The form is Closed and its link refuses responses"
+        compensate_with: publish
+    - name: duplicate
+      label: Duplicate
+      permission: create
+      contract:
+        effect: transactional_action
+        returns: {type: object, properties: {entity: {type: string, const: Form}, id: {type: string, format: uuid, x-ferrum-link: Form}, slug: {type: string}}}
+        completion: "A Draft copy of the form, owned by whoever made it, exists"
+    - name: record_response
+      label: Enter a Response
+      permission: write
+      condition: "doc.status == 'Published'"
+      params:
+        - {name: answers, type: text, label: Answers, required: true, description: "A JSON object of question key → answer, checked as a response from the form's link is"}
+        - {name: respondent_email, type: data, label: Respondent Email, description: "Who answered, when known (not kept on an anonymous form)"}
+        - {name: respondent_name, type: data, label: Respondent Name}
+      contract:
+        effect: transactional_action
+        returns: {type: object, properties: {entity: {type: string, const: FormResponse}, id: {type: string, format: uuid, x-ferrum-link: FormResponse}, number: {type: ["string", "null"]}}}
+        completion: "The response is stored, checked as one from the form's link would be; the record it creates and the notices follow after the commit"
+    - name: allow_embedding
+      label: Allow Embedding
+      permission: write
+      condition: "doc.status == 'Published' && doc.access == 'Public'"
+      params:
+        - {name: origins, type: text, label: Sites, description: "The sites that may show this form in a frame, one per line, as https://www.example.com (at most ten). Empty: none but the workspace's own addresses"}
+      contract:
+        effect: transactional_action
+        returns: {type: object, properties: {page: {type: string}, origins: {type: array, items: {type: string}}}}
+        completion: "The workspace's Embedding for this form's page names exactly these sites; its next answer lets them show it in a frame"
     - name: prefill_link
       label: Make a Prefilled Link
       permission: write
+      read_only: true
       params:
         - {name: values, type: text, label: Values, required: true, description: "A JSON object of question or hidden keys and their values, e.g. {\"name\": \"Asha\", \"record_id\": \"...\"}"}
         - {name: days, type: int, label: Valid For (Days), description: "How long the link fills the form (default 30)"}
+      contract:
+        effect: query
+        returns: {type: object, properties: {prefill: {type: string}, link: {type: string}, expires_in_days: {type: integer}}}
+        completion: "Nothing changes; the signed link fills the form until it expires"
   form:
     - {label: Form, fields: [title, kind, status, slug, owner, description], tab: Form}
     - {label: Questions, fields: [questions], tab: Questions}
@@ -120,7 +169,7 @@
     - {label: Autoresponse, collapsible: true, fields: [autoresponder, autoresponder_subject, autoresponder_message], tab: Settings}
     - {label: Quiz, fields: [passing_score, reveal_answers], tab: Settings, visible_if: "doc.kind == 'Quiz'"}
     - {label: Create Records, collapsible: true, fields: [target_entity, field_map], tab: Settings}
-    - {label: Look, collapsible: true, fields: [layout, accent_color, logo, published_at], tab: Settings}
+    - {label: Look, collapsible: true, fields: [layout, brand, accent_color, logo, published_at], tab: Settings}
   list: {columns: [title, kind, status, slug], sort: title asc}
 
 - name: FormResponse
@@ -161,16 +210,76 @@
   unique: [[form, session]]
   indexes: [[form, submitted_at], [form, status]]
   actions:
-    - {name: mark_reviewed, label: Mark Reviewed, permission: write, condition: "doc.status == 'New'"}
-    - {name: mark_spam, label: Mark as Spam, permission: write, condition: "doc.status != 'Spam'"}
-    - {name: not_spam, label: Not Spam, permission: write, condition: "doc.status == 'Spam'"}
-    - {name: create_record, label: Create Record, permission: write, condition: "doc.status != 'Spam' && doc.record_id == null"}
+    - name: mark_reviewed
+      label: Mark Reviewed
+      permission: write
+      condition: "doc.status == 'New'"
+      contract:
+        effect: transactional_action
+        returns: {type: object, properties: {status: {type: string}}}
+        completion: "The response is Reviewed"
+    - name: mark_spam
+      label: Mark as Spam
+      permission: write
+      condition: "doc.status != 'Spam'"
+      contract:
+        effect: transactional_action
+        returns: {type: object, properties: {status: {type: string}}}
+        completion: "The response is Spam and the one-response claims it held are released"
+        compensate_with: not_spam
+    - name: not_spam
+      label: Not Spam
+      permission: write
+      condition: "doc.status == 'Spam'"
+      contract:
+        effect: external_effect
+        unknown_outcome: manual
+        returns: {type: object, properties: {status: {type: string}}}
+        completion: "The response is New; the record it missed is made and its notices and mail are queued in the same transaction"
+        compensate_with: mark_spam
+    - name: create_record
+      label: Create Record
+      permission: write
+      condition: "doc.status != 'Spam' && doc.record_id == null"
+      contract:
+        effect: transactional_action
+        returns: {type: object, properties: {entity: {type: string}, id: {type: string, format: uuid}}}
+        completion: "The record exists and the response names it"
   form:
     - {label: Response, fields: [form, status, source, submitted_at, completion_seconds, respondent_email, respondent_name]}
     - {label: Answers, fields: [answers, hidden]}
     - {label: Quiz, fields: [score, max_score, quiz_result], visible_if: "doc.max_score > 0.0"}
     - {label: Follow-up, collapsible: true, fields: [record_entity, record_id, record_error, spam_reason]}
   list: {columns: [number, form, status, respondent_email, submitted_at], sort: submitted_at desc}
+
+- name: FormTemplate
+  label: Form Template
+  label_plural: Form Templates
+  kind: master
+  module: forms
+  icon: layout-template
+  title_field: template_name
+  description: "A starting point for a new form: its questions and a few settings. Use a Template makes a Draft form from it, owned by whoever makes it; changing the template later changes no form made from it."
+  fields:
+    - {name: template_name, type: data, required: true, unique: true, max_length: 200, in_list: true}
+    - {name: kind, type: select, options: [Form, Survey, Quiz], default: Form, required: true, in_list: true, in_filter: true}
+    - {name: description, type: text, max_length: 2000, in_list: true, description: "What it is for, shown where a template is chosen"}
+    - {name: questions, type: table, of: FormQuestion}
+    - {name: layout, type: select, options: [Pages, One question at a time], default: Pages}
+    - {name: confirmation_message, type: text, max_length: 2000}
+    - {name: passing_score, type: percent, min: "0", max: "100"}
+    - {name: reveal_answers, type: check}
+  actions:
+    - name: use_template
+      label: Use This Template
+      permission: read
+      params:
+        - {name: title, type: data, label: Title, description: "The new form's title (default: the template's name)"}
+      contract:
+        effect: transactional_action
+        returns: {type: object, properties: {entity: {type: string, const: Form}, id: {type: string, format: uuid, x-ferrum-link: Form}, slug: {type: string}}}
+        completion: "A Draft form with the template's questions exists, owned by the caller"
+  list: {columns: [template_name, kind, description], sort: template_name asc}
 
 - name: FormsSettings
   label: Forms Settings

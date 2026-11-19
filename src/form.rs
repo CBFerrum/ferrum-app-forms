@@ -194,6 +194,17 @@ fn settings_errors(v: &FormView) -> Vec<FieldError> {
         Some(OnePer::User) if !v.internal => err("one_response_per", "only Internal forms know who responds: limit public forms per email"),
         _ => {}
     }
+    if v.anonymous {
+        if !v.hidden_keys().is_empty() {
+            err("hidden_fields", "anonymous forms take no values from their links: each could single someone out");
+        }
+        for (i, q) in v.def.questions.iter().enumerate() {
+            if q.allow_prefill {
+                e.push(FieldError::new("allow_prefill", "anonymous forms take no answers from their links").in_row("questions", i));
+            }
+        }
+    }
+    let mut err = |f: &str, m: &str| e.push(FieldError::new(f, m));
     if v.flag("autoresponder") {
         if v.anonymous {
             err("autoresponder", "anonymous forms keep no address to answer");
@@ -274,6 +285,63 @@ async fn unique_slug(hc: &mut HookCtx<'_>, title: &str, me: Option<Uuid>) -> Res
         }
     }
     Ok(format!("{base}-{}", &Uuid::now_v7().simple().to_string()[20..]))
+}
+
+/// The address of a form's public page after the workspace, as Embedding records name pages.
+fn page_of(slug: &str) -> String {
+    format!("forms/f/{slug}")
+}
+
+/// The Embedding record of a page, if there is one.
+async fn embedding_of(hc: &mut HookCtx<'_>, page: &str) -> Result<Option<Uuid>> {
+    if hc.ctx.schema.entity("Embedding").is_none() {
+        return Ok(None);
+    }
+    Ok(sqlx::query_scalar("select id from e_embedding where tenant_id = $1 and page = $2").bind(hc.ctx.tenant).bind(page).fetch_optional(&mut **hc.tx).await?)
+}
+
+/// Sets the sites that may show a form's page in a frame (S4's Embedding, which administrators keep): its own page only,
+/// never one named by the caller; none deletes it. Written as the system, inside the action's transaction.
+async fn allow_embedding(hc: &mut HookCtx<'_>, view: &FormView, params: &Value) -> Result<Value> {
+    if view.status != "Published" {
+        return Err(Error::invalid("publish the form before other sites may show it"));
+    }
+    if view.internal {
+        return Err(Error::invalid("an Internal form is for your workspace's people: other sites cannot show it"));
+    }
+    if hc.ctx.schema.entity("Embedding").is_none() {
+        return Err(Error::Unavailable("this workspace cannot let other sites show its pages".into()));
+    }
+    let typed = params.get("origins").and_then(Value::as_str).unwrap_or_default();
+    let mut origins: Vec<String> = Vec::new();
+    for line in typed.lines().map(str::trim).filter(|l| !l.is_empty()) {
+        let Some(o) = ferrum_meta::published::frame_origin(line) else {
+            return Err(Error::field("origins", format!("'{line}' is not a site's address like https://www.example.com")));
+        };
+        if !origins.contains(&o) {
+            origins.push(o);
+        }
+    }
+    if origins.len() > 10 {
+        return Err(Error::field("origins", "at most ten sites"));
+    }
+    let page = page_of(&view.slug);
+    let sys = elevated(hc.ctx);
+    match (embedding_of(hc, &page).await?, origins.is_empty()) {
+        (Some(id), true) => hc.kernel.delete_tx(&sys, hc.tx, "Embedding", id, None).await?,
+        (Some(id), false) => {
+            let mut patch = Doc::new();
+            patch.insert("origins".into(), json!(origins.join("\n")));
+            hc.kernel.update_tx(&sys, hc.tx, "Embedding", id, patch, None).await?;
+        }
+        (None, true) => {}
+        (None, false) => {
+            let note: String = format!("Form: {}", view.title).chars().take(200).collect();
+            let doc = json!({"page": page, "origins": origins.join("\n"), "note": note});
+            hc.kernel.insert_tx(&sys, hc.tx, "Embedding", doc.as_object().cloned().unwrap_or_default()).await?;
+        }
+    }
+    Ok(json!({"page": page, "origins": origins}))
 }
 
 pub struct FormHook;
@@ -412,6 +480,15 @@ impl DocHook for FormHook {
             return Err(Error::field("autoresponder", "set up outgoing mail for this server, or install the Mail app, to email respondents"));
         }
         let Some(old) = old else { return Ok(()) };
+        // The sites allowed to frame the form follow it to its new address, and allow nothing at the old one.
+        if let (Some(was), Some(now)) = (s(old, "slug"), s(doc, "slug"))
+            && was != now
+            && let Some(id) = embedding_of(hc, &page_of(was)).await?
+        {
+            let mut patch = Doc::new();
+            patch.insert("page".into(), json!(page_of(now)));
+            hc.kernel.update_tx(&elevated(hc.ctx), hc.tx, "Embedding", id, patch, None).await?;
+        }
         if old.get("owner") != doc.get("owner")
             && let Some(owner) = s(doc, "owner")
         {
@@ -484,6 +561,11 @@ impl DocHook for FormHook {
         if has_responses {
             return Err(Error::Conflict("this form has responses: close it instead, or delete its responses first".into()));
         }
+        if let Some(slug) = s(doc, "slug")
+            && let Some(id) = embedding_of(hc, &page_of(slug)).await?
+        {
+            hc.kernel.delete_tx(&elevated(hc.ctx), hc.tx, "Embedding", id, None).await?;
+        }
         Ok(())
     }
 
@@ -511,6 +593,10 @@ impl DocHook for FormHook {
                 let created = hc.kernel.insert_tx(hc.ctx, hc.tx, "Form", copy).await?;
                 Ok(Some(json!({"entity": "Form", "id": created.get("id"), "slug": created.get("slug")})))
             }
+            "allow_embedding" => {
+                let view = FormView::from_doc(doc.clone(), zone(&hc.ctx.schema.timezone))?;
+                Ok(Some(allow_embedding(hc, &view, params).await?))
+            }
             "prefill_link" => {
                 let values: serde_json::Map<String, Value> = match params.get("values") {
                     Some(Value::Object(m)) => m.clone(),
@@ -518,6 +604,9 @@ impl DocHook for FormHook {
                     _ => return Err(Error::field("values", "a JSON object of keys and values")),
                 };
                 let view = FormView::from_doc(doc.clone(), zone(&hc.ctx.schema.timezone))?;
+                if view.anonymous {
+                    return Err(Error::invalid("an anonymous form takes no prefilled links: a link made for one person would single them out"));
+                }
                 let hidden_keys = view.hidden_keys();
                 let mut p = crate::token::Prefill { expires: 0, answers: Default::default(), hidden: hidden_values(&hidden_keys, &values) };
                 for (k, v) in &values {
@@ -543,9 +632,13 @@ impl DocHook for FormHook {
             }
             "record_response" => {
                 let p = params.as_object().ok_or_else(|| Error::field("answers", "send {\"answers\": {question key: answer}}"))?;
-                let Some(Value::Object(answers)) = p.get("answers") else {
-                    return Err(Error::field("answers", "send the answers as an object of question key → answer"));
+                // An object, or (as the gate passes a declared text parameter) its JSON text.
+                let answers: serde_json::Map<String, Value> = match p.get("answers") {
+                    Some(Value::Object(m)) => m.clone(),
+                    Some(Value::String(t)) => serde_json::from_str(t).map_err(|_| Error::field("answers", "a JSON object of question key → answer"))?,
+                    _ => return Err(Error::field("answers", "send the answers as an object of question key → answer")),
                 };
+                let answers = &answers;
                 let email = match p.get("respondent_email") {
                     None | Some(Value::Null) => None,
                     Some(v) => match answers::email(v) {

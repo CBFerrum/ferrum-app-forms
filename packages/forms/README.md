@@ -35,7 +35,7 @@ checked against its form.
 | `owner` | email of the owning user (default: the creator). Only Forms Managers change it, and only to an active user; the form's responses follow |
 | `questions` | rows of **Form Question** (below) |
 | `access` | `Public` (anyone with the link) \| `Internal` (signed-in users only) |
-| `anonymous` | keep no respondent email, name, user id or IP hash (responses are written by the engine, so neither `created_by`, the audit trail nor events name the respondent) |
+| `anonymous` | keep no respondent email, name, user id or IP hash, no `session`, no `completion_seconds`, no `hidden` values, and `submitted_at` only as the day (its local midnight); no per-response notification; refuses `hidden_fields`, questions with `allow_prefill` and `prefill_link`. Responses are written by the engine, so neither `created_by`, the audit trail nor events name the respondent; the platform's own `created_at`, audit time and event time stay exact (README, *Anonymous mode*) |
 | `opens_at`, `closes_at` | the window responses are accepted in |
 | `response_limit` | the form closes after this many responses (spam excluded); exact under concurrency |
 | `one_response_per` | `Email`: one response per respondent email (the signed-in user's, or the answer to `email_question`); `User`: one per signed-in user (Internal forms). On anonymous forms only `User` is allowed: the form keeps *that* someone took part, never which response is theirs. Turning it on claims the respondents who already answered |
@@ -232,7 +232,7 @@ workspace dates, both optional) limit the period.
 |---|---|
 | `GET /summary?from=&to=` | `{form, from, to, responses, spam, views, completion_rate (responses per view, %), completion_time: {average_seconds, median_seconds}, quiz (quizzes: {graded, average_score, average_percent, passed, failed, pass_rate}), trend: [{date, responses}] (the period, or the last 30 days; at most 400), questions: [Summary]}` |
 | `GET /answers/{key}?limit=&cursor=` | one question's answers, newest first: `{question: {key, label, type}, answers: [{response, number, submitted_at, text, answer}], next_cursor}`; `limit` 1–200 (default 50) |
-| `GET /export.csv?from=&to=&status=` | needs export permission. CSV (UTF-8 with BOM, RFC 4180): `number, submitted_at, status, source, respondent_email, respondent_name` (not on anonymous forms)`, completion_seconds, score, max_score, quiz_result` (quizzes), then one column per question key — matrix rows as `key[row]`, choices joined with `, `, rankings with ` > `, files as `name url`. Cells a spreadsheet would run as formulas get a leading `'`. `status` = New \| Reviewed \| Spam (default: all but spam). At most 100 000 rows (`X-Ferrum-Truncated` says when cut) |
+| `GET /export.csv?from=&to=&status=` | needs export permission. CSV (UTF-8 with BOM, RFC 4180): `number, submitted_at, status, source, respondent_email, respondent_name` (not on anonymous forms)`, completion_seconds` (not on anonymous forms; their `submitted_at` is the local date)`, score, max_score, quiz_result` (quizzes), then one column per question key — matrix rows as `key[row]`, choices joined with `, `, rankings with ` > `, files as `name url`. Cells a spreadsheet would run as formulas get a leading `'`. `status` = New \| Reviewed \| Spam (default: all but spam). At most 100 000 rows (`X-Ferrum-Truncated` says when cut) |
 
 **Summary** per question: `{key, label, type, answered, skipped}` and, by type — choices
 `options: [{option, count, percent}]`, `other` when allowed, Likert `average` (scale position

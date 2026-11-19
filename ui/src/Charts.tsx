@@ -117,7 +117,7 @@ function Facts({ items }: { items: [string, ReactNode][] }) {
 }
 
 /** The words people wrote, newest first, a page at a time. */
-function Words({ formId, q }: { formId: string; q: QSummary }) {
+function Words({ formId, q, anonymous }: { formId: string; q: QSummary; anonymous: boolean }) {
   const [open, setOpen] = useState(false);
   const pages = useInfiniteQuery({
     queryKey: ["forms", "answers", formId, q.key],
@@ -145,7 +145,7 @@ function Words({ formId, q }: { formId: string; q: QSummary }) {
               <li key={a.response}>
                 <p>{isolate(a.text)}</p>
                 <p className="faint">
-                  {isolate(a.number ?? "")} · {isolate(formatDateTime(a.submitted_at))}
+                  {isolate(a.number ?? "")} · {isolate(anonymous ? formatDate(a.submitted_at) : formatDateTime(a.submitted_at))}
                 </p>
               </li>
             ))}
@@ -165,7 +165,7 @@ function Words({ formId, q }: { formId: string; q: QSummary }) {
 
 const signed = (v: string | null | undefined) => (v === null || v === undefined ? "–" : num(v) > 0 ? `+${num(v)}` : String(num(v)));
 
-function Body({ q, formId }: { q: QSummary; formId: string }) {
+function Body({ q, formId, anonymous }: { q: QSummary; formId: string; anonymous: boolean }) {
   if (q.answered === 0 && q.type !== "checkbox") return <p className="muted">{tr("Nobody has answered this yet.")}</p>;
   switch (q.type) {
     case "select":
@@ -272,11 +272,11 @@ function Body({ q, formId }: { q: QSummary; formId: string }) {
     case "file":
       return <p>{q.files ?? 0} {(q.files === 1 ? tr("file uploaded. Open a response to see them.") : tr("files uploaded. Open a response to see them."))}</p>;
     default:
-      return <Words formId={formId} q={q} />;
+      return <Words formId={formId} q={q} anonymous={anonymous} />;
   }
 }
 
-export function QuestionCard({ q, formId, n }: { q: QSummary; formId: string; n: number }) {
+export function QuestionCard({ q, formId, n, anonymous = false }: { q: QSummary; formId: string; n: number; anonymous?: boolean }) {
   return (
     <article className="fm-qcard">
       <header className="fm-qcard-head">
@@ -287,7 +287,7 @@ export function QuestionCard({ q, formId, n }: { q: QSummary; formId: string; n:
           {(q.skipped > 0 ? tr("{value} · {answered} answered, {skipped} skipped", { value: kindLabel(q.type), answered: q.answered, skipped: q.skipped }) : tr("{value} · {answered} answered", { value: kindLabel(q.type), answered: q.answered }))}
         </p>
       </header>
-      <Body q={q} formId={formId} />
+      <Body q={q} formId={formId} anonymous={anonymous} />
     </article>
   );
 }

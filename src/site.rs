@@ -98,11 +98,13 @@ async fn definition(k: &Kernel, sys: &Ctx, req: &SiteRequest, slug: &str) -> Res
         }
     }
     let tz = zone(&sys.schema.timezone);
-    // Hidden fields from the link's query (only the form's own), then a signed link's values over them.
-    let hidden_keys = form.hidden_keys();
+    // Hidden fields from the link's query (only the form's own), then a signed link's values over them. An anonymous
+    // form takes nothing from its links: a value made for one person would single that person out.
+    let signed = signed.filter(|_| !form.anonymous);
+    let hidden_keys = if form.anonymous { vec![] } else { form.hidden_keys() };
     let mut hidden = crate::form::hidden_values(&hidden_keys, &req.query);
     let mut prefill = Map::new();
-    for q in form.def.questions.iter().filter(|q| q.allow_prefill) {
+    for q in form.def.questions.iter().filter(|q| q.allow_prefill && !form.anonymous) {
         let Some(raw) = query(req, &q.key) else { continue };
         let v = match q.kind {
             Kind::MultiSelect => Value::Array(raw.split(',').map(str::trim).filter(|x| !x.is_empty()).map(|x| json!(x)).collect()),
@@ -133,10 +135,22 @@ async fn definition(k: &Kernel, sys: &Ctx, req: &SiteRequest, slug: &str) -> Res
     .execute(&mut *tx)
     .await?;
     let work = if form.flag("proof_of_work") { Some(json!({"bits": settings_int(&mut tx, sys, "proof_of_work_bits", 18).await?})) } else { None };
+    // The brand the form names (S4's Brand); without one the page wears the one its address gives.
+    let brand = match form.text("brand").and_then(|b| b.parse::<Uuid>().ok()) {
+        Some(id) => {
+            let ws: String = sqlx::query_scalar("select slug from tenant where id = $1").bind(sys.tenant).fetch_one(&mut *tx).await?;
+            Some((id, ws))
+        }
+        None => None,
+    };
     tx.commit().await?;
+    let brand = match brand {
+        Some((id, ws)) => k.brand_by_id(sys.tenant, id).await?.map(|b| b.boot(&ws)),
+        None => None,
+    };
     Ok(
         json!({"form": form.public(), "token": token::session_token(sessions.bytes(), sessions.version(), form.id, session), "prefill": prefill, "hidden": hidden,
-              "prefill_token": signed.as_ref().and(query(req, "prefill")), "proof_of_work": work}),
+              "prefill_token": signed.as_ref().and(query(req, "prefill")), "proof_of_work": work, "brand": brand}),
     )
 }
 
@@ -168,7 +182,7 @@ async fn submit(k: &Kernel, sys: &Ctx, req: &SiteRequest, slug: &str) -> Result<
     }
     let honeypot = b.get("honeypot").is_some_and(|v| !answers_blank(v));
     // The form's hidden fields as the page sent them, a signed link's over them.
-    let hidden_keys = form.hidden_keys();
+    let hidden_keys = if form.anonymous { vec![] } else { form.hidden_keys() };
     let mut hidden = match b.get("hidden") {
         Some(Value::Object(m)) => crate::form::hidden_values(&hidden_keys, m),
         _ => Map::new(),
@@ -318,7 +332,12 @@ impl Site for FormsSite {
         }
     }
 
-    async fn handle(&self, k: &Kernel, req: SiteRequest) -> Result<SiteResponse> {
+    async fn handle(&self, k: &Kernel, mut req: SiteRequest) -> Result<SiteResponse> {
+        // A person from outside the workspace (a portal account anyone may make) is the public here: not one of the
+        // workspace's people an Internal form is for, and held to the public's checks and limits.
+        if req.user.as_ref().is_some_and(|u| u.outside) {
+            req.user = None;
+        }
         let schema = match &req.user {
             Some(u) => u.schema.clone(),
             None => k.registry.schema(req.tenant).await?,

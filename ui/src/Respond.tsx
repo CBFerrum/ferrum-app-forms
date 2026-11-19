@@ -15,6 +15,7 @@ import { Notice, QuizResultView } from "./Done";
 import type { Opened, QuizResult, Receipt } from "./model";
 import { Frame, Runner } from "./Runner";
 import { APP_BASE, closedState, formPath, loginPath, Refreshed, resultPath, siteBase } from "./site";
+import { solve } from "./work";
 
 /** Sooner than this after the page opened, the server keeps a response as spam (its default;
  *  src/response.rs): a person never gets there that fast, and a quick tap on a one-question
@@ -51,6 +52,16 @@ async function open(tenant: string, slug: string, query: Record<string, string>,
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** What a response sends: the session, the answers, the trap, and what the opened form gave back to keep (its link's
+ *  hidden values, a signed prefill's token) with the work it asked for. */
+export function responseBody(o: Opened, token: string, answers: Record<string, unknown>, honeypot: string, work?: string): Record<string, unknown> {
+  const body: Record<string, unknown> = { token, answers, honeypot };
+  if (o.hidden && Object.keys(o.hidden).length) body.hidden = o.hidden;
+  if (o.prefill_token) body.prefill_token = o.prefill_token;
+  if (work !== undefined) body.work = work;
+  return body;
+}
 
 /** The page's own skin: the form's colour when it has one, the workspace's otherwise. */
 function Plain({ children, accent }: { children: ReactNode; accent?: string | null }) {
@@ -106,6 +117,16 @@ export function RespondPage() {
   useEffect(() => {
     document.title = opened ? opened.form.title : loaded ? "Form" : tr("Opening the form…");
   }, [opened, loaded]);
+  // The brand the form names: its stylesheet (colours and typeface) after the page's own.
+  const brandCss = opened?.brand?.css;
+  useEffect(() => {
+    if (!brandCss) return;
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = brandCss;
+    document.head.appendChild(link);
+    return () => link.remove();
+  }, [brandCss]);
 
   if (q.error) {
     return (
@@ -155,14 +176,21 @@ export function RespondPage() {
     );
   }
 
-  const { form } = loaded.opened;
+  // The form's own logo, else its brand's.
+  const brand = loaded.opened.brand;
+  const form = brand?.logo && !loaded.opened.form.theme.logo ? { ...loaded.opened.form, theme: { ...loaded.opened.form.theme, logo: brand.logo } } : loaded.opened.form;
   const base = internal ? APP_BASE : siteBase(tenant);
   const send = async (answers: Record<string, unknown>, honeypot: string): Promise<Receipt> => {
     // Not before a person could have filled it in.
     const wait = sessionAt.current + MIN_FILL_MS - Date.now();
     if (wait > 0) await sleep(wait);
+    const o = loaded.opened;
+    const work = o.proof_of_work ? await solve(token.current, o.proof_of_work.bits) : undefined;
     try {
-      return await api.post<Receipt>(`${base}/f/${encodeURIComponent(slug)}/responses`, { token: token.current, answers, honeypot }, { idempotencyKey: token.current });
+      const receipt = await api.post<Receipt>(`${base}/f/${encodeURIComponent(slug)}/responses`, responseBody(o, token.current, answers, honeypot, work), { idempotencyKey: token.current });
+      // Shown in a frame on another site: that page may want to know (the platform's runtime tells only the sites allowed).
+      (window as { ferrum?: { embedDone?: () => void } }).ferrum?.embedDone?.();
+      return receipt;
     } catch (e) {
       if (e instanceof ApiError && e.status === 422 && e.fields.some((f) => f.field === "token")) {
         // The page was open too long, or its session was not understood: a fresh one, same answers.

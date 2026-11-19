@@ -5,7 +5,7 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Columns3, ExternalLink, Paperclip } from "lucide-react";
 import { type ReactNode, useEffect } from "react";
-import { api, docPath, errorMessage, formatDateTime, formatMoment, shell, t as tr, isolate } from "@ferrum/client";
+import { api, docPath, errorMessage, formatDate, formatDateTime, formatMoment, shell, t as tr, isolate } from "@ferrum/client";
 import { Badge, Button, ListSkeleton, StatePanel, type Tone, toast, placed } from "@ferrum/kit";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger, Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@ferrum/kit/primitives";
 import { listOf } from "./rows";
@@ -52,6 +52,8 @@ const FIELDS = "number,status,source,submitted_at,respondent_email,respondent_na
 const TONE: Record<string, Tone> = { New: "blue", Reviewed: "green", Spam: "red" };
 const who = (r: Resp) => r.respondent_name || r.respondent_email || tr("Anonymous");
 const when = (iso?: string | null) => formatMoment(iso, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+/** When a response came: an anonymous form keeps only the day, so only the day is shown. */
+export const sentOn = (iso: string | null | undefined, anonymous: boolean): string => (!iso ? "–" : anonymous ? formatDate(iso) : formatDateTime(iso));
 
 // ───────────────────────────── one answer, whole ─────────────────────────────
 
@@ -113,7 +115,7 @@ function Answer({ a, v }: { a: Asked; v: unknown }) {
 
 // ───────────────────────────── the drawer ─────────────────────────────
 
-function Detail({ id, asked, canRecord, ids, onGo, onChanged }: { id: string; asked: Asked[]; canRecord: boolean; ids: string[]; onGo: (id: string) => void; onChanged: () => void }) {
+function Detail({ id, asked, canRecord, anonymous, ids, onGo, onChanged }: { id: string; asked: Asked[]; canRecord: boolean; anonymous: boolean; ids: string[]; onGo: (id: string) => void; onChanged: () => void }) {
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ["forms", "response", id], queryFn: ({ signal }) => api.get<Resp>(docPath("FormResponse", id), undefined, signal) });
   const r = q.data;
@@ -170,12 +172,14 @@ function Detail({ id, asked, canRecord, ids, onGo, onChanged }: { id: string; as
         </div>
         <div>
           <dt className="faint">{tr("Sent")}</dt>
-          <dd>{r.submitted_at ? formatDateTime(r.submitted_at) : "–"}</dd>
+          <dd>{sentOn(r.submitted_at, anonymous)}</dd>
         </div>
-        <div>
-          <dt className="faint">{tr("Took")}</dt>
-          <dd>{isolate(duration(r.completion_seconds))}</dd>
-        </div>
+        {!anonymous && (
+          <div>
+            <dt className="faint">{tr("Took")}</dt>
+            <dd>{isolate(duration(r.completion_seconds))}</dd>
+          </div>
+        )}
         <div>
           <dt className="faint">{tr("Through")}</dt>
           <dd>{isolate(r.source ?? "")}</dd>
@@ -232,6 +236,8 @@ export interface ResponsesProps {
   to: string | null;
   open: string | null;
   canRecord: boolean;
+  /** An anonymous form: its responses keep the day they came, not the moment. */
+  anonymous?: boolean;
   /** The questions shown as columns (null: the first few). */
   cols: string[] | null;
   onCols: (keys: string[] | null) => void;
@@ -239,7 +245,7 @@ export interface ResponsesProps {
   onOpen: (id: string | null) => void;
 }
 
-export function Responses({ formId, asked, zone, status, from, to, open, canRecord, cols, onCols, onStatus, onOpen }: ResponsesProps) {
+export function Responses({ formId, asked, zone, status, from, to, open, canRecord, anonymous = false, cols, onCols, onStatus, onOpen }: ResponsesProps) {
   const qc = useQueryClient();
   const filters: unknown[] = [["form", "=", formId], status ? ["status", "=", status] : ["status", "!=", "Spam"]];
   if (from) filters.push(["submitted_at", ">=", dayStart(from, zone)]);
@@ -295,7 +301,7 @@ export function Responses({ formId, asked, zone, status, from, to, open, canReco
                   <td>
                     <button type="button" className="fm-row-open" onClick={() => onOpen(r.id)}>
                       <strong>{isolate(r.number ?? "")}</strong>
-                      <span className="faint">{isolate(when(r.submitted_at))}</span>
+                      <span className="faint">{isolate(anonymous ? sentOn(r.submitted_at, true) : when(r.submitted_at))}</span>
                     </button>
                   </td>
                   <td>{isolate(who(r))}</td>
@@ -368,7 +374,7 @@ export function Responses({ formId, asked, zone, status, from, to, open, canReco
             <SheetTitle>{rows.find((r) => r.id === open)?.number ?? tr("Response")}</SheetTitle>
             <SheetDescription>{rows.find((r) => r.id === open) ? who(rows.find((r) => r.id === open) as Resp) : tr("One response, whole")}</SheetDescription>
           </SheetHeader>
-          <div className="fm-sheet-body">{open && <Detail key={open} id={open} asked={asked} canRecord={canRecord} ids={rows.map((r) => r.id)} onGo={onOpen} onChanged={changed} />}</div>
+          <div className="fm-sheet-body">{open && <Detail key={open} id={open} asked={asked} canRecord={canRecord} anonymous={anonymous} ids={rows.map((r) => r.id)} onGo={onOpen} onChanged={changed} />}</div>
         </SheetContent>
       </Sheet>
     </div>

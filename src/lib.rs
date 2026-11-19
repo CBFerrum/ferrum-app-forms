@@ -23,6 +23,7 @@ mod model;
 mod reports;
 mod response;
 mod site;
+mod template;
 mod token;
 mod upkeep;
 
@@ -78,6 +79,7 @@ pub fn register(hooks: &mut HookRegistry) {
     hooks
         .register("Form", Arc::new(form::FormHook))
         .register("FormResponse", Arc::new(response::ResponseHook))
+        .register("FormTemplate", Arc::new(template::TemplateHook))
         .add_event_sink(Arc::new(response::FormsSink))
         .add_site(PACKAGE, Arc::new(site::FormsSite));
 }
@@ -104,9 +106,21 @@ mod tests {
         let schema = ferrum_meta::effective::build(&catalog, &["forms".to_string()], &[], 1).unwrap_or_else(|e| panic!("{e}"));
         assert!(schema.warnings.is_empty(), "{:?}", schema.warnings);
         let form = schema.entity("Form").expect("Form");
-        assert_eq!(form.def.actions.len(), 5);
+        assert_eq!(form.def.actions.len(), 6);
         assert!(schema.entity("FormResponse").is_some_and(|e| e.def.owner_fields == ["form_owner"]));
         assert!(super::MANIFEST.contains("packages: [forms]"));
+    }
+
+    #[test]
+    fn every_visible_action_has_a_contract() {
+        for pkg in super::packages().expect("app packages") {
+            for e in &pkg.entities {
+                for a in e.actions.iter().filter(|a| !a.hidden) {
+                    let c = a.contract.as_ref().unwrap_or_else(|| panic!("{}.{} has no contract", e.name, a.name));
+                    assert!(c.effect.is_some() && c.returns.is_some() && c.completion.is_some(), "{}.{}: effect, returns and completion", e.name, a.name);
+                }
+            }
+        }
     }
 
     #[test]

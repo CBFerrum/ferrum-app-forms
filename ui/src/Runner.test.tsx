@@ -51,7 +51,7 @@ describe("the form a respondent fills in", () => {
   it("draws its first page with every kind of question", () => {
     const out = html(form);
     expect(out).toContain("Everything");
-    expect(out).toContain("Your response is anonymous.");
+    expect(out).toContain("Your answers are kept without your name, email or network address, and with the day only.");
     expect(out).toContain("Page 1 of 2");
     expect(out).toContain("As on your passport.");
     for (const label of ["name", "story", "mail", "tel", "age", "born", "pick", "many", "agree", "drop", "stars", "nps", "likert", "grid", "rank", "cv"]) expect(out, label).toContain(`Label of ${label}`);

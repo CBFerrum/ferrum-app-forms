@@ -11,6 +11,7 @@ use crate::token::{self, Session};
 use crate::{can_email, engine, engine_of, mail_installed};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
+use chrono_tz::Tz;
 use ferrum_domain::util::{elevated, id, rows, s};
 use ferrum_kernel::outbox::Event;
 use ferrum_kernel::value::decimal_value;
@@ -66,16 +67,25 @@ struct Prepared {
     doc: Doc,
     uploads: Vec<Upload>,
     claim: Option<String>,
+    /// An anonymous form's session: a replay is told apart by a claim on it, never by a value on the response.
+    session_claim: Option<String>,
     spam: bool,
 }
 
 enum Written {
     Saved(Doc),
-    Replay(Doc),
+    /// A repeat of a response already written; `None` for an anonymous form's, which nothing on the response names.
+    Replay(Option<Doc>),
     DroppedSpam,
 }
 
-fn prepare(form: &FormView, inc: &Incoming<'_>, sub: Submission, now: DateTime<Utc>) -> Result<Prepared> {
+/// What a response keeps of when it was sent: the instant, or for an anonymous form only the day (its local midnight),
+/// so that the time cannot be matched with when someone was seen answering.
+fn sent_at(form: &FormView, now: DateTime<Utc>, tz: Tz) -> DateTime<Utc> {
+    if form.anonymous { crate::analytics::local_midnight(now.with_timezone(&tz).date_naive(), tz) } else { now }
+}
+
+fn prepare(form: &FormView, inc: &Incoming<'_>, sub: Submission, now: DateTime<Utc>, tz: Tz) -> Result<Prepared> {
     let answer_email = form.email_question.as_ref().and_then(|k| sub.answers.get(k)).and_then(Value::as_str).map(str::to_lowercase);
     let email = inc.respondent.email.clone().map(|e| e.to_lowercase()).or(answer_email);
     let spam_reason = match (inc.source, inc.session) {
@@ -109,16 +119,17 @@ fn prepare(form: &FormView, inc: &Incoming<'_>, sub: Submission, now: DateTime<U
         "form_owner": form.owner,
         "status": if spam { "Spam" } else { "New" },
         "source": inc.source.label(),
-        "submitted_at": instant_value(now),
+        "submitted_at": instant_value(sent_at(form, now, tz)),
         "respondent_email": if keep { email } else { None },
         "respondent_name": if keep { inc.respondent.name.clone() } else { None },
         "respondent_user": if keep { inc.respondent.user.map(|u| u.to_string()) } else { None },
         "answers": Value::Object(sub.answers),
-        "hidden": if inc.hidden.is_empty() { Value::Null } else { Value::Object(inc.hidden.clone()) },
-        "completion_seconds": inc.session.map(|sess| (now.timestamp() - sess.issued).max(0)),
+        // An anonymous form keeps no link values, no time taken and no session: each could single someone out.
+        "hidden": if inc.hidden.is_empty() || !keep { Value::Null } else { Value::Object(inc.hidden.clone()) },
+        "completion_seconds": inc.session.filter(|_| keep).map(|sess| (now.timestamp() - sess.issued).max(0)),
         "ip_hash": inc.client_ip.filter(|_| keep).zip(inc.hashes).map(|(ip, key)| token::ip_hash(key, ip)),
         "spam_reason": spam_reason,
-        "session": inc.session.map(|sess| sess.id()),
+        "session": inc.session.filter(|_| keep).map(|sess| sess.id()),
     });
     if let Some(g) = g {
         doc["score"] = decimal_value(g.score);
@@ -132,7 +143,8 @@ fn prepare(form: &FormView, inc: &Incoming<'_>, sub: Submission, now: DateTime<U
         );
     }
     let doc = doc.as_object().cloned().ok_or_else(|| Error::internal("response is not an object"))?;
-    Ok(Prepared { doc, uploads: sub.uploads, claim, spam })
+    let session_claim = inc.session.filter(|_| !keep).map(|sess| format!("session:{}", sess.id()));
+    Ok(Prepared { doc, uploads: sub.uploads, claim, session_claim, spam })
 }
 
 /// The response of a form session, if one was already written.
@@ -216,7 +228,19 @@ async fn write(k: &Kernel, sys: &Ctx, tx: &mut Tx, form: &FormView, p: &Prepared
     if let Some(sess) = s(&p.doc, "session")
         && let Some(existing) = by_session(tx, tenant, form.id, sess).await?
     {
-        return Ok(Written::Replay(k.get_tx(sys, tx, "FormResponse", existing, false).await?));
+        return Ok(Written::Replay(Some(k.get_tx(sys, tx, "FormResponse", existing, false).await?)));
+    }
+    if let Some(claim) = &p.session_claim {
+        let fresh = sqlx::query("insert into forms_claim (tenant_id, form_id, claim) values ($1, $2, $3) on conflict do nothing")
+            .bind(tenant)
+            .bind(form.id)
+            .bind(claim)
+            .execute(&mut **tx)
+            .await?
+            .rows_affected();
+        if fresh == 0 {
+            return Ok(Written::Replay(None));
+        }
     }
     let mut count = None;
     if p.spam {
@@ -306,7 +330,7 @@ pub async fn submit(k: &Kernel, sys: &Ctx, form: &FormView, inc: Incoming<'_>) -
     form.accepting(now)?;
     let session = inc.session;
     let sub = evaluate(&form.def, inc.answers, &answers::Env::new(zone(&sys.schema.timezone))).map_err(Error::Validation)?;
-    let p = prepare(form, &inc, sub, now)?;
+    let p = prepare(form, &inc, sub, now, zone(&sys.schema.timezone))?;
     precheck(k, tenant, form, &p).await?;
     let files = if p.spam { vec![] } else { store_files(k, sys, &p.uploads).await? };
     let written = with_retry(|| async {
@@ -320,7 +344,7 @@ pub async fn submit(k: &Kernel, sys: &Ctx, form: &FormView, inc: Incoming<'_>) -
         Ok(Written::Saved(doc)) => Ok((Some(doc), false)),
         Ok(Written::Replay(doc)) => {
             discard_files(k, sys, &files).await;
-            Ok((Some(doc), true))
+            Ok((doc, true))
         }
         Ok(Written::DroppedSpam) => Ok((None, false)),
         Err(e) => {
@@ -369,10 +393,11 @@ pub async fn enter(
         hidden: Map::new(),
         hashes: None,
     };
-    let p = prepare(form, &inc, sub, Utc::now())?;
+    let p = prepare(form, &inc, sub, Utc::now(), zone(&ctx.schema.timezone))?;
     let files = store_files(k, &sys, &p.uploads).await?;
     match write(k, &sys, tx, form, &p, &files).await {
-        Ok(Written::Saved(doc) | Written::Replay(doc)) => Ok(doc),
+        Ok(Written::Saved(doc) | Written::Replay(Some(doc))) => Ok(doc),
+        Ok(Written::Replay(None)) => Err(Error::internal("a manual entry has no session")),
         Ok(Written::DroppedSpam) => Err(Error::internal("a manual entry is never spam")),
         Err(e) => {
             discard_files(k, &sys, &files).await;
@@ -492,7 +517,11 @@ pub async fn follow_up(k: &Kernel, sys: &Ctx, tx: &mut Tx, rid: Uuid) -> Result<
         let mut v = Doc::new();
         v.insert("notified_at".into(), json!(instant_value(Utc::now())));
         k.set_values_tx(sys, tx, "FormResponse", rid, v).await?;
-        notify_owners(k, sys, tx, &form, &resp).await?;
+        // An anonymous form tells nobody when a response came: the moment would say who sent it. Its count shows on
+        // the form.
+        if !form.anonymous {
+            notify_owners(k, sys, tx, &form, &resp).await?;
+        }
         autorespond(k, sys, tx, &form, &resp).await?;
     }
     Ok(())
@@ -786,5 +815,51 @@ impl DocHook for ResponseHook {
             }
             _ => Ok(None),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn form(anonymous: bool) -> FormView {
+        let doc = json!({"id": Uuid::now_v7().to_string(), "title": "T", "slug": "t", "status": "Published", "access": "Public", "kind": "Form",
+                         "anonymous": anonymous, "hidden_fields": "utm_source"});
+        FormView::from_doc(doc.as_object().cloned().unwrap(), chrono_tz::UTC).unwrap()
+    }
+
+    fn incoming<'a>(answers: &'a Map<String, Value>, hidden: Map<String, Value>) -> Incoming<'a> {
+        Incoming {
+            source: Source::Public,
+            answers,
+            respondent: Respondent::default(),
+            session: Some(Session { issued: Utc::now().timestamp() - 40, nonce: [7; 16] }),
+            honeypot: false,
+            client_ip: Some("203.0.113.7"),
+            hidden,
+            hashes: Some(&[1; 32]),
+        }
+    }
+
+    #[test]
+    fn an_anonymous_response_keeps_no_session_time_or_link_values() {
+        let answers = Map::new();
+        let hidden = json!({"utm_source": "mail-to-asha"}).as_object().cloned().unwrap();
+        let tz: Tz = "America/New_York".parse().unwrap();
+        let sub = Submission::default;
+        let now = Utc::now();
+        let p = prepare(&form(true), &incoming(&answers, hidden.clone()), sub(), now, tz).unwrap();
+        for k in ["session", "completion_seconds", "hidden", "ip_hash"] {
+            assert!(p.doc[k].is_null(), "{k}: {}", p.doc[k]);
+        }
+        let sent = DateTime::parse_from_rfc3339(s(&p.doc, "submitted_at").unwrap()).unwrap().with_timezone(&tz);
+        assert_eq!((sent.date_naive(), sent.format("%H:%M:%S").to_string()), (now.with_timezone(&tz).date_naive(), "00:00:00".to_string()));
+        assert_eq!(p.session_claim.as_deref(), Some(format!("session:{}", hex::encode([7u8; 16])).as_str()), "a replay is told by a claim");
+        let kept = prepare(&form(false), &incoming(&answers, hidden), sub(), now, tz).unwrap();
+        assert!(
+            kept.doc["session"].is_string() && kept.doc["completion_seconds"].as_i64() >= Some(40) && kept.doc["hidden"]["utm_source"] == json!("mail-to-asha")
+        );
+        assert!(kept.session_claim.is_none());
+        assert_eq!(s(&kept.doc, "submitted_at"), Some(instant_value(now).as_str()));
     }
 }

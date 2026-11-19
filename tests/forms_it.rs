@@ -303,6 +303,10 @@ async fn scenario() {
     keys_in_the_vault(&t).await;
     mapping_by_configuration(&t).await;
     abuse_guards(&t).await;
+    a_portal_person_is_the_public(&t).await;
+    actions_through_the_gate(&t).await;
+    embedding_and_brand(&t).await;
+    templates_make_forms(&t).await;
     maintenance(&t).await;
     // Last: registering Forms again gives the process that kernel's handle.
     a_closed_vault(&t).await;
@@ -594,6 +598,116 @@ async fn abuse_guards(t: &T) {
     // Signed-in respondents and later forms are not held to these; the workspace's limit goes back.
     let settings = t.list(&t.admin, "FormsSettings", json!({})).await;
     t.k.update(&t.admin, "FormsSettings", uid(&settings[0]), obj(json!({"responses_per_hour": 30})), None).await.unwrap();
+}
+
+/// Someone signed in from outside the workspace (a portal account) is the public to Forms: an Internal form is not
+/// theirs, and their responses pass the public's limits and keep no user.
+async fn a_portal_person_is_the_public(t: &T) {
+    let mut portal = t.staff.clone();
+    portal.outside = true;
+    t.published(&t.owner, json!({"title": "Staff only", "access": "Internal", "questions": [{"key": "a", "label": "A", "question_type": "short_text"}]})).await;
+    assert!(matches!(t.call(Some(&portal), "GET", "/f/staff-only", None).await, Err(Error::NotFound(_))));
+    let form = t
+        .published(&t.owner, json!({"title": "Open to all", "min_fill_seconds": 0, "questions": [{"key": "a", "label": "A", "question_type": "short_text"}]}))
+        .await;
+    let r = t.respond(Some(&portal), "open-to-all", json!({"a": "hello"})).await;
+    let resp = t.response(&r).await;
+    assert!(resp["respondent_user"].is_null() && resp["respondent_email"].is_null(), "{resp:?}");
+    assert_eq!(resp["source"], json!("Public Link"));
+    assert_eq!(
+        t.count("select coalesce(sum(sent), 0)::bigint from forms_rate where tenant_id = $1 and form_id = $2", uid(&form)).await,
+        1,
+        "counted as the public"
+    );
+}
+
+/// Agents and other apps enter responses through the gate as people do: the answers as JSON text, a repeat under the
+/// same key answering what was done, and a person without the right refused.
+async fn actions_through_the_gate(t: &T) {
+    use ferrum_kernel::capability::Invocation;
+    let form = t
+        .published(&t.owner, json!({"title": "By phone", "questions": [{"key": "rating", "label": "Rating", "question_type": "rating", "required": true}]}))
+        .await;
+    let enter = |params: Value, key: &str| Invocation::new("forms.form.record_response", json!({"id": uid(&form).to_string(), "params": params})).key(key);
+    let first = t.k.invoke(&t.owner, enter(json!({"answers": "{\"rating\": 4}", "respondent_name": "Caller"}), "call-1")).await.expect("entered");
+    let again = t.k.invoke(&t.owner, enter(json!({"answers": "{\"rating\": 4}", "respondent_name": "Caller"}), "call-1")).await.expect("repeated");
+    assert!(first.result["id"].is_string() && again.repeated, "{first:?} {again:?}");
+    assert_eq!(t.count("select count(*) from e_form_response where tenant_id = $1 and form = $2", uid(&form)).await, 1);
+    let other = t.k.invoke(&t.other, enter(json!({"answers": "{\"rating\": 2}"}), "call-3")).await;
+    assert!(matches!(other, Err(Error::Forbidden(_) | Error::NotFound(_))), "another user's form: {other:?}");
+}
+
+/// Sites a form's owner allows may show it in a frame: the form's own page only, kept in the workspace's Embedding,
+/// following the form to a new address; a draft or Internal form cannot be shown elsewhere; the form's brand reaches
+/// its page.
+async fn embedding_and_brand(t: &T) {
+    let form = t.published(&t.owner, json!({"title": "Embedded", "questions": [{"key": "a", "label": "A", "question_type": "short_text"}]})).await;
+    let fid = uid(&form);
+    let out = t
+        .action(
+            &t.owner,
+            "Form",
+            fid,
+            "allow_embedding",
+            json!({"origins": " https://www.partner.example/ \nhttps://Shop.Example:8443\n\nhttps://www.partner.example"}),
+        )
+        .await;
+    assert_eq!(out, json!({"page": "forms/f/embedded", "origins": ["https://www.partner.example", "https://shop.example:8443"]}));
+    assert_eq!(t.k.embedders(t.tenant, "forms/f/embedded").await.unwrap(), ["https://www.partner.example", "https://shop.example:8443"]);
+    t.action(&t.owner, "Form", fid, "allow_embedding", json!({"origins": "https://only.example"})).await;
+    assert_eq!(t.k.embedders(t.tenant, "forms/f/embedded").await.unwrap(), ["https://only.example"], "a second call replaces");
+    for bad in ["http://plain.example", "https://x.example/path", "javascript:alert(1)"] {
+        let e = t.k.run_action(&t.owner, "Form", fid, "allow_embedding", json!({"origins": bad})).await.unwrap_err();
+        assert!(fields(&e).contains(&"origins".to_string()), "{bad}: {e:?}");
+    }
+    let e = t.k.run_action(&t.other, "Form", fid, "allow_embedding", json!({"origins": "https://evil.example"})).await;
+    assert!(e.is_err(), "another user's form: {e:?}");
+    // The address moves: the sites follow, and the old address allows nothing.
+    t.k.update(&t.owner, "Form", fid, obj(json!({"slug": "embedded-two"})), None).await.unwrap();
+    assert_eq!(t.k.embedders(t.tenant, "forms/f/embedded-two").await.unwrap(), ["https://only.example"]);
+    assert!(t.k.embedders(t.tenant, "forms/f/embedded").await.unwrap().is_empty());
+    t.action(&t.owner, "Form", fid, "allow_embedding", json!({"origins": ""})).await;
+    assert!(t.k.embedders(t.tenant, "forms/f/embedded-two").await.unwrap().is_empty(), "empty: none");
+    let draft = t.insert(&t.owner, "Form", json!({"title": "Not yet"})).await;
+    assert!(t.k.run_action(&t.owner, "Form", uid(&draft), "allow_embedding", json!({"origins": "https://a.example"})).await.is_err(), "a draft");
+    let inside =
+        t.published(&t.owner, json!({"title": "Inside", "access": "Internal", "questions": [{"key": "a", "label": "A", "question_type": "short_text"}]})).await;
+    assert!(t.k.run_action(&t.owner, "Form", uid(&inside), "allow_embedding", json!({"origins": "https://a.example"})).await.is_err(), "Internal");
+    // The brand the form names reaches its page.
+    let brand = t.insert(&t.admin, "Brand", json!({"brand_name": "Partner look", "primary_color": "#30a67d"})).await;
+    t.k.update(&t.owner, "Form", fid, obj(json!({"brand": uid(&brand).to_string()})), None).await.unwrap();
+    let (opened, _) = t.open(None, "embedded-two").await;
+    assert_eq!(opened["brand"]["name"], json!("Partner look"));
+    assert!(opened["brand"]["css"].as_str().unwrap().starts_with("/_brand/acme/"), "{}", opened["brand"]);
+}
+
+/// The starting points every workspace gets are records anyone building forms can list; using one makes a Draft the
+/// caller owns, with the template's questions; it needs the right to make forms; a template is checked like a form.
+async fn templates_make_forms(t: &T) {
+    let names: Vec<String> = t.list(&t.owner, "FormTemplate", json!({})).await.iter().map(|r| r["template_name"].as_str().unwrap().to_string()).collect();
+    for name in ["Contact form", "Event registration", "Customer feedback", "Short quiz"] {
+        assert!(names.contains(&name.to_string()), "{names:?}");
+    }
+    let quiz = t.find_one("FormTemplate", json!({"template_name": "Short quiz"})).await;
+    let made = t.action(&t.owner, "FormTemplate", uid(&quiz), "use_template", json!({"title": "Friday quiz"})).await;
+    let form = t.get("Form", made["id"].as_str().unwrap().parse().unwrap()).await;
+    assert_eq!(
+        (form["title"].clone(), form["kind"].clone(), form["status"].clone(), form["owner"].clone()),
+        (json!("Friday quiz"), json!("Quiz"), json!("Draft"), json!("owner@acme.test"))
+    );
+    assert_eq!(form["questions"].as_array().unwrap().len(), 3);
+    assert_eq!(form["passing_score"], quiz["passing_score"]);
+    let staff = t.k.run_action(&t.staff, "FormTemplate", uid(&quiz), "use_template", json!({})).await;
+    assert!(staff.is_err(), "without the right to make forms: {staff:?}");
+    let e =
+        t.k.insert(
+            &t.manager,
+            "FormTemplate",
+            obj(json!({"template_name": "Broken", "questions": [{"key": "a", "label": "A", "question_type": "select", "options": []}]})),
+        )
+        .await
+        .unwrap_err();
+    assert!(fields(&e).contains(&"questions[0].options".to_string()), "{e:?}");
 }
 
 // ───────────────────────────── definitions ─────────────────────────────
@@ -1071,7 +1185,11 @@ async fn anonymity(t: &T) {
     // Who took part is known (to refuse a second response), never which answers were theirs.
     let token = t.open(Some(&t.staff), "engagement").await.1;
     assert!(matches!(t.send(Some(&t.staff), "engagement", &token, json!({"mood": 1})).await, Err(Error::Conflict(_))));
-    assert_eq!(t.text("select string_agg(claim, ',') from forms_claim where tenant_id = $1 and form_id = $2", uid(&form)).await, format!("user:{staff_id}"));
+    // (A session's claim tells a repeated send apart; like the user's, it names no response and no time.)
+    assert_eq!(
+        t.text("select string_agg(claim, ',') from forms_claim where tenant_id = $1 and form_id = $2 and claim not like 'session:%'", uid(&form)).await,
+        format!("user:{staff_id}")
+    );
     let mut tasks = Vec::new();
     for _ in 0..4 {
         let token = t.open(Some(&t.staff2), "engagement").await.1;
@@ -1087,6 +1205,82 @@ async fn anonymity(t: &T) {
     assert_eq!(ok, 1, "one response per person, even at once");
     let e = t.k.insert(&t.owner, "Form", obj(json!({"title": "Anon mail", "anonymous": true, "one_response_per": "Email"}))).await.unwrap_err();
     assert!(fields(&e).contains(&"one_response_per".to_string()));
+    anonymous_responses_keep_nothing_that_singles_out(t, &resp).await;
+    anonymous_replay_stores_nothing_new(t).await;
+    anonymous_forms_refuse_link_values(t).await;
+    anonymous_results_show_the_day_only(t, uid(&form), &resp).await;
+}
+
+/// The local date in New York of an instant the app returned, and whether it is that day's midnight there.
+fn ny_day(at: &str) -> (String, bool) {
+    let tz: chrono_tz::Tz = "America/New_York".parse().unwrap();
+    let local = chrono::DateTime::parse_from_rfc3339(at).unwrap().with_timezone(&tz);
+    (local.format("%Y-%m-%d").to_string(), local.format("%H:%M:%S%.f").to_string() == "00:00:00")
+}
+
+/// An anonymous response holds nothing that could single its sender out: no session, no time taken, no link values,
+/// the day it came and not the moment, and nobody is told the moment it came.
+async fn anonymous_responses_keep_nothing_that_singles_out(t: &T, resp: &Doc) {
+    for k in ["session", "completion_seconds", "hidden"] {
+        assert!(resp[k].is_null(), "{k} must not be kept: {}", resp[k]);
+    }
+    let (_, midnight) = ny_day(resp["submitted_at"].as_str().unwrap());
+    assert!(midnight, "only the day is kept: {}", resp["submitted_at"]);
+    t.drain().await;
+    assert_eq!(t.notifications(&t.owner, uid(resp)).await, 0, "no notice says when it came");
+}
+
+/// A repeated send of one session stores nothing new, though the response names no session.
+async fn anonymous_replay_stores_nothing_new(t: &T) {
+    let form = t
+        .published(
+            &t.owner,
+            json!({"title": "Quiet poll", "kind": "Survey", "anonymous": true, "min_fill_seconds": 0,
+                   "questions": [{"key": "pick", "label": "Pick", "question_type": "select", "options": ["A", "B"], "required": true}]}),
+        )
+        .await;
+    let (_, token) = t.open(None, "quiet-poll").await;
+    let (first, _) = t.send(None, "quiet-poll", &token, json!({"pick": "A"})).await.unwrap();
+    let (again, receipt) = t.send(None, "quiet-poll", &token, json!({"pick": "B"})).await.unwrap();
+    assert_eq!((first, again, receipt["replayed"].clone(), receipt["status"].clone()), (201, 200, json!(true), json!("received")));
+    assert_eq!(t.count("select count(*) from e_form_response where tenant_id = $1 and form = $2", uid(&form)).await, 1);
+    assert_eq!(t.count("select count(*) from e_form_response where tenant_id = $1 and form = $2 and session is not null", uid(&form)).await, 0);
+}
+
+/// An anonymous form takes no values from its links: no hidden fields, no answers filled by a link, no signed prefill.
+async fn anonymous_forms_refuse_link_values(t: &T) {
+    let q = json!([{"key": "dept", "label": "Department", "question_type": "short_text", "allow_prefill": true}]);
+    let e = t.k.insert(&t.owner, "Form", obj(json!({"title": "Anon links", "anonymous": true, "hidden_fields": "utm_source"}))).await.unwrap_err();
+    assert!(fields(&e).contains(&"hidden_fields".to_string()), "{e:?}");
+    let e = t.k.insert(&t.owner, "Form", obj(json!({"title": "Anon prefill", "anonymous": true, "questions": q}))).await.unwrap_err();
+    assert!(fields(&e).contains(&"questions[0].allow_prefill".to_string()), "{e:?}");
+    let form = t
+        .published(
+            &t.owner,
+            json!({"title": "Anon plain", "anonymous": true, "questions": [{"key": "dept", "label": "Department", "question_type": "short_text"}]}),
+        )
+        .await;
+    let e = t.k.run_action(&t.owner, "Form", uid(&form), "prefill_link", json!({"values": "{\"dept\": \"Sales\"}"})).await.unwrap_err();
+    assert!(e.to_string().contains("anonymous"), "{e:?}");
+}
+
+/// Where Forms shows or exports an anonymous form's responses, it gives the day, never a moment or the time taken.
+async fn anonymous_results_show_the_day_only(t: &T, form: Uuid, resp: &Doc) {
+    let created: String = t
+        .text("select to_char(created_at at time zone 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS') from e_form_response where tenant_id = $1 and id = $2", uid(resp))
+        .await;
+    let r = t.raw(Some(&t.owner), "GET", &format!("/forms/{form}/export.csv"), None).await.unwrap();
+    let csv = String::from_utf8(r.body).unwrap();
+    let mut lines = csv.lines();
+    let header = lines.next().unwrap();
+    assert!(!header.contains("completion_seconds"), "{header}");
+    let row = lines.find(|l| l.contains(resp["number"].as_str().unwrap())).unwrap();
+    let (day, _) = ny_day(resp["submitted_at"].as_str().unwrap());
+    assert_eq!(row.split(',').nth(1), Some(day.as_str()), "{row}");
+    assert!(!csv.contains(&created), "the exact moment is never exported");
+    let page = t.call(Some(&t.owner), "GET", &format!("/forms/{form}/answers/comment"), None).await.unwrap().1;
+    let at = page["answers"][0]["submitted_at"].as_str().unwrap();
+    assert!(ny_day(at).1 && !at.contains(&created), "{at}");
 }
 
 // ───────────────────────────── spam ─────────────────────────────

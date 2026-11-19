@@ -72,11 +72,15 @@ describe("the builder", () => {
     const settings = renderToStaticMarkup(wrap(<Settings fields={fields} set={() => {}} rows={all} formId="f" errors={{ closes_at: "Must be after the opening time." }} />));
     for (const text of ["Who can answer", "After someone answers", "Marking", "Must be after the opening time."]) expect(settings, text).toContain(text);
     const rows = [row("short_text", { key: "name", allow_prefill: true })];
-    const share = renderToStaticMarkup(<Share fields={fields} set={() => {}} rows={rows} status="Published" savedSlug="t" errors={{}} dirty={false} onPublish={() => {}} onSettings={() => {}} publishing={false} />);
+    const share = renderToStaticMarkup(<Share formId="f" fields={fields} set={() => {}} rows={rows} status="Published" savedSlug="t" errors={{}} dirty={false} onPublish={() => {}} onSettings={() => {}} publishing={false} />);
     expect(share).toContain("https://acme.test/forms/f//t");
     expect(share).toContain("?name=");
-    const draft = renderToStaticMarkup(<Share fields={fields} set={() => {}} rows={rows} status="Draft" savedSlug="t" errors={{}} dirty onPublish={() => {}} onSettings={() => {}} publishing={false} />);
+    const draft = renderToStaticMarkup(<Share formId="f" fields={fields} set={() => {}} rows={rows} status="Draft" savedSlug="t" errors={{}} dirty onPublish={() => {}} onSettings={() => {}} publishing={false} />);
     expect(draft).toContain("Publish and save");
+    expect(share, "an Internal form is not shown on other sites").not.toContain("data-ferrum-embed");
+    const open = fieldsOf({ id: "f", version: 1, title: "Open", kind: "Form", slug: "t", access: "Public" });
+    const embed = renderToStaticMarkup(<Share formId="f" fields={open} set={() => {}} rows={rows} status="Published" savedSlug="t" errors={{}} dirty={false} onPublish={() => {}} onSettings={() => {}} publishing={false} />);
+    for (const text of ["On another website", "Allow these sites", "data-ferrum-embed", "embed=1"]) expect(embed, text).toContain(text);
   });
 });
 

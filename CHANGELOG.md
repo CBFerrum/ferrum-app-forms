@@ -1,5 +1,60 @@
 # Changelog
 
+## 0.8.0
+
+Needs the same platform as 0.7.0. Database change: the `FormTemplate` entity (seeded with four templates). Interface
+changed; `ui/dist` rebuilt, carrying 0.6.1 to 0.8.0.
+
+**Templates are records.** The starting points of a new form were written into the interface: nobody could add one,
+and an agent could not list or use them. They are now Form Template records, which anyone building forms may read
+and a Forms Manager keeps; Use This Template makes a Draft form from one, owned by whoever asks.
+
+## 0.7.0
+
+Needs Ferrum with S4's Brand and Embedding (0.4.x at `b029f83a` or later). Database change: `Form.brand`. Interface
+source changed; `ui/dist` is rebuilt with 0.8.0.
+
+- **A form wears the workspace's brand.** A form may name a Brand: its page links the brand's stylesheet (colours and
+  typeface) and shows its logo unless the form has its own; the form's own colour, when set, goes over the brand's,
+  nudged by the platform's own contrast rule (the page's copy of it is gone).
+- **Other sites may show a form.** Allow Embedding (a published public form) names the sites that may show the form
+  in a frame, kept in the workspace's Embedding for the form's own page only; the sites follow the form to a new
+  address and go with it. The Share tab has the sites box and the code to paste.
+
+## 0.6.3
+
+Needs the same platform as 0.6.2. No database change, interface unchanged.
+
+**Every action says what it promises.** The nine actions a person can press carry a contract (what they do, what they
+give back, what "done" means, which action undoes them), so agents, processes and the builder read them as people do.
+Enter a Response declares its parameters; the gate passes its answers as JSON text.
+
+## 0.6.2
+
+Needs the same platform as 0.6.1. No database change. Interface source changed; `ui/dist` is rebuilt with 0.8.0
+(with 0.6.1's screens).
+
+- **Someone from outside the workspace is the public.** A person signed in to the workspace's portal (an account
+  anyone may make) was taken for one of its people: an Internal form opened for them, and their responses skipped the
+  proof of work and the hourly limit per address. Now they are the public to Forms: Internal forms are not theirs,
+  and their responses pass every public check and keep no user.
+- **The page sends what the link gave it.** The respondent's page sent only the answers: the link's hidden values
+  (campaign marks, a record id) and a signed prefill link's values never reached the response, and a form asking for
+  proof of work refused every response because the page never did the work. Now the page sends the hidden values, the
+  prefill link's token and the work (done in the page, as the server checks it).
+
+## 0.6.1
+
+Needs the same platform as 0.6.0. No database change. Interface source changed (wording, the day shown for an anonymous form's responses); `ui/dist` is rebuilt with 0.6.2.
+
+**An anonymous form keeps nothing that singles its respondent out.** Its responses kept the session they were sent
+from, the exact moment and the seconds taken, and the values its link passed; its owner could also send per-person
+links. Now a response to an anonymous form keeps no session (a repeated send is told apart by a claim that names no
+response), no time taken, no link values and only the day it came; an anonymous form refuses hidden fields, answers
+filled by a link and signed prefill links; nobody is notified per response; the results and the CSV show and export
+the day only, never the moment. What the platform stamps on every record (its creation time, its audit entry and its
+event) stays exact and is said in the README.
+
 ## 0.6.0
 
 Needs Ferrum 0.4.0 (apps' upkeep runs one workspace at a time, on whichever replica is free). No database or interface change.

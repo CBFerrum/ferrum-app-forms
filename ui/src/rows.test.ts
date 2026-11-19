@@ -230,19 +230,6 @@ describe("lines of text", () => {
   });
 });
 
-import { TEMPLATES } from "./templates";
-
-describe("the starting points", () => {
-  it("are finished forms: nothing in them for the server to refuse", () => {
-    for (const t of TEMPLATES) {
-      const rows = t.rows();
-      expect(problems(rows).flat(), t.name).toEqual([]);
-      expect(new Set(rows.map((r) => r.key)).size, t.name).toBe(rows.length);
-    }
-    expect(TEMPLATES.find((t) => t.id === "quiz")?.rows().every((r) => r.correct_answer !== null)).toBe(true);
-  });
-});
-
 describe("which answer fills which field of a record", () => {
   it("follows the rules of src/mapping.rs", () => {
     const q = (kind: Kind, more: Partial<QRow> = {}) => row("q", kind, more);

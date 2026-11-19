@@ -191,7 +191,7 @@ export function ResultsRoute() {
               <Trend trend={s.trend} />
               <div className="fm-qcards">
                 {s.questions.map((q, i) => (
-                  <QuestionCard key={q.key} q={q} formId={id} n={i + 1} />
+                  <QuestionCard key={q.key} q={q} formId={id} n={i + 1} anonymous={form.anonymous === true} />
                 ))}
               </div>
             </>
@@ -206,6 +206,7 @@ export function ResultsRoute() {
             to={to}
             open={open}
             canRecord={typeof form.target_entity === "string" && form.target_entity !== ""}
+            anonymous={form.anonymous === true}
             cols={cols}
             onCols={(keys) => set({ cols: keys && keys.length ? keys.join(",") : null })}
             onStatus={(v) => set({ status: v || null })}

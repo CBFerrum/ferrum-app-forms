@@ -243,6 +243,15 @@ mod tests {
     }
 
     #[test]
+    fn work_vectors() {
+        // The page's solver is tested on the same vectors (ui/src/work.test.ts).
+        let vectors: Vec<serde_json::Value> = serde_json::from_str(include_str!("../ui/src/work.vectors.json")).unwrap();
+        for v in vectors {
+            assert!(work_done(v["token"].as_str().unwrap(), v["nonce"].as_str().unwrap(), v["bits"].as_u64().unwrap() as u32), "{v}");
+        }
+    }
+
+    #[test]
     fn proof_of_work_counts_leading_zero_bits() {
         let found = (0..200_000u32).map(|n| n.to_string()).find(|n| work_done("tok", n, 12)).expect("a solution");
         assert!(work_done("tok", &found, 12) && work_done("tok", &found, 0));

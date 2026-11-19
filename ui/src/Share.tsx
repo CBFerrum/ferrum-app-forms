@@ -4,8 +4,8 @@
 
 import { Copy, ExternalLink, Globe, Lock } from "lucide-react";
 import { useEffect, useId, useState } from "react";
-import { bootstrap, formatDateTime, t as tr, isolate } from "@ferrum/client";
-import { confirmDialog, Field, toast, placed } from "@ferrum/kit";
+import { api, ApiError, bootstrap, docPath, errorMessage, formatDateTime, t as tr, isolate } from "@ferrum/client";
+import { Button, confirmDialog, EmbedSnippet, Field, toast, placed } from "@ferrum/kit";
 import type { QRow } from "./rows";
 import type { Fields, Status } from "./formdoc";
 import { formPath } from "./site";
@@ -28,6 +28,8 @@ export async function copy(text: string): Promise<void> {
 const moment = (iso: string | null) => (iso ? formatDateTime(iso) : null);
 
 export interface ShareProps {
+  /** The form's record (its actions run on it). */
+  formId: string;
   fields: Fields;
   set: (p: Partial<Fields>) => void;
   rows: QRow[];
@@ -41,7 +43,46 @@ export interface ShareProps {
   publishing: boolean;
 }
 
-export function Share({ fields: f, set, rows, status, savedSlug, errors, dirty, onPublish, onSettings, publishing }: ShareProps) {
+/** Other sites that may show the form in a frame (the form's `allow_embedding` action, which keeps the workspace's
+ *  Embedding for its own page), and the code to paste there. Only for a published public form. */
+function Embed({ formId, url, title }: { formId: string; url: string; title: string }) {
+  const id = useId();
+  const [typed, setTyped] = useState("");
+  const [allowed, setAllowed] = useState<string[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const allow = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const out = await api.post<{ origins: string[] }>(docPath("Form", formId, "actions", "allow_embedding"), { origins: typed });
+      setAllowed(out.origins);
+      toast(out.origins.length ? tr("These sites may show the form") : tr("No other site may show the form"));
+    } catch (e) {
+      setError(e instanceof ApiError ? (e.fields.find((x) => x.field === "origins")?.message ?? e.message) : errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <section className="fm-section">
+      <h2 className="fm-section-title">{tr("On another website")}</h2>
+      <p className="muted">{tr("Your own website's addresses may show the form already. Name any other site here; it may show the form once you allow it.")}</p>
+      <Field label={tr("Sites that may show it")} htmlFor={`${id}-origins`} hint={tr("One per line, like https://www.example.com. At most ten. Leave it empty and allow to stop them all.")} error={error ?? undefined}>
+        <textarea id={`${id}-origins`} className="textarea mono" dir="ltr" rows={3} value={typed} onChange={(e) => setTyped(e.target.value)} />
+      </Field>
+      <div>
+        <Button onClick={() => void allow()} loading={busy}>
+          {tr("Allow these sites")}
+        </Button>
+      </div>
+      {allowed && <p className="field-hint">{allowed.length ? tr("Allowed now: {value}", { value: allowed.join(", ") }) : tr("No other site is allowed now.")}</p>}
+      <EmbedSnippet url={url} title={title} />
+    </section>
+  );
+}
+
+export function Share({ formId, fields: f, set, rows, status, savedSlug, errors, dirty, onPublish, onSettings, publishing }: ShareProps) {
   const id = useId();
   const [pick, setPick] = useState("");
   const live = status === "Published";
@@ -50,7 +91,7 @@ export function Share({ fields: f, set, rows, status, savedSlug, errors, dirty, 
   const chosen = prefills.find((r) => r.key === pick) ?? prefills[0];
   const facts = [
     f.access === "Public" ? tr("Anyone with the link can answer.") : tr("Only people signed in to this workspace can answer."),
-    f.anonymous ? tr("Answers are anonymous.") : null,
+    f.anonymous ? tr("Answers are kept without who sent them, and with the day only.") : null,
     f.opens_at && new Date(f.opens_at) > new Date() ? tr("Opens {value}.", { value: String(moment(f.opens_at)) }) : null,
     f.closes_at ? tr("Closes {value}.", { value: String(moment(f.closes_at)) }) : null,
     f.response_limit ? tr("Closes after {response_limit} responses.", { response_limit: f.response_limit }) : null,
@@ -126,6 +167,8 @@ export function Share({ fields: f, set, rows, status, savedSlug, errors, dirty, 
           <input id={`${id}-slug`} className="input" value={typed} spellCheck={false} autoCapitalize="off" onChange={(e) => setTyped(e.target.value.toLowerCase().replace(/\s+/g, "-"))} onBlur={() => void leave()} />
         </Field>
       </section>
+
+      {live && f.access === "Public" && url && <Embed formId={formId} url={url} title={f.title} />}
 
       {prefills.length > 0 && savedSlug && (
         <section className="fm-section">
