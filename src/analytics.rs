@@ -620,7 +620,9 @@ pub async fn export_csv(k: &Kernel, ctx: &Ctx, tx: &mut Tx, form_id: Uuid, span:
     if !form.anonymous {
         header.extend(["respondent_email", "respondent_name"].map(String::from));
     }
-    header.push("completion_seconds".into());
+    if !form.anonymous {
+        header.push("completion_seconds".into());
+    }
     if form.quiz {
         header.extend(["score", "max_score", "quiz_result"].map(String::from));
     }
@@ -657,11 +659,13 @@ pub async fn export_csv(k: &Kernel, ctx: &Ctx, tx: &mut Tx, form_id: Uuid, span:
                 return Ok((out, true));
             }
             let opt = |v: &Option<String>| v.clone().unwrap_or_default();
-            let mut cells = vec![opt(&r.2), r.3.map(|t| t.to_rfc3339_opts(SecondsFormat::Secs, true)).unwrap_or_default(), opt(&r.4), opt(&r.5)];
+            // An anonymous form keeps the day a response came, so the export gives that day.
+            let sent = r.3.map(|t| if form.anonymous { t.with_timezone(&tz).date_naive().to_string() } else { t.to_rfc3339_opts(SecondsFormat::Secs, true) });
+            let mut cells = vec![opt(&r.2), sent.unwrap_or_default(), opt(&r.4), opt(&r.5)];
             if !form.anonymous {
                 cells.extend([opt(&r.6), opt(&r.7)]);
+                cells.push(r.8.map(|v| v.to_string()).unwrap_or_default());
             }
-            cells.push(r.8.map(|v| v.to_string()).unwrap_or_default());
             if form.quiz {
                 cells.extend([
                     r.9.map(|d| d.normalize().to_string()).unwrap_or_default(),

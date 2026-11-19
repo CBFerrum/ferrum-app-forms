@@ -257,7 +257,7 @@ export function Runner({ form, prefill, zone, workspace, send, keep, preview, re
               <p className="fr-facts faint">
                 {form.anonymous && (
                   <span>
-                    <Lock size={13} aria-hidden="true" /> {tr("Your response is anonymous.")}
+                    <Lock size={13} aria-hidden="true" /> {tr("Your answers are kept without your name, email or network address, and with the day only.")}
                   </span>
                 )}
                 {form.closes_at && <span>{tr("Open until")} {isolate(formatDateTime(form.closes_at))}.</span>}

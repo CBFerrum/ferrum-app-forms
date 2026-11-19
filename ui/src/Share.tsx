@@ -50,7 +50,7 @@ export function Share({ fields: f, set, rows, status, savedSlug, errors, dirty, 
   const chosen = prefills.find((r) => r.key === pick) ?? prefills[0];
   const facts = [
     f.access === "Public" ? tr("Anyone with the link can answer.") : tr("Only people signed in to this workspace can answer."),
-    f.anonymous ? tr("Answers are anonymous.") : null,
+    f.anonymous ? tr("Answers are kept without who sent them, and with the day only.") : null,
     f.opens_at && new Date(f.opens_at) > new Date() ? tr("Opens {value}.", { value: String(moment(f.opens_at)) }) : null,
     f.closes_at ? tr("Closes {value}.", { value: String(moment(f.closes_at)) }) : null,
     f.response_limit ? tr("Closes after {response_limit} responses.", { response_limit: f.response_limit }) : null,

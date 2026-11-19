@@ -194,6 +194,17 @@ fn settings_errors(v: &FormView) -> Vec<FieldError> {
         Some(OnePer::User) if !v.internal => err("one_response_per", "only Internal forms know who responds: limit public forms per email"),
         _ => {}
     }
+    if v.anonymous {
+        if !v.hidden_keys().is_empty() {
+            err("hidden_fields", "anonymous forms take no values from their links: each could single someone out");
+        }
+        for (i, q) in v.def.questions.iter().enumerate() {
+            if q.allow_prefill {
+                e.push(FieldError::new("allow_prefill", "anonymous forms take no answers from their links").in_row("questions", i));
+            }
+        }
+    }
+    let mut err = |f: &str, m: &str| e.push(FieldError::new(f, m));
     if v.flag("autoresponder") {
         if v.anonymous {
             err("autoresponder", "anonymous forms keep no address to answer");
@@ -518,6 +529,9 @@ impl DocHook for FormHook {
                     _ => return Err(Error::field("values", "a JSON object of keys and values")),
                 };
                 let view = FormView::from_doc(doc.clone(), zone(&hc.ctx.schema.timezone))?;
+                if view.anonymous {
+                    return Err(Error::invalid("an anonymous form takes no prefilled links: a link made for one person would single them out"));
+                }
                 let hidden_keys = view.hidden_keys();
                 let mut p = crate::token::Prefill { expires: 0, answers: Default::default(), hidden: hidden_values(&hidden_keys, &values) };
                 for (k, v) in &values {

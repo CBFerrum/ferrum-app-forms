@@ -98,11 +98,13 @@ async fn definition(k: &Kernel, sys: &Ctx, req: &SiteRequest, slug: &str) -> Res
         }
     }
     let tz = zone(&sys.schema.timezone);
-    // Hidden fields from the link's query (only the form's own), then a signed link's values over them.
-    let hidden_keys = form.hidden_keys();
+    // Hidden fields from the link's query (only the form's own), then a signed link's values over them. An anonymous
+    // form takes nothing from its links: a value made for one person would single that person out.
+    let signed = signed.filter(|_| !form.anonymous);
+    let hidden_keys = if form.anonymous { vec![] } else { form.hidden_keys() };
     let mut hidden = crate::form::hidden_values(&hidden_keys, &req.query);
     let mut prefill = Map::new();
-    for q in form.def.questions.iter().filter(|q| q.allow_prefill) {
+    for q in form.def.questions.iter().filter(|q| q.allow_prefill && !form.anonymous) {
         let Some(raw) = query(req, &q.key) else { continue };
         let v = match q.kind {
             Kind::MultiSelect => Value::Array(raw.split(',').map(str::trim).filter(|x| !x.is_empty()).map(|x| json!(x)).collect()),
@@ -168,7 +170,7 @@ async fn submit(k: &Kernel, sys: &Ctx, req: &SiteRequest, slug: &str) -> Result<
     }
     let honeypot = b.get("honeypot").is_some_and(|v| !answers_blank(v));
     // The form's hidden fields as the page sent them, a signed link's over them.
-    let hidden_keys = form.hidden_keys();
+    let hidden_keys = if form.anonymous { vec![] } else { form.hidden_keys() };
     let mut hidden = match b.get("hidden") {
         Some(Value::Object(m)) => crate::form::hidden_values(&hidden_keys, m),
         _ => Map::new(),

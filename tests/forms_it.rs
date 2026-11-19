@@ -1071,7 +1071,11 @@ async fn anonymity(t: &T) {
     // Who took part is known (to refuse a second response), never which answers were theirs.
     let token = t.open(Some(&t.staff), "engagement").await.1;
     assert!(matches!(t.send(Some(&t.staff), "engagement", &token, json!({"mood": 1})).await, Err(Error::Conflict(_))));
-    assert_eq!(t.text("select string_agg(claim, ',') from forms_claim where tenant_id = $1 and form_id = $2", uid(&form)).await, format!("user:{staff_id}"));
+    // (A session's claim tells a repeated send apart; like the user's, it names no response and no time.)
+    assert_eq!(
+        t.text("select string_agg(claim, ',') from forms_claim where tenant_id = $1 and form_id = $2 and claim not like 'session:%'", uid(&form)).await,
+        format!("user:{staff_id}")
+    );
     let mut tasks = Vec::new();
     for _ in 0..4 {
         let token = t.open(Some(&t.staff2), "engagement").await.1;
@@ -1087,6 +1091,82 @@ async fn anonymity(t: &T) {
     assert_eq!(ok, 1, "one response per person, even at once");
     let e = t.k.insert(&t.owner, "Form", obj(json!({"title": "Anon mail", "anonymous": true, "one_response_per": "Email"}))).await.unwrap_err();
     assert!(fields(&e).contains(&"one_response_per".to_string()));
+    anonymous_responses_keep_nothing_that_singles_out(t, &resp).await;
+    anonymous_replay_stores_nothing_new(t).await;
+    anonymous_forms_refuse_link_values(t).await;
+    anonymous_results_show_the_day_only(t, uid(&form), &resp).await;
+}
+
+/// The local date in New York of an instant the app returned, and whether it is that day's midnight there.
+fn ny_day(at: &str) -> (String, bool) {
+    let tz: chrono_tz::Tz = "America/New_York".parse().unwrap();
+    let local = chrono::DateTime::parse_from_rfc3339(at).unwrap().with_timezone(&tz);
+    (local.format("%Y-%m-%d").to_string(), local.format("%H:%M:%S%.f").to_string() == "00:00:00")
+}
+
+/// An anonymous response holds nothing that could single its sender out: no session, no time taken, no link values,
+/// the day it came and not the moment, and nobody is told the moment it came.
+async fn anonymous_responses_keep_nothing_that_singles_out(t: &T, resp: &Doc) {
+    for k in ["session", "completion_seconds", "hidden"] {
+        assert!(resp[k].is_null(), "{k} must not be kept: {}", resp[k]);
+    }
+    let (_, midnight) = ny_day(resp["submitted_at"].as_str().unwrap());
+    assert!(midnight, "only the day is kept: {}", resp["submitted_at"]);
+    t.drain().await;
+    assert_eq!(t.notifications(&t.owner, uid(resp)).await, 0, "no notice says when it came");
+}
+
+/// A repeated send of one session stores nothing new, though the response names no session.
+async fn anonymous_replay_stores_nothing_new(t: &T) {
+    let form = t
+        .published(
+            &t.owner,
+            json!({"title": "Quiet poll", "kind": "Survey", "anonymous": true, "min_fill_seconds": 0,
+                   "questions": [{"key": "pick", "label": "Pick", "question_type": "select", "options": ["A", "B"], "required": true}]}),
+        )
+        .await;
+    let (_, token) = t.open(None, "quiet-poll").await;
+    let (first, _) = t.send(None, "quiet-poll", &token, json!({"pick": "A"})).await.unwrap();
+    let (again, receipt) = t.send(None, "quiet-poll", &token, json!({"pick": "B"})).await.unwrap();
+    assert_eq!((first, again, receipt["replayed"].clone(), receipt["status"].clone()), (201, 200, json!(true), json!("received")));
+    assert_eq!(t.count("select count(*) from e_form_response where tenant_id = $1 and form = $2", uid(&form)).await, 1);
+    assert_eq!(t.count("select count(*) from e_form_response where tenant_id = $1 and form = $2 and session is not null", uid(&form)).await, 0);
+}
+
+/// An anonymous form takes no values from its links: no hidden fields, no answers filled by a link, no signed prefill.
+async fn anonymous_forms_refuse_link_values(t: &T) {
+    let q = json!([{"key": "dept", "label": "Department", "question_type": "short_text", "allow_prefill": true}]);
+    let e = t.k.insert(&t.owner, "Form", obj(json!({"title": "Anon links", "anonymous": true, "hidden_fields": "utm_source"}))).await.unwrap_err();
+    assert!(fields(&e).contains(&"hidden_fields".to_string()), "{e:?}");
+    let e = t.k.insert(&t.owner, "Form", obj(json!({"title": "Anon prefill", "anonymous": true, "questions": q}))).await.unwrap_err();
+    assert!(fields(&e).contains(&"questions[0].allow_prefill".to_string()), "{e:?}");
+    let form = t
+        .published(
+            &t.owner,
+            json!({"title": "Anon plain", "anonymous": true, "questions": [{"key": "dept", "label": "Department", "question_type": "short_text"}]}),
+        )
+        .await;
+    let e = t.k.run_action(&t.owner, "Form", uid(&form), "prefill_link", json!({"values": "{\"dept\": \"Sales\"}"})).await.unwrap_err();
+    assert!(e.to_string().contains("anonymous"), "{e:?}");
+}
+
+/// Where Forms shows or exports an anonymous form's responses, it gives the day, never a moment or the time taken.
+async fn anonymous_results_show_the_day_only(t: &T, form: Uuid, resp: &Doc) {
+    let created: String = t
+        .text("select to_char(created_at at time zone 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS') from e_form_response where tenant_id = $1 and id = $2", uid(resp))
+        .await;
+    let r = t.raw(Some(&t.owner), "GET", &format!("/forms/{form}/export.csv"), None).await.unwrap();
+    let csv = String::from_utf8(r.body).unwrap();
+    let mut lines = csv.lines();
+    let header = lines.next().unwrap();
+    assert!(!header.contains("completion_seconds"), "{header}");
+    let row = lines.find(|l| l.contains(resp["number"].as_str().unwrap())).unwrap();
+    let (day, _) = ny_day(resp["submitted_at"].as_str().unwrap());
+    assert_eq!(row.split(',').nth(1), Some(day.as_str()), "{row}");
+    assert!(!csv.contains(&created), "the exact moment is never exported");
+    let page = t.call(Some(&t.owner), "GET", &format!("/forms/{form}/answers/comment"), None).await.unwrap().1;
+    let at = page["answers"][0]["submitted_at"].as_str().unwrap();
+    assert!(ny_day(at).1 && !at.contains(&created), "{at}");
 }
 
 // ───────────────────────────── spam ─────────────────────────────

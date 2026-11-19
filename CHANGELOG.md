@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.6.1
+
+Needs the same platform as 0.6.0. No database change. Interface source changed (wording, the day shown for an anonymous form's responses); `ui/dist` is rebuilt with 0.6.2.
+
+**An anonymous form keeps nothing that singles its respondent out.** Its responses kept the session they were sent
+from, the exact moment and the seconds taken, and the values its link passed; its owner could also send per-person
+links. Now a response to an anonymous form keeps no session (a repeated send is told apart by a claim that names no
+response), no time taken, no link values and only the day it came; an anonymous form refuses hidden fields, answers
+filled by a link and signed prefill links; nobody is notified per response; the results and the CSV show and export
+the day only, never the moment. What the platform stamps on every record (its creation time, its audit entry and its
+event) stays exact and is said in the README.
+
 ## 0.6.0
 
 Needs Ferrum 0.4.0 (apps' upkeep runs one workspace at a time, on whichever replica is free). No database or interface change.
