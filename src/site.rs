@@ -320,7 +320,12 @@ impl Site for FormsSite {
         }
     }
 
-    async fn handle(&self, k: &Kernel, req: SiteRequest) -> Result<SiteResponse> {
+    async fn handle(&self, k: &Kernel, mut req: SiteRequest) -> Result<SiteResponse> {
+        // A person from outside the workspace (a portal account anyone may make) is the public here: not one of the
+        // workspace's people an Internal form is for, and held to the public's checks and limits.
+        if req.user.as_ref().is_some_and(|u| u.outside) {
+            req.user = None;
+        }
         let schema = match &req.user {
             Some(u) => u.schema.clone(),
             None => k.registry.schema(req.tenant).await?,

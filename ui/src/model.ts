@@ -133,6 +133,12 @@ export interface Opened {
   form: PForm;
   token: string;
   prefill: Record<string, unknown>;
+  /** The form's hidden fields as the link gave them: sent back with the answers. */
+  hidden?: Record<string, string>;
+  /** A signed prefill link's token: sent back so its hidden values are kept. */
+  prefill_token?: string | null;
+  /** The work this form asks of the browser before it sends (src/token.rs `work_done`). */
+  proof_of_work?: { bits: number } | null;
 }
 
 /** A quiz response's result (src/response.rs `result_view`). */

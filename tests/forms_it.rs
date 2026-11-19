@@ -303,6 +303,7 @@ async fn scenario() {
     keys_in_the_vault(&t).await;
     mapping_by_configuration(&t).await;
     abuse_guards(&t).await;
+    a_portal_person_is_the_public(&t).await;
     maintenance(&t).await;
     // Last: registering Forms again gives the process that kernel's handle.
     a_closed_vault(&t).await;
@@ -594,6 +595,27 @@ async fn abuse_guards(t: &T) {
     // Signed-in respondents and later forms are not held to these; the workspace's limit goes back.
     let settings = t.list(&t.admin, "FormsSettings", json!({})).await;
     t.k.update(&t.admin, "FormsSettings", uid(&settings[0]), obj(json!({"responses_per_hour": 30})), None).await.unwrap();
+}
+
+/// Someone signed in from outside the workspace (a portal account) is the public to Forms: an Internal form is not
+/// theirs, and their responses pass the public's limits and keep no user.
+async fn a_portal_person_is_the_public(t: &T) {
+    let mut portal = t.staff.clone();
+    portal.outside = true;
+    t.published(&t.owner, json!({"title": "Staff only", "access": "Internal", "questions": [{"key": "a", "label": "A", "question_type": "short_text"}]})).await;
+    assert!(matches!(t.call(Some(&portal), "GET", "/f/staff-only", None).await, Err(Error::NotFound(_))));
+    let form = t
+        .published(&t.owner, json!({"title": "Open to all", "min_fill_seconds": 0, "questions": [{"key": "a", "label": "A", "question_type": "short_text"}]}))
+        .await;
+    let r = t.respond(Some(&portal), "open-to-all", json!({"a": "hello"})).await;
+    let resp = t.response(&r).await;
+    assert!(resp["respondent_user"].is_null() && resp["respondent_email"].is_null(), "{resp:?}");
+    assert_eq!(resp["source"], json!("Public Link"));
+    assert_eq!(
+        t.count("select coalesce(sum(sent), 0)::bigint from forms_rate where tenant_id = $1 and form_id = $2", uid(&form)).await,
+        1,
+        "counted as the public"
+    );
 }
 
 // ───────────────────────────── definitions ─────────────────────────────

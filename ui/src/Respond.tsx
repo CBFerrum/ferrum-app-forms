@@ -15,6 +15,7 @@ import { Notice, QuizResultView } from "./Done";
 import type { Opened, QuizResult, Receipt } from "./model";
 import { Frame, Runner } from "./Runner";
 import { APP_BASE, closedState, formPath, loginPath, Refreshed, resultPath, siteBase } from "./site";
+import { solve } from "./work";
 
 /** Sooner than this after the page opened, the server keeps a response as spam (its default;
  *  src/response.rs): a person never gets there that fast, and a quick tap on a one-question
@@ -51,6 +52,16 @@ async function open(tenant: string, slug: string, query: Record<string, string>,
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** What a response sends: the session, the answers, the trap, and what the opened form gave back to keep (its link's
+ *  hidden values, a signed prefill's token) with the work it asked for. */
+export function responseBody(o: Opened, token: string, answers: Record<string, unknown>, honeypot: string, work?: string): Record<string, unknown> {
+  const body: Record<string, unknown> = { token, answers, honeypot };
+  if (o.hidden && Object.keys(o.hidden).length) body.hidden = o.hidden;
+  if (o.prefill_token) body.prefill_token = o.prefill_token;
+  if (work !== undefined) body.work = work;
+  return body;
+}
 
 /** The page's own skin: the form's colour when it has one, the workspace's otherwise. */
 function Plain({ children, accent }: { children: ReactNode; accent?: string | null }) {
@@ -161,8 +172,10 @@ export function RespondPage() {
     // Not before a person could have filled it in.
     const wait = sessionAt.current + MIN_FILL_MS - Date.now();
     if (wait > 0) await sleep(wait);
+    const o = loaded.opened;
+    const work = o.proof_of_work ? await solve(token.current, o.proof_of_work.bits) : undefined;
     try {
-      return await api.post<Receipt>(`${base}/f/${encodeURIComponent(slug)}/responses`, { token: token.current, answers, honeypot }, { idempotencyKey: token.current });
+      return await api.post<Receipt>(`${base}/f/${encodeURIComponent(slug)}/responses`, responseBody(o, token.current, answers, honeypot, work), { idempotencyKey: token.current });
     } catch (e) {
       if (e instanceof ApiError && e.status === 422 && e.fields.some((f) => f.field === "token")) {
         // The page was open too long, or its session was not understood: a fresh one, same answers.

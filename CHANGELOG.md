@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.6.2
+
+Needs the same platform as 0.6.1. No database change. Interface source changed; `ui/dist` is rebuilt with 0.8.0
+(with 0.6.1's screens).
+
+- **Someone from outside the workspace is the public.** A person signed in to the workspace's portal (an account
+  anyone may make) was taken for one of its people: an Internal form opened for them, and their responses skipped the
+  proof of work and the hourly limit per address. Now they are the public to Forms: Internal forms are not theirs,
+  and their responses pass every public check and keep no user.
+- **The page sends what the link gave it.** The respondent's page sent only the answers: the link's hidden values
+  (campaign marks, a record id) and a signed prefill link's values never reached the response, and a form asking for
+  proof of work refused every response because the page never did the work. Now the page sends the hidden values, the
+  prefill link's token and the work (done in the page, as the server checks it).
+
 ## 0.6.1
 
 Needs the same platform as 0.6.0. No database change. Interface source changed (wording, the day shown for an anonymous form's responses); `ui/dist` is rebuilt with 0.6.2.
