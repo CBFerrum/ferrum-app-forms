@@ -403,6 +403,7 @@ function BuilderPage({ doc }: { doc: FormDoc }) {
             {tab === "settings" && <Settings fields={f} set={setFields} rows={draft.rows} formId={doc.id} errors={no?.fields ?? {}} />}
             {tab === "share" && (
               <Share
+                formId={doc.id}
                 fields={f}
                 set={setFields}
                 rows={draft.rows}

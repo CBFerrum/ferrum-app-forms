@@ -305,6 +305,7 @@ async fn scenario() {
     abuse_guards(&t).await;
     a_portal_person_is_the_public(&t).await;
     actions_through_the_gate(&t).await;
+    embedding_and_brand(&t).await;
     maintenance(&t).await;
     // Last: registering Forms again gives the process that kernel's handle.
     a_closed_vault(&t).await;
@@ -633,6 +634,50 @@ async fn actions_through_the_gate(t: &T) {
     assert_eq!(t.count("select count(*) from e_form_response where tenant_id = $1 and form = $2", uid(&form)).await, 1);
     let other = t.k.invoke(&t.other, enter(json!({"answers": "{\"rating\": 2}"}), "call-3")).await;
     assert!(matches!(other, Err(Error::Forbidden(_) | Error::NotFound(_))), "another user's form: {other:?}");
+}
+
+/// Sites a form's owner allows may show it in a frame: the form's own page only, kept in the workspace's Embedding,
+/// following the form to a new address; a draft or Internal form cannot be shown elsewhere; the form's brand reaches
+/// its page.
+async fn embedding_and_brand(t: &T) {
+    let form = t.published(&t.owner, json!({"title": "Embedded", "questions": [{"key": "a", "label": "A", "question_type": "short_text"}]})).await;
+    let fid = uid(&form);
+    let out = t
+        .action(
+            &t.owner,
+            "Form",
+            fid,
+            "allow_embedding",
+            json!({"origins": " https://www.partner.example/ \nhttps://Shop.Example:8443\n\nhttps://www.partner.example"}),
+        )
+        .await;
+    assert_eq!(out, json!({"page": "forms/f/embedded", "origins": ["https://www.partner.example", "https://shop.example:8443"]}));
+    assert_eq!(t.k.embedders(t.tenant, "forms/f/embedded").await.unwrap(), ["https://www.partner.example", "https://shop.example:8443"]);
+    t.action(&t.owner, "Form", fid, "allow_embedding", json!({"origins": "https://only.example"})).await;
+    assert_eq!(t.k.embedders(t.tenant, "forms/f/embedded").await.unwrap(), ["https://only.example"], "a second call replaces");
+    for bad in ["http://plain.example", "https://x.example/path", "javascript:alert(1)"] {
+        let e = t.k.run_action(&t.owner, "Form", fid, "allow_embedding", json!({"origins": bad})).await.unwrap_err();
+        assert!(fields(&e).contains(&"origins".to_string()), "{bad}: {e:?}");
+    }
+    let e = t.k.run_action(&t.other, "Form", fid, "allow_embedding", json!({"origins": "https://evil.example"})).await;
+    assert!(e.is_err(), "another user's form: {e:?}");
+    // The address moves: the sites follow, and the old address allows nothing.
+    t.k.update(&t.owner, "Form", fid, obj(json!({"slug": "embedded-two"})), None).await.unwrap();
+    assert_eq!(t.k.embedders(t.tenant, "forms/f/embedded-two").await.unwrap(), ["https://only.example"]);
+    assert!(t.k.embedders(t.tenant, "forms/f/embedded").await.unwrap().is_empty());
+    t.action(&t.owner, "Form", fid, "allow_embedding", json!({"origins": ""})).await;
+    assert!(t.k.embedders(t.tenant, "forms/f/embedded-two").await.unwrap().is_empty(), "empty: none");
+    let draft = t.insert(&t.owner, "Form", json!({"title": "Not yet"})).await;
+    assert!(t.k.run_action(&t.owner, "Form", uid(&draft), "allow_embedding", json!({"origins": "https://a.example"})).await.is_err(), "a draft");
+    let inside =
+        t.published(&t.owner, json!({"title": "Inside", "access": "Internal", "questions": [{"key": "a", "label": "A", "question_type": "short_text"}]})).await;
+    assert!(t.k.run_action(&t.owner, "Form", uid(&inside), "allow_embedding", json!({"origins": "https://a.example"})).await.is_err(), "Internal");
+    // The brand the form names reaches its page.
+    let brand = t.insert(&t.admin, "Brand", json!({"brand_name": "Partner look", "primary_color": "#30a67d"})).await;
+    t.k.update(&t.owner, "Form", fid, obj(json!({"brand": uid(&brand).to_string()})), None).await.unwrap();
+    let (opened, _) = t.open(None, "embedded-two").await;
+    assert_eq!(opened["brand"]["name"], json!("Partner look"));
+    assert!(opened["brand"]["css"].as_str().unwrap().starts_with("/_brand/acme/"), "{}", opened["brand"]);
 }
 
 // ───────────────────────────── definitions ─────────────────────────────

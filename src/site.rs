@@ -135,10 +135,22 @@ async fn definition(k: &Kernel, sys: &Ctx, req: &SiteRequest, slug: &str) -> Res
     .execute(&mut *tx)
     .await?;
     let work = if form.flag("proof_of_work") { Some(json!({"bits": settings_int(&mut tx, sys, "proof_of_work_bits", 18).await?})) } else { None };
+    // The brand the form names (S4's Brand); without one the page wears the one its address gives.
+    let brand = match form.text("brand").and_then(|b| b.parse::<Uuid>().ok()) {
+        Some(id) => {
+            let ws: String = sqlx::query_scalar("select slug from tenant where id = $1").bind(sys.tenant).fetch_one(&mut *tx).await?;
+            Some((id, ws))
+        }
+        None => None,
+    };
     tx.commit().await?;
+    let brand = match brand {
+        Some((id, ws)) => k.brand_by_id(sys.tenant, id).await?.map(|b| b.boot(&ws)),
+        None => None,
+    };
     Ok(
         json!({"form": form.public(), "token": token::session_token(sessions.bytes(), sessions.version(), form.id, session), "prefill": prefill, "hidden": hidden,
-              "prefill_token": signed.as_ref().and(query(req, "prefill")), "proof_of_work": work}),
+              "prefill_token": signed.as_ref().and(query(req, "prefill")), "proof_of_work": work, "brand": brand}),
     )
 }
 

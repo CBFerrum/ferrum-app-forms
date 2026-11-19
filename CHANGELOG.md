@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.7.0
+
+Needs Ferrum with S4's Brand and Embedding (0.4.x at `b029f83a` or later). Database change: `Form.brand`. Interface
+source changed; `ui/dist` is rebuilt with 0.8.0.
+
+- **A form wears the workspace's brand.** A form may name a Brand: its page links the brand's stylesheet (colours and
+  typeface) and shows its logo unless the form has its own; the form's own colour, when set, goes over the brand's,
+  nudged by the platform's own contrast rule (the page's copy of it is gone).
+- **Other sites may show a form.** Allow Embedding (a published public form) names the sites that may show the form
+  in a frame, kept in the workspace's Embedding for the form's own page only; the sites follow the form to a new
+  address and go with it. The Share tab has the sites box and the code to paste.
+
 ## 0.6.3
 
 Needs the same platform as 0.6.2. No database change, interface unchanged.

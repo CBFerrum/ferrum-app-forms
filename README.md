@@ -7,7 +7,7 @@
 
 <br>
 
-[![Version](https://img.shields.io/badge/version-0.6.3-30a67d?style=flat-square)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.7.0-30a67d?style=flat-square)](CHANGELOG.md)
 [![Licence: AGPL-3.0](https://img.shields.io/badge/licence-AGPL--3.0-blue?style=flat-square)](LICENSE)
 [![Ferrum platform](https://img.shields.io/badge/runs%20on-Ferrum-2f5bea?style=flat-square)](https://github.com/CBFerrum/Ferrum)
 [![CI](https://github.com/CBFerrum/ferrum-app-forms/actions/workflows/ci.yml/badge.svg)](https://github.com/CBFerrum/ferrum-app-forms/actions/workflows/ci.yml)
@@ -38,7 +38,7 @@ Ferrum Forms is for teams that collect information from customers, applicants, m
 
 | | |
 |---|---|
-| 📦 **Version** | 0.6.3 |
+| 📦 **Version** | 0.7.0 |
 | 🖥️ **Kind** | Its own interface at `/forms/` (builder, results) and a respondent page at `/forms/f/{workspace}/{form}`, with Ferrum's records screens for the rest |
 | ➕ **What it adds** | 6 entities in one package (Form, Form Question, Form Field Map, Form Notify User, Form Response, Forms Settings), 2 roles, 3 reports, a launcher app, a Create menu entry, an assistant |
 | 🧱 **Depends on** | The platform's `core` package. Nothing else is required |
@@ -321,6 +321,7 @@ Forms is compared with Google Forms, Microsoft Forms, Typeform, Jotform, SurveyM
 
 ### ✅ Recently shipped
 
+- [x] **0.7.0**: A form wears the workspace's brand, and other sites may show it once allowed.
 - [x] **0.6.3**: Every action a person can press says what it promises; Enter a Response declares its parameters.
 - [x] **0.6.2**: Portal people are the public to Forms; the respondent's page sends the link's values and the proof of work.
 - [x] **0.6.1**: An anonymous form keeps nothing that singles its respondent out: no session, time taken or link values, the day only.
@@ -447,7 +448,7 @@ CHANGELOG.md          what changed in each version
 
 ## 📜 Changelog
 
-Every release is described in [CHANGELOG.md](CHANGELOG.md). The latest is **0.6.3**.
+Every release is described in [CHANGELOG.md](CHANGELOG.md). The latest is **0.7.0**.
 
 ## 🤝 Contributing
 

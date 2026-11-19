@@ -117,6 +117,16 @@ export function RespondPage() {
   useEffect(() => {
     document.title = opened ? opened.form.title : loaded ? "Form" : tr("Opening the form…");
   }, [opened, loaded]);
+  // The brand the form names: its stylesheet (colours and typeface) after the page's own.
+  const brandCss = opened?.brand?.css;
+  useEffect(() => {
+    if (!brandCss) return;
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = brandCss;
+    document.head.appendChild(link);
+    return () => link.remove();
+  }, [brandCss]);
 
   if (q.error) {
     return (
@@ -166,7 +176,9 @@ export function RespondPage() {
     );
   }
 
-  const { form } = loaded.opened;
+  // The form's own logo, else its brand's.
+  const brand = loaded.opened.brand;
+  const form = brand?.logo && !loaded.opened.form.theme.logo ? { ...loaded.opened.form, theme: { ...loaded.opened.form.theme, logo: brand.logo } } : loaded.opened.form;
   const base = internal ? APP_BASE : siteBase(tenant);
   const send = async (answers: Record<string, unknown>, honeypot: string): Promise<Receipt> => {
     // Not before a person could have filled it in.
@@ -175,7 +187,10 @@ export function RespondPage() {
     const o = loaded.opened;
     const work = o.proof_of_work ? await solve(token.current, o.proof_of_work.bits) : undefined;
     try {
-      return await api.post<Receipt>(`${base}/f/${encodeURIComponent(slug)}/responses`, responseBody(o, token.current, answers, honeypot, work), { idempotencyKey: token.current });
+      const receipt = await api.post<Receipt>(`${base}/f/${encodeURIComponent(slug)}/responses`, responseBody(o, token.current, answers, honeypot, work), { idempotencyKey: token.current });
+      // Shown in a frame on another site: that page may want to know (the platform's runtime tells only the sites allowed).
+      (window as { ferrum?: { embedDone?: () => void } }).ferrum?.embedDone?.();
+      return receipt;
     } catch (e) {
       if (e instanceof ApiError && e.status === 422 && e.fields.some((f) => f.field === "token")) {
         // The page was open too long, or its session was not understood: a fresh one, same answers.

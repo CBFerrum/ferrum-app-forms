@@ -1,4 +1,4 @@
-import { t } from "@ferrum/client";
+import { t, type PublicBrand } from "@ferrum/client";
 // What the interface knows of a form: the question types, the definition a respondent gets
 // (`GET /f/{slug}`, src/model.rs `Question::public`) and what comes back after sending.
 
@@ -139,6 +139,8 @@ export interface Opened {
   prefill_token?: string | null;
   /** The work this form asks of the browser before it sends (src/token.rs `work_done`). */
   proof_of_work?: { bits: number } | null;
+  /** The brand the form names (its stylesheet, logo, footer); none: the one its address gives. */
+  brand?: PublicBrand | null;
 }
 
 /** A quiz response's result (src/response.rs `result_view`). */

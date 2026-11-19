@@ -92,6 +92,7 @@
     - {name: autoresponder_message, type: text, max_length: 5000, description: Plain text}
     - {name: layout, type: select, options: [Pages, One question at a time], default: Pages,
        description: "How respondents go through it. Pages: page breaks end a page (a form with none is a single page). One question at a time: each question fills the screen"}
+    - {name: brand, type: link, to: Brand, description: "The workspace's brand the form's page wears (its logo, typeface and colours); empty: the one its address gives. The colour and logo below, when set, are this form's own over it"}
     - {name: accent_color, type: color}
     - {name: logo, type: attach, max_length: 1000, description: "A public image (/files/public/<id>, uploaded with public=true) or an https URL"}
     - {name: passing_score, type: percent, min: "0", max: "100", description: "Quiz: share of the points needed to pass"}
@@ -138,6 +139,16 @@
         effect: transactional_action
         returns: {type: object, properties: {entity: {type: string, const: FormResponse}, id: {type: string, format: uuid, x-ferrum-link: FormResponse}, number: {type: ["string", "null"]}}}
         completion: "The response is stored, checked as one from the form's link would be; the record it creates and the notices follow after the commit"
+    - name: allow_embedding
+      label: Allow Embedding
+      permission: write
+      condition: "doc.status == 'Published' && doc.access == 'Public'"
+      params:
+        - {name: origins, type: text, label: Sites, description: "The sites that may show this form in a frame, one per line, as https://www.example.com (at most ten). Empty: none but the workspace's own addresses"}
+      contract:
+        effect: transactional_action
+        returns: {type: object, properties: {page: {type: string}, origins: {type: array, items: {type: string}}}}
+        completion: "The workspace's Embedding for this form's page names exactly these sites; its next answer lets them show it in a frame"
     - name: prefill_link
       label: Make a Prefilled Link
       permission: write
@@ -158,7 +169,7 @@
     - {label: Autoresponse, collapsible: true, fields: [autoresponder, autoresponder_subject, autoresponder_message], tab: Settings}
     - {label: Quiz, fields: [passing_score, reveal_answers], tab: Settings, visible_if: "doc.kind == 'Quiz'"}
     - {label: Create Records, collapsible: true, fields: [target_entity, field_map], tab: Settings}
-    - {label: Look, collapsible: true, fields: [layout, accent_color, logo, published_at], tab: Settings}
+    - {label: Look, collapsible: true, fields: [layout, brand, accent_color, logo, published_at], tab: Settings}
   list: {columns: [title, kind, status, slug], sort: title asc}
 
 - name: FormResponse
