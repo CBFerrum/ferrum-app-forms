@@ -557,9 +557,13 @@ impl DocHook for FormHook {
             }
             "record_response" => {
                 let p = params.as_object().ok_or_else(|| Error::field("answers", "send {\"answers\": {question key: answer}}"))?;
-                let Some(Value::Object(answers)) = p.get("answers") else {
-                    return Err(Error::field("answers", "send the answers as an object of question key → answer"));
+                // An object, or (as the gate passes a declared text parameter) its JSON text.
+                let answers: serde_json::Map<String, Value> = match p.get("answers") {
+                    Some(Value::Object(m)) => m.clone(),
+                    Some(Value::String(t)) => serde_json::from_str(t).map_err(|_| Error::field("answers", "a JSON object of question key → answer"))?,
+                    _ => return Err(Error::field("answers", "send the answers as an object of question key → answer")),
                 };
+                let answers = &answers;
                 let email = match p.get("respondent_email") {
                     None | Some(Value::Null) => None,
                     Some(v) => match answers::email(v) {

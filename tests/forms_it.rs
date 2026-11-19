@@ -304,6 +304,7 @@ async fn scenario() {
     mapping_by_configuration(&t).await;
     abuse_guards(&t).await;
     a_portal_person_is_the_public(&t).await;
+    actions_through_the_gate(&t).await;
     maintenance(&t).await;
     // Last: registering Forms again gives the process that kernel's handle.
     a_closed_vault(&t).await;
@@ -616,6 +617,22 @@ async fn a_portal_person_is_the_public(t: &T) {
         1,
         "counted as the public"
     );
+}
+
+/// Agents and other apps enter responses through the gate as people do: the answers as JSON text, a repeat under the
+/// same key answering what was done, and a person without the right refused.
+async fn actions_through_the_gate(t: &T) {
+    use ferrum_kernel::capability::Invocation;
+    let form = t
+        .published(&t.owner, json!({"title": "By phone", "questions": [{"key": "rating", "label": "Rating", "question_type": "rating", "required": true}]}))
+        .await;
+    let enter = |params: Value, key: &str| Invocation::new("forms.form.record_response", json!({"id": uid(&form).to_string(), "params": params})).key(key);
+    let first = t.k.invoke(&t.owner, enter(json!({"answers": "{\"rating\": 4}", "respondent_name": "Caller"}), "call-1")).await.expect("entered");
+    let again = t.k.invoke(&t.owner, enter(json!({"answers": "{\"rating\": 4}", "respondent_name": "Caller"}), "call-1")).await.expect("repeated");
+    assert!(first.result["id"].is_string() && again.repeated, "{first:?} {again:?}");
+    assert_eq!(t.count("select count(*) from e_form_response where tenant_id = $1 and form = $2", uid(&form)).await, 1);
+    let other = t.k.invoke(&t.other, enter(json!({"answers": "{\"rating\": 2}"}), "call-3")).await;
+    assert!(matches!(other, Err(Error::Forbidden(_) | Error::NotFound(_))), "another user's form: {other:?}");
 }
 
 // ───────────────────────────── definitions ─────────────────────────────

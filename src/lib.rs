@@ -110,6 +110,18 @@ mod tests {
     }
 
     #[test]
+    fn every_visible_action_has_a_contract() {
+        for pkg in super::packages().expect("app packages") {
+            for e in &pkg.entities {
+                for a in e.actions.iter().filter(|a| !a.hidden) {
+                    let c = a.contract.as_ref().unwrap_or_else(|| panic!("{}.{} has no contract", e.name, a.name));
+                    assert!(c.effect.is_some() && c.returns.is_some() && c.completion.is_some(), "{}.{}: effect, returns and completion", e.name, a.name);
+                }
+            }
+        }
+    }
+
+    #[test]
     fn the_interface_is_a_release_the_platform_takes() {
         let m = ferrum_apps::AppManifest::parse(super::MANIFEST).expect("app.yaml");
         assert_eq!(m.routes(), vec![("forms".to_string(), vec![])]);

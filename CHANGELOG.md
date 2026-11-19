@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.3
+
+Needs the same platform as 0.6.2. No database change, interface unchanged.
+
+**Every action says what it promises.** The nine actions a person can press carry a contract (what they do, what they
+give back, what "done" means, which action undoes them), so agents, processes and the builder read them as people do.
+Enter a Response declares its parameters; the gate passes its answers as JSON text.
+
 ## 0.6.2
 
 Needs the same platform as 0.6.1. No database change. Interface source changed; `ui/dist` is rebuilt with 0.8.0

@@ -101,16 +101,54 @@
     - {name: field_map, type: table, of: FormFieldMap, label: Field Mapping}
     - {name: published_at, type: datetime, read_only: true, no_copy: true}
   actions:
-    - {name: publish, label: Publish, permission: write, condition: "doc.status != 'Published'"}
-    - {name: close, label: Close, permission: write, condition: "doc.status == 'Published'"}
-    - {name: duplicate, label: Duplicate, permission: create}
-    - {name: record_response, label: Enter a Response, permission: write, condition: "doc.status == 'Published'"}
+    - name: publish
+      label: Publish
+      permission: write
+      condition: "doc.status != 'Published'"
+      contract:
+        effect: transactional_action
+        returns: {type: object, properties: {status: {type: string}, slug: {type: string}}}
+        completion: "The form is Published and its link takes responses"
+        compensate_with: close
+    - name: close
+      label: Close
+      permission: write
+      condition: "doc.status == 'Published'"
+      contract:
+        effect: transactional_action
+        returns: {type: object, properties: {status: {type: string}, slug: {type: string}}}
+        completion: "The form is Closed and its link refuses responses"
+        compensate_with: publish
+    - name: duplicate
+      label: Duplicate
+      permission: create
+      contract:
+        effect: transactional_action
+        returns: {type: object, properties: {entity: {type: string, const: Form}, id: {type: string, format: uuid, x-ferrum-link: Form}, slug: {type: string}}}
+        completion: "A Draft copy of the form, owned by whoever made it, exists"
+    - name: record_response
+      label: Enter a Response
+      permission: write
+      condition: "doc.status == 'Published'"
+      params:
+        - {name: answers, type: text, label: Answers, required: true, description: "A JSON object of question key → answer, checked as a response from the form's link is"}
+        - {name: respondent_email, type: data, label: Respondent Email, description: "Who answered, when known (not kept on an anonymous form)"}
+        - {name: respondent_name, type: data, label: Respondent Name}
+      contract:
+        effect: transactional_action
+        returns: {type: object, properties: {entity: {type: string, const: FormResponse}, id: {type: string, format: uuid, x-ferrum-link: FormResponse}, number: {type: ["string", "null"]}}}
+        completion: "The response is stored, checked as one from the form's link would be; the record it creates and the notices follow after the commit"
     - name: prefill_link
       label: Make a Prefilled Link
       permission: write
+      read_only: true
       params:
         - {name: values, type: text, label: Values, required: true, description: "A JSON object of question or hidden keys and their values, e.g. {\"name\": \"Asha\", \"record_id\": \"...\"}"}
         - {name: days, type: int, label: Valid For (Days), description: "How long the link fills the form (default 30)"}
+      contract:
+        effect: query
+        returns: {type: object, properties: {prefill: {type: string}, link: {type: string}, expires_in_days: {type: integer}}}
+        completion: "Nothing changes; the signed link fills the form until it expires"
   form:
     - {label: Form, fields: [title, kind, status, slug, owner, description], tab: Form}
     - {label: Questions, fields: [questions], tab: Questions}
@@ -161,10 +199,41 @@
   unique: [[form, session]]
   indexes: [[form, submitted_at], [form, status]]
   actions:
-    - {name: mark_reviewed, label: Mark Reviewed, permission: write, condition: "doc.status == 'New'"}
-    - {name: mark_spam, label: Mark as Spam, permission: write, condition: "doc.status != 'Spam'"}
-    - {name: not_spam, label: Not Spam, permission: write, condition: "doc.status == 'Spam'"}
-    - {name: create_record, label: Create Record, permission: write, condition: "doc.status != 'Spam' && doc.record_id == null"}
+    - name: mark_reviewed
+      label: Mark Reviewed
+      permission: write
+      condition: "doc.status == 'New'"
+      contract:
+        effect: transactional_action
+        returns: {type: object, properties: {status: {type: string}}}
+        completion: "The response is Reviewed"
+    - name: mark_spam
+      label: Mark as Spam
+      permission: write
+      condition: "doc.status != 'Spam'"
+      contract:
+        effect: transactional_action
+        returns: {type: object, properties: {status: {type: string}}}
+        completion: "The response is Spam and the one-response claims it held are released"
+        compensate_with: not_spam
+    - name: not_spam
+      label: Not Spam
+      permission: write
+      condition: "doc.status == 'Spam'"
+      contract:
+        effect: external_effect
+        unknown_outcome: manual
+        returns: {type: object, properties: {status: {type: string}}}
+        completion: "The response is New; the record it missed is made and its notices and mail are queued in the same transaction"
+        compensate_with: mark_spam
+    - name: create_record
+      label: Create Record
+      permission: write
+      condition: "doc.status != 'Spam' && doc.record_id == null"
+      contract:
+        effect: transactional_action
+        returns: {type: object, properties: {entity: {type: string}, id: {type: string, format: uuid}}}
+        completion: "The record exists and the response names it"
   form:
     - {label: Response, fields: [form, status, source, submitted_at, completion_seconds, respondent_email, respondent_name]}
     - {label: Answers, fields: [answers, hidden]}
