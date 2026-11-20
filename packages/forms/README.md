@@ -136,6 +136,17 @@ fixed values are valid for their field; the answer type fits:
 | json | any |
 | link | fixed values only |
 
+**Values from outside set plain fields only.** The respondent chooses the answers, and anyone opening the link
+chooses its unsigned hidden values, while the record is written with the engine's rights. So an answer never sets a
+link, an owner field (the entity's `owner_fields`), a read-only field (`read_only`, computed or `read_only_if`) or a
+field in a field group; saving a form whose mapping maps an answer onto one is refused, naming the row. A hidden field
+may be mapped as before (text, select, link, email, url), but only a value from a signed prefill link (Prefill Link)
+fills anything beyond a plain `data` or `text` field that is no owner, read-only or grouped field: the page's own
+value for that key is kept with the response and fills nothing. Fixed values are the owner's and set what they name.
+A form saved before 0.8.1 with an answer mapped onto such a field keeps working: each response is taken and its
+record made without that value, and the form's owner is told once per field (not on an anonymous form) to remove
+the row.
+
 After the response commits, the record is created once with the engine's context, setting only
 the mapped fields that have a value (the kernel normalizes and validates them like any input).
 `record_entity` / `record_id` link it from the response; a refusal is kept in `record_error`.
@@ -155,6 +166,7 @@ the mapped fields that have a value (the kernel normalizes and validates them li
 | `submitted_at`, `completion_seconds` | when, and seconds from opening the form to sending it |
 | `respondent_email`, `respondent_name`, `respondent_user` | the signed-in user (or, for public forms, the `email_question` answer); empty on anonymous forms |
 | `answers` | key → normalized answer; hidden and unanswered questions are absent |
+| `hidden`, `signed_hidden` | the form's hidden fields as the link passed them; the keys among them a signed prefill link gave (only these fill more than a plain text field) |
 | `score`, `max_score`, `quiz_result` (`Passed`/`Failed`) | quizzes (hidden questions do not count) |
 | `ip_hash` | HMAC-SHA256 of the sender's IP under a key derived from Forms' own key in the vault (128 bits, hex): equal addresses match, none is stored; empty on anonymous forms |
 | `spam_reason` | why it was kept as spam |

@@ -300,6 +300,9 @@ async fn scenario() {
     permissions(&t, &every).await;
     manual_entry_and_edits(&t, &every).await;
     hidden_fields_and_signed_prefill(&t).await;
+    a_signed_prefill_still_sets_what_it_names(&t).await;
+    a_public_forms_mapping_onto_such_a_field_is_refused_when_saved(&t).await;
+    a_form_saved_before_the_rule_drops_the_forbidden_value(&t).await;
     keys_in_the_vault(&t).await;
     mapping_by_configuration(&t).await;
     abuse_guards(&t).await;
@@ -482,6 +485,102 @@ async fn hidden_fields_and_signed_prefill(t: &T) {
         (json!("spring"), commercial["id"].clone()),
         "hidden values mapped like answers"
     );
+}
+
+// ───────────────────────────── values from outside set plain fields only (D6) ─────────────────────────────
+
+/// A signed prefill link is the form's owner speaking: its hidden values set what they name (a choice, a linked
+/// record). The same keys sent by the page alone, which anyone can do, set none of it.
+async fn a_signed_prefill_still_sets_what_it_names(t: &T) {
+    let commercial = t.find_one("CustomerGroup", json!({"group_name": "Commercial"})).await;
+    let form = t
+        .published(
+            &t.owner,
+            json!({"title": "Signed only", "min_fill_seconds": 0, "hidden_fields": "kind, grp, note", "target_entity": "Customer",
+                   "questions": [{"key": "name", "label": "Name", "question_type": "short_text", "required": true}],
+                   "field_map": [{"target_field": "customer_name", "question": "name"}, {"target_field": "customer_type", "question": "kind"},
+                                 {"target_field": "customer_group", "question": "grp"}, {"target_field": "tax_id", "question": "note"}]}),
+        )
+        .await;
+    let link =
+        t.action(&t.owner, "Form", uid(&form), "prefill_link", json!({"values": json!({"kind": "Individual", "grp": commercial["id"]}).to_string()})).await;
+    let signed = link["prefill"].as_str().unwrap().to_string();
+    let send = |body: Value| async move {
+        let (_, v) = t.call(None, "GET", "/f/signed-only", None).await.unwrap();
+        let mut body = body;
+        body["token"] = v["token"].clone();
+        let (status, receipt) = t.call(None, "POST", "/f/signed-only/responses", Some(body)).await.unwrap();
+        assert_eq!(status, 201, "{receipt}");
+        t.drain().await;
+        let resp = t.response(&receipt).await;
+        t.get("Customer", resp["record_id"].as_str().unwrap_or_else(|| panic!("{resp:?}")).parse().unwrap()).await
+    };
+    let by_link = send(json!({"answers": {"name": "Signed Co"}, "prefill_token": signed, "hidden": {"kind": "Company", "note": "n1"}})).await;
+    assert_eq!(
+        (by_link["customer_type"].clone(), by_link["customer_group"].clone(), by_link["tax_id"].clone()),
+        (json!("Individual"), commercial["id"].clone(), json!("n1")),
+        "the signed link's choice and record, and the page's plain text"
+    );
+    let by_page = send(json!({"answers": {"name": "Page Co"}, "hidden": {"kind": "Individual", "grp": commercial["id"], "note": "n2"}})).await;
+    assert_eq!(
+        (by_page["customer_type"].clone(), by_page["customer_group"].clone(), by_page["tax_id"].clone()),
+        (json!("Company"), Value::Null, json!("n2")),
+        "values the page alone sends set a plain text field only"
+    );
+}
+
+/// A mapping that would let a respondent set a field they may not is refused when the form is saved, naming the row.
+async fn a_public_forms_mapping_onto_such_a_field_is_refused_when_saved(t: &T) {
+    // The administrator may write Customer credit limits (the `credit` group): a respondent may not, through a form.
+    let e =
+        t.k.insert(
+            &t.admin,
+            "Form",
+            obj(json!({"title": "Credit", "hidden_fields": "off", "target_entity": "Customer",
+                "questions": [{"key": "name", "label": "Name", "question_type": "short_text", "required": true},
+                              {"key": "limit", "label": "Limit", "question_type": "decimal"}],
+                "field_map": [{"target_field": "customer_name", "question": "name"}, {"target_field": "credit_limit", "question": "limit"},
+                              {"target_field": "disabled", "question": "off"}]})),
+        )
+        .await;
+    let e = match e {
+        Err(e) => e,
+        Ok(f) => panic!("a form mapping an answer onto the grouped credit limit was saved: {:?}", f["field_map"]),
+    };
+    assert_eq!(fields(&e), ["field_map[1].question", "field_map[2].question"], "{e:?}");
+    let Error::Validation(list) = &e else { unreachable!() };
+    assert!(list[0].message.contains("Credit Limit"), "the refusal names the field: {}", list[0].message);
+}
+
+/// A form saved before the rule keeps its mapping until its owner edits it; at each response the forbidden value is
+/// dropped (the response is taken and its record made), and the owner is told once.
+async fn a_form_saved_before_the_rule_drops_the_forbidden_value(t: &T) {
+    let form = t
+        .published(
+            &t.owner,
+            json!({"title": "Before the rule", "min_fill_seconds": 0, "target_entity": "Customer",
+                   "questions": [{"key": "name", "label": "Name", "question_type": "short_text", "required": true},
+                                 {"key": "limit", "label": "Limit", "question_type": "decimal"}],
+                   "field_map": [{"target_field": "customer_name", "question": "name"}, {"target_field": "tax_id", "question": "name"}]}),
+        )
+        .await;
+    let fid = uid(&form);
+    // As the mapping stood when such forms were saved: the answer onto the grouped credit limit.
+    t.exec(
+        "update e_form__field_map set target_field = 'credit_limit', question = 'limit' where tenant_id = $1 and parent_id = $2 and target_field = 'tax_id'",
+        fid,
+    )
+    .await;
+    for name in ["Early One", "Early Two"] {
+        let r = t.respond(None, "before-the-rule", json!({"name": name, "limit": "5000"})).await;
+        t.drain().await;
+        let resp = t.response(&r).await;
+        assert!(resp["record_error"].is_null(), "{resp:?}");
+        let customer = t.get("Customer", resp["record_id"].as_str().unwrap_or_else(|| panic!("{resp:?}")).parse().unwrap()).await;
+        assert_eq!(customer["customer_name"], json!(name));
+        assert!(!customer["credit_limit"].to_string().contains("5000"), "the respondent set the credit limit: {}", customer["credit_limit"]);
+    }
+    assert_eq!(t.notifications(&t.owner, fid).await, 1, "the owner is told once, naming the field");
 }
 
 // ───────────────────────────── find-or-create and links by configuration (DC-25) ─────────────────────────────
@@ -773,6 +872,10 @@ async fn definitions_are_checked(t: &T) {
     let mut credit = leads.clone();
     credit["questions"].as_array_mut().unwrap().push(json!({"key": "limit", "label": "Limit", "question_type": "decimal"}));
     credit["field_map"].as_array_mut().unwrap().push(json!({"target_field": "credit_limit", "question": "limit"}));
+    let e = t.k.insert(o, "Form", obj(credit.clone())).await.unwrap_err();
+    // FO-D6: an answer may never set a grouped field, whoever saves the form, so that refusal now comes first.
+    assert_eq!(fields(&e), ["field_map[1].question"], "no respondent sets the credit limit");
+    credit["field_map"][1] = json!({"target_field": "credit_limit", "value": "100"});
     let e = t.k.insert(o, "Form", obj(credit)).await.unwrap_err();
     assert_eq!(fields(&e), ["field_map[1].target_field"], "the owner cannot write Customer credit limits themselves");
 
