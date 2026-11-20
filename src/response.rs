@@ -58,6 +58,8 @@ pub struct Incoming<'a> {
     pub client_ip: Option<&'a str>,
     /// The form's hidden fields as the link passed them (already filtered to the form's keys).
     pub hidden: Map<String, Value>,
+    /// The hidden keys whose values came from a signed prefill link: only these fill more than a plain text field.
+    pub signed: Vec<String>,
     /// The key of the senders' address hashes (`keys::HASHES`), where there is an address to hash.
     pub hashes: Option<&'a [u8]>,
 }
@@ -126,6 +128,7 @@ fn prepare(form: &FormView, inc: &Incoming<'_>, sub: Submission, now: DateTime<U
         "answers": Value::Object(sub.answers),
         // An anonymous form keeps no link values, no time taken and no session: each could single someone out.
         "hidden": if inc.hidden.is_empty() || !keep { Value::Null } else { Value::Object(inc.hidden.clone()) },
+        "signed_hidden": if inc.signed.is_empty() || !keep { Value::Null } else { json!(inc.signed) },
         "completion_seconds": inc.session.filter(|_| keep).map(|sess| (now.timestamp() - sess.issued).max(0)),
         "ip_hash": inc.client_ip.filter(|_| keep).zip(inc.hashes).map(|(ip, key)| token::ip_hash(key, ip)),
         "spam_reason": spam_reason,
@@ -391,6 +394,7 @@ pub async fn enter(
         honeypot: false,
         client_ip: None,
         hidden: Map::new(),
+        signed: Vec::new(),
         hashes: None,
     };
     let p = prepare(form, &inc, sub, Utc::now(), zone(&ctx.schema.timezone))?;
@@ -557,7 +561,12 @@ async fn create_record(k: &Kernel, sys: &Ctx, tx: &mut Tx, form: &FormView, resp
     let Some(ent) = sys.schema.entity(target).cloned() else { return Ok(Err(format!("{target} is not installed in this workspace"))) };
     let answers = resp.get("answers").and_then(Value::as_object).cloned().unwrap_or_default();
     let hidden = resp.get("hidden").and_then(Value::as_object).cloned().unwrap_or_default();
-    let input = mapping::input(&form.def, &ent, &mapping::rows(&form.doc), &answers, &hidden);
+    let signed: Vec<String> =
+        resp.get("signed_hidden").and_then(Value::as_array).map(|a| a.iter().filter_map(|v| v.as_str().map(str::to_string)).collect()).unwrap_or_default();
+    let (input, dropped) = mapping::input(&form.def, &ent, &mapping::rows(&form.doc), &answers, &hidden, &signed);
+    if !dropped.is_empty() {
+        tell_owner_once(sys, tx, form, &ent, &dropped).await?;
+    }
     sqlx::query("savepoint forms_record").execute(&mut **tx).await?;
     match k.insert_tx(sys, tx, target, input).await {
         Ok(doc) => {
@@ -570,6 +579,41 @@ async fn create_record(k: &Kernel, sys: &Ctx, tx: &mut Tx, form: &FormView, resp
             Ok(Err(describe(&e)))
         }
     }
+}
+
+/// Tells the form's owner, once per field, that answers no longer set it: the mapping was saved before answers were
+/// kept off links, owner, read-only and grouped fields (D6), and saving the form now refuses it. A claim per field in
+/// `forms_claim` makes it once. An anonymous form tells nobody: the moment would say when someone answered.
+async fn tell_owner_once(sys: &Ctx, tx: &mut Tx, form: &FormView, ent: &ferrum_meta::EffEntity, fields: &[String]) -> Result<()> {
+    if form.anonymous {
+        return Ok(());
+    }
+    let mut labels = Vec::new();
+    for f in fields {
+        let fresh = sqlx::query("insert into forms_claim (tenant_id, form_id, claim) values ($1, $2, $3) on conflict do nothing")
+            .bind(sys.tenant)
+            .bind(form.id)
+            .bind(format!("refused-field:{f}"))
+            .execute(&mut **tx)
+            .await?
+            .rows_affected()
+            == 1;
+        if fresh {
+            labels.push(ent.field(f).map(|d| d.label()).unwrap_or_else(|| f.clone()));
+        }
+    }
+    let Some(owner) = form.owner.as_deref().filter(|_| !labels.is_empty()) else { return Ok(()) };
+    let user: Option<Uuid> = sqlx::query_scalar("select id from app_user where tenant_id = $1 and lower(email::text) = lower($2) and is_active")
+        .bind(sys.tenant)
+        .bind(owner)
+        .fetch_optional(&mut **tx)
+        .await?;
+    let Some(user) = user else { return Ok(()) };
+    let title: String = format!("Answers to {} no longer set {}", form.title, labels.join(", ")).chars().take(200).collect();
+    let body = "A respondent's answer may not set a link, an owner, a read-only or a grouped field of the record a form makes. \
+                Responses are still taken and their records made without it. Remove the row from the form's field mapping.";
+    notify::send(tx, sys.tenant, user, &title, Some(body), Some("Form"), Some(form.id)).await?;
+    Ok(())
 }
 
 fn esc(s: &str) -> String {
@@ -837,6 +881,7 @@ mod tests {
             honeypot: false,
             client_ip: Some("203.0.113.7"),
             hidden,
+            signed: Vec::new(),
             hashes: Some(&[1; 32]),
         }
     }

@@ -80,7 +80,7 @@
     - {name: proof_of_work, type: check, description: "The respondent's browser does a small proof of work before sending (Forms Settings sets how much); no outside service is called"}
     - {name: extra_check, type: data, max_length: 60, description: "The name of a check this server has (a captcha provider added later) that each public response must pass; empty = none"}
     - {name: hidden_fields, type: data, max_length: 500,
-       description: "Keys a link may pass that respondents do not see (utm_source, utm_campaign, record_id), comma-separated: ?utm_source=mail. Kept with the response and mappable like an answer"}
+       description: "Keys a link may pass that respondents do not see (utm_source, utm_campaign, record_id), comma-separated: ?utm_source=mail. Kept with the response and mappable like an answer; a value fills more than a plain data or text field (a choice, a linked record, an owner, a grouped field) only when it came from a signed prefill link"}
     - {name: confirmation_message, type: text, max_length: 2000, description: Shown after a response is sent}
     - {name: redirect_url, type: url, max_length: 2000, description: "Where respondents go after sending (http or https)"}
     - {name: closed_message, type: text, max_length: 2000, description: Shown when the form is not accepting responses}
@@ -195,6 +195,8 @@
     - {name: respondent_user, type: data, read_only: true, max_length: 36, description: Id of the signed-in user who responded}
     - {name: answers, type: json, read_only: true, description: "Question key → answer, normalized; hidden and unanswered questions are absent"}
     - {name: hidden, type: json, read_only: true, label: Hidden Values, description: "The form's hidden fields as the link passed them (campaign and source marks, a record id)"}
+    - {name: signed_hidden, type: json, read_only: true, hidden: true, label: Signed Hidden Fields,
+       description: "The hidden fields whose values came from a signed prefill link: only these fill more than a plain text field of the record"}
     - {name: score, type: decimal, read_only: true}
     - {name: max_score, type: decimal, read_only: true}
     - {name: quiz_result, type: select, options: [Passed, Failed], read_only: true, in_filter: true}

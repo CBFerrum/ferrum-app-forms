@@ -2,7 +2,9 @@
 //! entity — a Lead (CRM), a Ticket (Helpdesk), a Customer. The mapping is checked against the
 //! live schema whenever the form is saved: the entity exists, the fields exist and are writable,
 //! the types fit and every required field is filled. Each record is created with the system
-//! context, setting only the mapped fields, and normalized by the kernel like any other input.
+//! context, setting only the mapped fields, and normalized by the kernel like any other input. So a value from outside
+//! (an answer, or a link's unsigned hidden value) never sets a link, an owner, a read-only or a grouped field, and an
+//! unsigned hidden value sets a plain data or text field only (`refusal`, D6).
 
 use crate::answers::display;
 use crate::model::{Definition, Kind, Question};
@@ -119,7 +121,8 @@ pub fn check(schema: &Schema, def: &Definition, hidden: &[String], target: Optio
         seen.push(&r.field);
         match (&r.question, &r.value) {
             (Some(_), Some(_)) | (None, None) => err("question", "map a question or a fixed value (one of them)".into()),
-            // A hidden field is text: it fills a text field, a choice the kernel checks, or a link by the record's id.
+            // A hidden field is text: it fills a text field, a choice the kernel checks, or a link by the record's id. Only a
+            // signed prefill link's value fills more than a plain text field (`refusal`, at each response).
             (Some(key), None) if def.question(key).is_none() && hidden.contains(key) => {
                 if !matches!(f.ftype, FieldType::Data | FieldType::Text | FieldType::Select | FieldType::Link | FieldType::Email | FieldType::Url) {
                     err("question", format!("the hidden field {key} is text: it cannot fill this field"));
@@ -128,7 +131,7 @@ pub fn check(schema: &Schema, def: &Definition, hidden: &[String], target: Optio
             (Some(key), None) => match def.question(key) {
                 None => err("question", format!("there is no question or hidden field '{key}'")),
                 Some(q) => {
-                    if let Err(m) = compatible(q, f) {
+                    if let Err(m) = compatible(q, f).and_then(|()| refusal(ent, f, Origin::Answer).map_or(Ok(()), Err)) {
                         err("question", m);
                     }
                 }
@@ -160,25 +163,74 @@ pub fn fixed_links(ent: &EffEntity, rows: &[MapRow]) -> Vec<(String, uuid::Uuid)
         .collect()
 }
 
-/// The new record's input: mapped fields that have a value in this response (an answer, or a hidden value).
-pub fn input(def: &Definition, ent: &EffEntity, rows: &[MapRow], answers: &Map<String, Value>, hidden: &Map<String, Value>) -> Doc {
+/// Who chose a value the mapping writes.
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum Origin {
+    /// The respondent, answering a question the form shows.
+    Answer,
+    /// Whoever opened the link: a hidden value it carried unsigned.
+    Unsigned,
+    /// The form's owner: a fixed value, or a value of a signed prefill link.
+    Owner,
+}
+
+/// Why a value from outside the workspace may not set `f` (D6), or `None`. The record is written with the engine's
+/// rights, so a respondent never sets a field that decides who owns or sees the record, nor one people may not set;
+/// a link's unsigned values set a plain data or text field only. What the form's owner chose sets what it names.
+fn refusal(ent: &EffEntity, f: &FieldDef, from: Origin) -> Option<String> {
+    let label = f.label();
+    match from {
+        Origin::Owner => None,
+        _ if f.ftype == FieldType::Link => Some(format!("{label} links a record: a respondent may not choose which")),
+        _ if ent.def.owner_fields.contains(&f.name) => Some(format!("{label} says who owns the record: a respondent may not set it")),
+        _ if f.read_only || f.computed.is_some() || f.read_only_if.is_some() => Some(format!("{label} is read-only: a respondent may not set it")),
+        _ if f.perm_group.is_some() => Some(format!("{label} is in a field group: a respondent may not set it")),
+        Origin::Unsigned if !matches!(f.ftype, FieldType::Data | FieldType::Text) => {
+            Some(format!("{label} is not plain text: only a signed prefill link may fill it"))
+        }
+        _ => None,
+    }
+}
+
+/// The new record's input: mapped fields that have a value in this response (an answer, or a hidden value; `signed`
+/// names the hidden keys whose values came from a signed prefill link). A value from outside that may not set its field
+/// is left out; the second list names the fields an answer was left out of (a mapping saved before the rule: the form's
+/// save refuses it now), so the owner can be told.
+pub fn input(
+    def: &Definition,
+    ent: &EffEntity,
+    rows: &[MapRow],
+    answers: &Map<String, Value>,
+    hidden: &Map<String, Value>,
+    signed: &[String],
+) -> (Doc, Vec<String>) {
     let mut out = Doc::new();
+    let mut dropped = Vec::new();
     for r in rows {
         let Some(f) = ent.field(&r.field) else { continue };
-        let v = match (&r.question, &r.value) {
-            (Some(key), _) if def.question(key).is_none() => hidden.get(key).cloned().unwrap_or(Value::Null),
+        let (v, from) = match (&r.question, &r.value) {
+            (Some(key), _) if def.question(key).is_none() => {
+                (hidden.get(key).cloned().unwrap_or(Value::Null), if signed.contains(key) { Origin::Owner } else { Origin::Unsigned })
+            }
             (Some(key), _) => {
                 let (Some(q), Some(a)) = (def.question(key), answers.get(key)) else { continue };
-                convert(q, a, f)
+                (convert(q, a, f), Origin::Answer)
             }
-            (None, Some(v)) => json!(v),
+            (None, Some(v)) => (json!(v), Origin::Owner),
             (None, None) => continue,
         };
-        if !v.is_null() {
-            out.insert(r.field.clone(), v);
+        if v.is_null() {
+            continue;
         }
+        if refusal(ent, f, from).is_some() {
+            if from == Origin::Answer {
+                dropped.push(r.field.clone());
+            }
+            continue;
+        }
+        out.insert(r.field.clone(), v);
     }
-    out
+    (out, dropped)
 }
 
 /// An answer in the shape the target field takes (the kernel normalizes it after).
@@ -205,7 +257,8 @@ mod tests {
             {"key": "size", "label": "Size", "question_type": "select", "options": ["Small", "Huge"]},
             {"key": "days", "label": "Days", "question_type": "number"},
             {"key": "tags", "label": "Tags", "question_type": "multi_select", "options": ["A", "B"]},
-            {"key": "cv", "label": "CV", "question_type": "file"}
+            {"key": "cv", "label": "CV", "question_type": "file"},
+            {"key": "agree", "label": "Agree", "question_type": "checkbox"}
         ])
         .as_array()
         .unwrap()
@@ -243,6 +296,64 @@ mod tests {
         assert!(compatible(q("kind"), &f(json!({"name": "x", "type": "link", "to": "Customer"}))).unwrap_err().contains("fixed record id"));
     }
 
+    fn entity(v: Value) -> EffEntity {
+        EffEntity {
+            def: serde_json::from_value(v).unwrap(),
+            package: "x".into(),
+            table: "e_thing".into(),
+            custom: false,
+            storage: Default::default(),
+            children: Default::default(),
+            exprs: Default::default(),
+            workflow: None,
+            print_template: None,
+            document_approvals: Default::default(),
+        }
+    }
+
+    fn row(field: &str, key: &str) -> MapRow {
+        MapRow { field: field.into(), question: Some(key.into()), value: None }
+    }
+
+    /// D6: the respondent chooses the answers and the values of an unsigned link, and the record is written with the
+    /// engine's rights, so neither may set a field that decides who owns or sees the record, or one people may not set.
+    #[test]
+    fn hidden_values_and_answers_never_set_a_link_owner_read_only_or_grouped_field() {
+        let d = def();
+        let ent = entity(json!({"name": "Deal", "label": "Deal", "kind": "master", "owner_fields": ["owner"], "fields": [
+            {"name": "title", "type": "data"}, {"name": "note", "type": "text"},
+            {"name": "kind", "type": "select", "options": ["Company", "Individual"]},
+            {"name": "status", "type": "select", "options": ["Open", "Won"]},
+            {"name": "flag", "type": "check"},
+            {"name": "customer", "type": "link", "to": "Customer"},
+            {"name": "owner", "type": "data"},
+            {"name": "locked", "type": "data", "read_only": true},
+            {"name": "credit", "type": "data", "perm_group": "credit"}
+        ]}));
+        // An unsigned link's values: a plain data or text field only.
+        let hidden_rows: Vec<MapRow> =
+            ["title", "note", "kind", "status", "flag", "customer", "owner", "locked", "credit"].iter().map(|f| row(f, &format!("h_{f}"))).collect();
+        let hidden = json!({"h_title": "T", "h_note": "N", "h_kind": "Individual", "h_status": "Won", "h_flag": "1",
+                            "h_customer": uuid::Uuid::now_v7().to_string(), "h_owner": "me@evil.test", "h_locked": "x", "h_credit": "9"});
+        let (got, dropped) = input(&d, &ent, &hidden_rows, &Map::new(), hidden.as_object().unwrap(), &[]);
+        assert_eq!(
+            Value::Object(got),
+            json!({"title": "T", "note": "N"}),
+            "unsigned hidden values onto a select, a status, a check, a link, an owner, a read-only or a grouped field"
+        );
+        assert!(dropped.is_empty(), "a link's values for fields only a signed link fills are no fault of the form: {dropped:?}");
+        let keys: Vec<String> = hidden.as_object().unwrap().keys().cloned().collect();
+        let (got, _) = input(&d, &ent, &hidden_rows, &Map::new(), hidden.as_object().unwrap(), &keys);
+        assert_eq!(got.len(), hidden_rows.len(), "a signed prefill link's values set what they name");
+        // Answers: what fits, including a select and a check, never a link, an owner, a read-only or a grouped field.
+        let answer_rows =
+            vec![row("kind", "kind"), row("flag", "agree"), row("customer", "name"), row("owner", "mail"), row("locked", "name"), row("credit", "name")];
+        let answers = json!({"kind": "Individual", "agree": true, "name": "0193c1c0-0000-7000-8000-000000000000", "mail": "me@evil.test"});
+        let (got, dropped) = input(&d, &ent, &answer_rows, answers.as_object().unwrap(), &Map::new(), &[]);
+        assert_eq!(Value::Object(got), json!({"kind": "Individual", "flag": true}), "answers onto a link, an owner, a read-only or a grouped field");
+        assert_eq!(dropped, ["customer", "owner", "locked", "credit"], "what the owner is told");
+    }
+
     #[test]
     fn inputs_carry_only_answered_fields() {
         let d = def();
@@ -270,9 +381,9 @@ mod tests {
             MapRow { field: "source".into(), question: None, value: Some("Web form".into()) },
         ];
         let answers = json!({"name": "Asha", "days": 30, "tags": ["A", "B"], "cv": [{"id": "x", "url": "/files/x", "file_name": "cv.pdf"}]});
-        let input = input(&d, &ent, &map, answers.as_object().unwrap(), &Map::new());
+        let (input, _) = input(&d, &ent, &map, answers.as_object().unwrap(), &Map::new(), &[]);
         assert_eq!(Value::Object(input), json!({"title": "Asha", "days": 30, "tags": "A, B", "cv": "/files/x", "source": "Web form"}));
-        let partial = super::input(&d, &ent, &map, json!({"name": "Ravi"}).as_object().unwrap(), &Map::new());
+        let (partial, _) = super::input(&d, &ent, &map, json!({"name": "Ravi"}).as_object().unwrap(), &Map::new(), &[]);
         assert_eq!(Value::Object(partial), json!({"title": "Ravi", "source": "Web form"}), "unanswered questions set nothing");
     }
 }

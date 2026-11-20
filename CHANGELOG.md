@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.8.1
+
+Needs the same platform as 0.8.0. Database change: `FormResponse.signed_hidden`. Interface unchanged.
+
+**Values from outside set plain fields only.** A form maps answers and hidden values onto the record it makes, and
+the record is written with the engine's rights, yet the respondent chooses the answers and anyone may add hidden
+values to the link: a stranger could set a linked record, an owner or a grouped field, and so decide whose record it
+is. Now an answer never sets a link, an owner, a read-only or a grouped field, and a hidden value fills more than a
+plain data or text field only when it came from a signed prefill link (Prefill Link), which still sets what it names.
+What changes for a form that relied on the old behaviour:
+- A hidden field mapped onto a choice, a link, an email or a url, filled by plain `?key=value` links: those values are
+  still kept with the response but no longer reach the record. Send such links made with Prefill Link instead.
+- An answer mapped onto an owner, read-only or grouped field: saving the form is refused, naming the row. Until its
+  owner edits it, the form takes responses and makes records without that value, and the owner is told once per field
+  (except on an anonymous form, where the moment would say when someone answered).
+
 ## 0.8.0
 
 Needs the same platform as 0.7.0. Database change: the `FormTemplate` entity (seeded with four templates). Interface

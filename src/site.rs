@@ -187,10 +187,13 @@ async fn submit(k: &Kernel, sys: &Ctx, req: &SiteRequest, slug: &str) -> Result<
         Some(Value::Object(m)) => crate::form::hidden_values(&hidden_keys, m),
         _ => Map::new(),
     };
+    let mut signed = Vec::new();
     if let Some(t) = b.get("prefill_token").and_then(Value::as_str)
         && let Some(p) = token::checked_prefill(k, sys.tenant, form.id, t, Utc::now().timestamp()).await?
     {
-        hidden.extend(crate::form::hidden_values(&hidden_keys, &p.hidden));
+        let by_link = crate::form::hidden_values(&hidden_keys, &p.hidden);
+        signed = by_link.keys().cloned().collect();
+        hidden.extend(by_link);
     }
     // The key of the senders' address hashes, taken before any transaction.
     let hashes = keys::current(k, sys.tenant, keys::HASHES).await?;
@@ -209,6 +212,7 @@ async fn submit(k: &Kernel, sys: &Ctx, req: &SiteRequest, slug: &str) -> Result<
         honeypot,
         client_ip: Some(req.client_ip.as_str()),
         hidden,
+        signed,
         hashes: Some(hashes.bytes()),
     };
     let (resp, replayed) = response::submit(k, sys, &form, inc).await?;

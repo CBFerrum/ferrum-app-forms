@@ -7,7 +7,7 @@
 
 <br>
 
-[![Version](https://img.shields.io/badge/version-0.8.0-30a67d?style=flat-square)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.8.1-30a67d?style=flat-square)](CHANGELOG.md)
 [![Licence: AGPL-3.0](https://img.shields.io/badge/licence-AGPL--3.0-blue?style=flat-square)](LICENSE)
 [![Ferrum platform](https://img.shields.io/badge/runs%20on-Ferrum-2f5bea?style=flat-square)](https://github.com/CBFerrum/Ferrum)
 [![CI](https://github.com/CBFerrum/ferrum-app-forms/actions/workflows/ci.yml/badge.svg)](https://github.com/CBFerrum/ferrum-app-forms/actions/workflows/ci.yml)
@@ -38,7 +38,7 @@ Ferrum Forms is for teams that collect information from customers, applicants, m
 
 | | |
 |---|---|
-| 📦 **Version** | 0.8.0 |
+| 📦 **Version** | 0.8.1 |
 | 🖥️ **Kind** | Its own interface at `/forms/` (builder, results) and a respondent page at `/forms/f/{workspace}/{form}`, with Ferrum's records screens for the rest |
 | ➕ **What it adds** | 6 entities in one package (Form, Form Question, Form Field Map, Form Notify User, Form Response, Forms Settings), 2 roles, 3 reports, a launcher app, a Create menu entry, an assistant |
 | 🧱 **Depends on** | The platform's `core` package. Nothing else is required |
@@ -120,13 +120,13 @@ Ferrum Forms is for teams that collect information from customers, applicants, m
 - **Clear states.** A closed form, a full one, one that is not open yet, and a link that leads nowhere each say so.
 - **Quizzes show their result** with points per question, and a link to come back to it for 30 days. Answers are never revealed before submitting, and only afterwards if the form says so.
 - **Prefilled links.** A question that allows it can be filled from `?key=value` in the link. Invalid values are ignored.
-- **Signed prefill.** A Prefill Link action makes a link that carries signed values for a number of days, so a respondent cannot tamper with them.
+- **Signed prefill.** A Prefill Link action makes a link that carries signed values for a number of days, so a respondent cannot tamper with them. Only a signed link's hidden values fill a choice, a linked record or another field beyond plain text in the record a form makes.
 - **Phones and keyboards.** It works at 375 pixels and with the keyboard alone.
 - **A respondent's own clock.** A public form keeps the respondent's time zone.
 
 ### 🧾 Answers into records
 
-- **Pick a record type and map the fields.** Each response can create a record of any master or document type, setting the fields you map from answers (or a fixed value). The mapping is checked against the live schema on every save: the type is installed, the field exists and is writable, the saving user may create that record and write that field, every required field is mapped, fixed values are valid, and the answer's type fits the field.
+- **Pick a record type and map the fields.** Each response can create a record of any master or document type, setting the fields you map from answers (or a fixed value). The mapping is checked against the live schema on every save: the type is installed, the field exists and is writable, the saving user may create that record and write that field, every required field is mapped, fixed values are valid, and the answer's type fits the field. Answers and a link's unsigned values never set a link, an owner, a read-only or a grouped field, and an unsigned hidden value sets plain text only: the record is written with the engine's rights, so a respondent must not decide whose record it is.
 - **Exact fits.** Text and long text answers to text fields, email and phone to their fields, numbers and ratings to numbers, dates, checkboxes, choices to select fields whose options all exist, a file to an attachment field, anything to a JSON field, and fixed values only for links.
 - **Created once.** After the response is stored, the record is created once and linked from the response (a refusal is kept, with its reason, on the response). The record's own workflow applies, so a response that creates a record of a type with approvals gets them.
 - **Make the record later.** A person can create the record from a response by hand.
@@ -321,6 +321,7 @@ Forms is compared with Google Forms, Microsoft Forms, Typeform, Jotform, SurveyM
 
 ### ✅ Recently shipped
 
+- [x] **0.8.1**: Answers and a link's unsigned values never set a link, an owner, a read-only or a grouped field of the record a form makes.
 - [x] **0.8.0**: Form templates are records anyone building forms may list and use; four ship with every workspace.
 - [x] **0.7.0**: A form wears the workspace's brand, and other sites may show it once allowed.
 - [x] **0.6.3**: Every action a person can press says what it promises; Enter a Response declares its parameters.
@@ -449,7 +450,7 @@ CHANGELOG.md          what changed in each version
 
 ## 📜 Changelog
 
-Every release is described in [CHANGELOG.md](CHANGELOG.md). The latest is **0.8.0**.
+Every release is described in [CHANGELOG.md](CHANGELOG.md). The latest is **0.8.1**.
 
 ## 🤝 Contributing
 
